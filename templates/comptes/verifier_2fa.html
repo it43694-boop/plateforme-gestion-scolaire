@@ -1,0 +1,17 @@
+{% extends "base_auth.html" %}
+{% block titre %}Code de sécurité{% endblock %}
+{% block auth_sous_titre %}Authentification à deux facteurs{% endblock %}
+{% block contenu %}
+<p class="text-center mb-3" style="font-size: 0.89rem; color: var(--ink-500);">
+    Saisissez le code à 6 chiffres affiché par votre application d'authentification.
+</p>
+<form method="post" novalidate>
+    {% csrf_token %}
+    <div class="mb-3">
+        <label class="form-label" for="code">Code</label>
+        <input type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+               class="form-control" id="code" name="code" autofocus>
+    </div>
+    <button type="submit" class="btn btn-primary w-100">Vérifier</button>
+</form>
+{% endblock %}

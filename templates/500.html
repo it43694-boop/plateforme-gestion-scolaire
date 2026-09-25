@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Erreur du serveur</title>
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/toumai.css' %}" rel="stylesheet">
+</head>
+<body>
+<div class="auth-scene">
+    <div style="width: 100%; max-width: 420px; text-align: center;">
+        <div class="auth-carte">
+            <div class="auth-emblème">500</div>
+            <h1 class="auth-titre">Une erreur est survenue</h1>
+            <p class="auth-sous-titre">
+                Le problème a été enregistré. Réessayez dans un instant ou revenez à l'accueil.
+            </p>
+            <a href="/" class="btn btn-primary w-100">Retour à l'accueil</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

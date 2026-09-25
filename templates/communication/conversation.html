@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titre %}Conversation{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>{{ autre.nom_complet }}</h1>
+        <p>À propos de {{ eleve.nom_complet }}</p>
+    </div>
+    <a href="{% url 'communication:liste_conversations' %}" class="btn btn-outline-secondary btn-sm">Retour</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        {% if fil %}
+        {% for message in fil %}
+        <div style="margin-bottom: 1rem; {% if message.expediteur_id == request.user.id %}text-align: right;{% endif %}">
+            <div style="display: inline-block; max-width: 70%; padding: 0.6rem 0.9rem; border-radius: var(--rayon-panneau);
+                        {% if message.expediteur_id == request.user.id %}background: var(--gold-050); text-align: left;{% else %}background: var(--paper-050); text-align: left;{% endif %}">
+                {{ message.contenu|linebreaks }}
+            </div>
+            <div style="font-size: 0.72rem; color: var(--ink-500);">{{ message.envoye_le|date:"d/m/Y H:i" }}</div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="etat-vide"><p>Aucun message pour le moment - écrivez le premier.</p></div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {{ formulaire.contenu }}
+            {% for erreur in formulaire.contenu.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            <button type="submit" class="btn btn-primary mt-2">Envoyer</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block titre %}Notifications{% endblock %}
+{% block contenu %}
+<div class="page-header"><div><h1>Notifications</h1><p>Historique de vos alertes internes.</p></div></div>
+<form method="post" action="{% url 'comptes:marquer_notifications_lues' %}" class="mb-3">
+    {% csrf_token %}<button class="btn btn-outline-secondary" type="submit">Tout marquer comme lu</button>
+</form>
+<div class="card"><div class="card-body">
+{% for notification in notifications %}
+<div class="border-bottom py-3 {% if not notification.lue_le %}fw-semibold{% endif %}">
+    <div>{{ notification.titre }}</div><div class="small text-muted">{{ notification.message }}</div>
+    {% if not notification.lue_le %}<form method="post" action="{% url 'comptes:marquer_notification_lue' notification.id %}"><button class="btn btn-sm btn-link p-0" type="submit">Marquer comme lue</button>{% csrf_token %}</form>{% endif %}
+</div>
+{% empty %}<div class="etat-vide"><p>Aucune notification.</p></div>{% endfor %}
+{% include "_pagination.html" %}
+</div></div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titre %}Créer une classe{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Créer une classe</h1>
+        <p>L'échéancier de frais (3 tranches) est créé en même temps que la classe.</p>
+    </div>
+</div>
+<div class="card" style="max-width: 480px;">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for champ in formulaire %}
+                <div class="mb-3">
+                    <label class="form-label">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary w-100">Créer la classe</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

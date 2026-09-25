@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block titre %}Suivi des cours{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Suivi des cours</h1>
+        <p>Vue d'ensemble de l'activité pédagogique par classe, cloisonnée par cycle.</p>
+    </div>
+</div>
+<div class="card">
+    <div class="card-body">
+        {% if lignes %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Classe</th><th>Année scolaire</th>
+                    <th class="text-end">Enseignants affectés</th>
+                    <th class="text-end">Notes saisies</th>
+                    <th class="text-end">Absences saisies</th>
+                    <th>Dernière activité</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td>{{ ligne.classe.nom }}</td>
+                    <td>{{ ligne.classe.annee_scolaire.libelle }}</td>
+                    <td class="text-end montant-val">{{ ligne.nb_affectations }}</td>
+                    <td class="text-end montant-val">{{ ligne.nb_notes }}</td>
+                    <td class="text-end montant-val">{{ ligne.nb_absences }}</td>
+                    <td>{{ ligne.derniere_activite|date:"d/m/Y H:i"|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide"><p>Aucune classe visible pour votre rôle.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block titre %}Tests de niveau{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Tests de niveau</h1>
+        <p>Suivi des candidats et décision d'admission, cloisonné par cycle.</p>
+    </div>
+    <a href="{% url 'tests_niveau:ajouter_candidat' %}" class="btn btn-primary btn-sm">Ajouter un candidat</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        {% if candidats %}
+        <table class="table">
+            <thead>
+                <tr><th>Candidat</th><th>Classe visée</th><th>Date du test</th><th class="text-end">Note</th><th>Décision</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for candidat in candidats %}
+                <tr>
+                    <td>{{ candidat.nom_complet }}</td>
+                    <td>{{ candidat.classe_visee }}</td>
+                    <td>{{ candidat.date_test|date:"d/m/Y" }}</td>
+                    <td class="text-end montant-val">{{ candidat.note_test|default:"-" }}</td>
+                    <td>
+                        <span class="badge {% if candidat.decision == 'admis' %}bg-success{% elif candidat.decision == 'refuse' %}bg-danger{% else %}bg-warning{% endif %}">
+                            {{ candidat.get_decision_display }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        {% if candidat.decision == 'en_attente' %}
+                        <form method="post" action="{% url 'tests_niveau:decider_candidat' candidat.id 'admis' %}" class="d-inline">
+                            {% csrf_token %}<button class="btn btn-sm btn-success">Admettre</button>
+                        </form>
+                        <form method="post" action="{% url 'tests_niveau:decider_candidat' candidat.id 'refuse' %}" class="d-inline">
+                            {% csrf_token %}<button class="btn btn-sm btn-outline-danger">Refuser</button>
+                        </form>
+                        {% elif candidat.decision == 'admis' %}
+                        <a href="{% url 'scolarite:inscrire_eleve' %}" class="btn btn-sm btn-outline-primary">Inscrire l'élève</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide">
+            <p>Aucun candidat enregistré pour le moment.</p>
+            <a href="{% url 'tests_niveau:ajouter_candidat' %}" class="btn btn-primary btn-sm">Ajouter le premier candidat</a>
+        </div>
+        {% endif %}
+        {% include "_pagination.html" %}
+    </div>
+</div>
+{% endblock %}

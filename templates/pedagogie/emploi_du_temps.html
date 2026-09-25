@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block titre %}Emploi du temps{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div><h1>Emploi du temps - {{ classe }}</h1></div>
+    <a href="{% url 'pedagogie:exporter_emploi_du_temps_pdf' classe.id %}" class="btn btn-outline-secondary btn-sm">Exporter en PDF</a>
+</div>
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <p style="font-weight: 600; margin-bottom: 0.8rem;">Ajouter un créneau</p>
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% for champ in formulaire %}
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                            {{ champ }}
+                            {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                        </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary w-100">Ajouter</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                {% if creneaux %}
+                <table class="table">
+                    <thead><tr><th>Jour</th><th>Horaire</th><th>Matière</th><th>Enseignant</th><th>Salle</th></tr></thead>
+                    <tbody>
+                        {% for creneau in creneaux %}
+                        <tr>
+                            <td>{{ creneau.get_jour_semaine_display }}</td>
+                            <td>{{ creneau.heure_debut|time:"H:i" }} – {{ creneau.heure_fin|time:"H:i" }}</td>
+                            <td>{{ creneau.affectation.matiere|default:"Titulaire" }}</td>
+                            <td>{{ creneau.affectation.enseignant.nom_complet }}</td>
+                            <td>{{ creneau.salle|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="etat-vide"><p>Aucun créneau défini pour cette classe.</p></div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

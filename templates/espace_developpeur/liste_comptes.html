@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titre %}Espace développeur - Comptes{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div><h1>Comptes</h1><p>Attribution des rôles et statuts - réservée au développeur.</p></div>
+    <a href="{% url 'espace_developpeur:matrice_permissions' %}" class="btn btn-outline-secondary btn-sm">Matrice de permissions</a>
+</div>
+<form method="get" class="mb-3">
+    <input type="text" name="q" value="{{ recherche }}" class="form-control" style="max-width: 320px;"
+           placeholder="Rechercher (nom, email, matricule)">
+</form>
+<div class="card">
+    <div class="card-body">
+        <table class="table">
+            <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th></th></tr></thead>
+            <tbody>
+                {% for compte in comptes %}
+                <tr>
+                    <td>{{ compte.nom_complet }}</td>
+                    <td>{{ compte.email }}</td>
+                    <td>{{ compte.get_role_display }}</td>
+                    <td>
+                        <span class="badge {% if compte.statut == 'actif' %}bg-success{% elif compte.statut == 'en_attente_validation' %}bg-warning{% else %}bg-secondary{% endif %}">
+                            {{ compte.get_statut_display }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'espace_developpeur:modifier_compte' compte.id %}" class="btn btn-sm btn-outline-primary">
+                            Modifier rôle / statut
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% include "_pagination.html" %}
+    </div>
+</div>
+{% endblock %}

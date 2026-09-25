@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titre %}Mes classes{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Mes classes</h1>
+        <p>Accédez directement à la saisie de notes, d'absences et à l'emploi du temps.</p>
+    </div>
+</div>
+
+{% if affectations %}
+<div class="card">
+    <div class="card-body">
+        <table class="table">
+            <thead><tr><th>Classe</th><th>Matière</th><th></th></tr></thead>
+            <tbody>
+                {% for affectation in affectations %}
+                <tr>
+                    <td>{{ affectation.classe }}</td>
+                    <td>{{ affectation.matiere|default:"Titulaire" }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'pedagogie:saisir_note' affectation.id %}" class="btn btn-sm btn-outline-secondary">Notes</a>
+                        <a href="{% url 'pedagogie:saisir_absence' affectation.classe.id %}" class="btn btn-sm btn-outline-secondary">Absences</a>
+                        <a href="{% url 'pedagogie:gerer_emploi_du_temps' affectation.classe.id %}" class="btn btn-sm btn-outline-secondary">Emploi du temps</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card"><div class="card-body">
+    <div class="etat-vide">
+        <p>Aucune classe ne vous est encore affectée. Contactez la direction ou le responsable pédagogique.</p>
+    </div>
+</div></div>
+{% endif %}
+{% endblock %}

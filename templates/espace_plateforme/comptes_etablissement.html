@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block titre %}Comptes de {{ etablissement.nom }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Comptes de {{ etablissement.nom }}</h1>
+        <p>{{ page_obj.paginator.count }} compte{{ page_obj.paginator.count|pluralize }}.</p>
+    </div>
+    <a href="{% url 'espace_plateforme:liste_etablissements' %}" class="btn btn-outline-secondary btn-sm">← Retour aux établissements</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        {% if comptes %}
+        <table class="table">
+            <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th></tr></thead>
+            <tbody>
+                {% for compte in comptes %}
+                <tr>
+                    <td>{{ compte.nom_complet }}</td>
+                    <td>{{ compte.email }}</td>
+                    <td>{{ compte.get_role_display }}</td>
+                    <td>{{ compte.get_statut_display }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide"><p>Aucun compte pour cet établissement.</p></div>
+        {% endif %}
+        {% include "_pagination.html" %}
+    </div>
+</div>
+{% endblock %}

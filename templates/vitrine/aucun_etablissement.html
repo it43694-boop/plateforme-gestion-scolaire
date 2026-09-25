@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ nom_plateforme }}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
+    <meta name="theme-color" content="#12203D">
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/toumai.css' %}" rel="stylesheet">
+</head>
+<body style="background: var(--ink-900); min-height: 100vh; display: flex; align-items: center; justify-content: center;">
+<div style="max-width: 480px; text-align: center; padding: 2rem;">
+    <h1 style="color: #fff; font-size: 1.6rem;">{{ nom_plateforme }}</h1>
+    <p style="color: #B7C0D6; margin-bottom: 1.5rem;">
+        Aucun établissement n'est encore configuré sur cette installation.
+    </p>
+    <a href="{% url 'comptes:connexion' %}" class="btn-hero-secondaire" style="display: inline-block;">
+        Se connecter avec un compte propriétaire de la plateforme
+    </a>
+</div>
+</body>
+</html>

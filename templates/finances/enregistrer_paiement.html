@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block titre %}Enregistrer un paiement{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div><h1>Enregistrer un paiement de scolarité</h1></div>
+</div>
+<div class="card" style="max-width: 480px;">
+    <div class="card-body">
+        {% if eleve_apercu %}
+        <div class="alert alert-success" id="apercu-eleve">Élève trouvé : <strong>{{ eleve_apercu.nom_complet }}</strong></div>
+        {% elif matricule_recherche %}
+        <div class="alert alert-warning" id="apercu-eleve">Aucun élève trouvé avec ce matricule.</div>
+        {% else %}
+        <div class="alert alert-secondary" id="apercu-eleve" style="display: none;"></div>
+        {% endif %}
+
+        <noscript>
+            <form method="get" class="d-flex gap-2 mb-3">
+                <input type="text" name="matricule" value="{{ matricule_recherche }}" class="form-control" placeholder="Matricule de l'élève">
+                <button type="submit" class="btn btn-outline-secondary">Rechercher</button>
+            </form>
+        </noscript>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for champ in formulaire %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary w-100">Enregistrer</button>
+        </form>
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+(function () {
+    var champMatricule = document.getElementById("{{ formulaire.matricule_eleve.id_for_label }}");
+    var apercu = document.getElementById("apercu-eleve");
+    if (!champMatricule) return;
+    var delai;
+    champMatricule.addEventListener("input", function () {
+        clearTimeout(delai);
+        var valeur = champMatricule.value.trim();
+        if (!valeur) { apercu.style.display = "none"; return; }
+        delai = setTimeout(function () {
+            fetch("{% url 'finances:rechercher_eleve_json' %}?matricule=" + encodeURIComponent(valeur))
+                .then(function (r) { return r.json(); })
+                .then(function (donnees) {
+                    apercu.style.display = "block";
+                    if (donnees.trouve) {
+                        apercu.className = "alert alert-success";
+                        apercu.innerHTML = "Élève trouvé : <strong>" + donnees.nom_complet + "</strong>";
+                    } else {
+                        apercu.className = "alert alert-warning";
+                        apercu.textContent = "Aucun élève trouvé avec ce matricule.";
+                    }
+                });
+        }, 350);
+    });
+})();
+</script>
+{% endblock %}

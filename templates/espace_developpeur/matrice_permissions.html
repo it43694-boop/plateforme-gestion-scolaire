@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block titre %}Matrice de permissions{% endblock %}
+{% block contenu %}
+<div class="page-header"><div><h1>Matrice de permissions</h1>
+<p>Cochez ou décochez puis enregistrez : le changement s'applique immédiatement, sans redéploiement. Les rôles à accès total (développeur, fondateur, administrateur général) n'apparaissent pas ici.</p>
+</div></div>
+<div class="card">
+    <div class="card-body" style="overflow-x: auto;">
+        <form method="post">
+            {% csrf_token %}
+            <table class="table" style="text-align: center;">
+                <thead>
+                    <tr>
+                        <th class="text-start">Rôle</th>
+                        {% for module in modules %}
+                        <th style="white-space: nowrap; font-size: 0.72rem;">{{ module.label }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne in lignes %}
+                    <tr>
+                        <td class="text-start" style="font-weight: 600;">{{ ligne.role.label }}</td>
+                        {% for cellule in ligne.cellules %}
+                        <td>
+                            <input type="checkbox" class="form-check-input" name="{{ cellule.cle }}"
+                                   {% if cellule.autorise %}checked{% endif %}>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button type="submit" class="btn btn-primary mt-2">Enregistrer la matrice</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

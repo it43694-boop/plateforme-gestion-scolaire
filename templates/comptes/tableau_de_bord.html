@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block titre %}Tableau de bord{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Bonjour, {{ user.prenom }}</h1>
+        <p>{{ user.get_role_display }}</p>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    {% for indicateur in indicateurs %}
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card h-100"><div class="card-body">
+            <div class="text-muted small">{{ indicateur.label }}</div>
+            <div class="fs-3 fw-bold">{{ indicateur.valeur }}</div>
+        </div></div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if actions_rapides %}
+<div class="card mb-4"><div class="card-body">
+    <h2 class="h5">Actions rapides</h2>
+    <div class="d-flex flex-wrap gap-2">
+        {% for action in actions_rapides %}
+        <a href="{% url action.url %}" class="btn btn-outline-primary">{{ action.label }}</a>
+        {% endfor %}
+    </div>
+</div></div>
+{% endif %}
+
+{% if notifications %}
+<div class="card mb-4"><div class="card-body">
+    <h2 class="h5">Notifications</h2>
+    {% for notification in notifications %}
+    <div class="border-bottom py-2">
+        {% if notification.url %}<a href="{{ notification.url }}"><strong>{{ notification.titre }}</strong></a>{% else %}<strong>{{ notification.titre }}</strong>{% endif %}
+        <div class="small text-muted">{{ notification.message }}</div>
+    </div>
+    {% endfor %}
+</div></div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body">
+        <p style="font-weight: 600; margin-bottom: 0.8rem;">Modules auxquels vous avez accès</p>
+        {% if modules %}
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+            {% for module in modules %}
+            <span class="badge bg-secondary">{{ module }}</span>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="etat-vide">
+            <p>Aucun module ne vous est encore attribué. Contactez le développeur.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if user.role == "developpeur" and user.etablissement_id %}
+<div class="card mt-3">
+    <div class="card-body">
+        <p style="font-weight: 600; margin-bottom: 0.8rem;">Espace développeur</p>
+        <a href="{% url 'espace_developpeur:parametres_etablissement' %}" class="btn btn-outline-secondary btn-sm">Établissement</a>
+        <a href="{% url 'espace_developpeur:liste_comptes' %}" class="btn btn-outline-secondary btn-sm">Comptes</a>
+        <a href="{% url 'espace_developpeur:matrice_permissions' %}" class="btn btn-outline-secondary btn-sm">Matrice de permissions</a>
+        <a href="{% url 'espace_developpeur:journal_audit' %}" class="btn btn-outline-secondary btn-sm">Journal d'audit</a>
+    </div>
+</div>
+{% endif %}
+
+{% if user.is_superuser %}
+<div class="card mt-3">
+    <div class="card-body">
+        <p style="font-weight: 600; margin-bottom: 0.8rem;">Plateforme</p>
+        <a href="{% url 'espace_plateforme:liste_etablissements' %}" class="btn btn-outline-secondary btn-sm">Établissements</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

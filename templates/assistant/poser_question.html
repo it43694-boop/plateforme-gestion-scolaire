@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block titre %}Assistant{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Assistant</h1>
+        <p>Recherche à partir des données réelles et autorisées pour votre rôle - sans IA générative.</p>
+    </div>
+</div>
+
+<div class="card mb-3" style="max-width: 560px;">
+    <div class="card-body">
+        <form method="get">
+            <label class="form-label">Matricule de l'élève</label>
+            <div class="d-flex gap-2 mb-3">
+                <input type="text" name="matricule" value="{{ matricule }}" class="form-control" placeholder="Ex. 202612345">
+            </div>
+            {% if ia_disponible %}
+            <label class="form-label">
+                Question (optionnel)
+                <span class="badge bg-success" style="font-size: 0.65rem;">IA activée</span>
+            </label>
+            <input type="text" name="question" value="{{ question }}" class="form-control mb-3" placeholder="Ex. Cet élève a-t-il des absences non justifiées ?">
+            {% endif %}
+            <button type="submit" class="btn btn-primary w-100">Rechercher</button>
+        </form>
+    </div>
+</div>
+
+{% if erreur %}
+<div class="alert alert-warning">{{ erreur }}</div>
+{% endif %}
+
+{% if reponse_ia %}
+<div class="card mb-3" style="border-color: var(--gold-400);">
+    <div class="card-body">
+        <p style="font-size: 0.72rem; color: var(--gold-600); font-weight: 600; margin-bottom: 0.4rem;">
+            Réponse de l'assistant - à partir des données ci-dessous uniquement
+        </p>
+        <p style="margin: 0;">{{ reponse_ia }}</p>
+    </div>
+</div>
+{% elif erreur_ia %}
+<div class="alert alert-warning">{{ erreur_ia }}</div>
+{% endif %}
+
+{% if resultat %}
+<div class="card">
+    <div class="card-body">
+        <div class="page-header" style="margin-bottom: 1rem;">
+            <div>
+                <h2 style="font-size: 1.2rem; margin-bottom: 0.1rem;">{{ resultat.eleve.nom_complet }}</h2>
+                <p style="margin: 0;">Matricule {{ resultat.eleve.matricule }}
+                    {% if resultat.inscription %} - {{ resultat.inscription.classe }}{% endif %}
+                </p>
+            </div>
+            <span class="badge {% if resultat.dossier_complet %}bg-success{% else %}bg-warning{% endif %}">
+                Dossier {% if resultat.dossier_complet %}complet{% else %}incomplet{% endif %}
+            </span>
+        </div>
+
+        <div class="row g-3">
+            {% if resultat.total_absences is not None %}
+            <div class="col-6 col-md-3">
+                <div style="font-size: 0.76rem; color: var(--ink-500);">Absences totales</div>
+                <div style="font-family: var(--police-affichage); font-size: 1.4rem; font-weight: 600;">{{ resultat.total_absences }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if resultat.dernieres_notes %}
+        <p style="font-weight: 600; margin-top: 1.3rem; margin-bottom: 0.5rem;">Dernières notes</p>
+        <table class="table table-sm">
+            <thead><tr><th>Matière</th><th>Trimestre</th><th class="text-end">Note</th></tr></thead>
+            <tbody>
+                {% for note in resultat.dernieres_notes %}
+                <tr><td>{{ note.affectation.matiere|default:"Titulaire" }}</td><td>{{ note.get_trimestre_display }}</td><td class="text-end montant-val">{{ note.valeur }}/20</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if resultat.derniers_paiements %}
+        <p style="font-weight: 600; margin-top: 1.3rem; margin-bottom: 0.5rem;">Derniers paiements</p>
+        <table class="table table-sm">
+            <thead><tr><th>Référence</th><th>Tranche</th><th class="text-end">Montant</th></tr></thead>
+            <tbody>
+                {% for paiement in resultat.derniers_paiements %}
+                <tr><td>{{ paiement.reference }}</td><td>{{ paiement.get_tranche_display }}</td><td class="text-end montant-val">{{ paiement.montant }} {{ etablissement.code_devise|default:"FCFA" }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

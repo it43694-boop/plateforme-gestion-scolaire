@@ -1,0 +1,19 @@
+{% extends "base_auth.html" %}
+{% block titre %}Connexion{% endblock %}
+{% block contenu %}
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% for champ in formulaire %}
+        <div class="mb-3">
+            <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+            {{ champ }}
+            {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+        </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary w-100 mt-1">Se connecter</button>
+</form>
+<div class="d-flex justify-content-between mt-3" style="font-size: 0.86rem;">
+    <a href="{% url 'comptes:mot_de_passe_oublie' %}">Mot de passe oublié ?</a>
+    <a href="{% url 'comptes:inscription' %}">Créer un compte</a>
+</div>
+{% endblock %}

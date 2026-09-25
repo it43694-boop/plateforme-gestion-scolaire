@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titre %}Caisse{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div><h1>Registre de Caisse</h1><p>Alimenté exclusivement par les paiements et les salaires payés.</p></div>
+    <div style="text-align: right;">
+        <div style="font-size: 0.78rem; color: var(--ink-500);">Solde</div>
+        <div style="font-family: var(--police-affichage); font-size: 1.5rem; font-weight: 600; color: {% if solde >= 0 %}var(--success-600){% else %}var(--danger-600){% endif %};">
+            {{ solde }} {{ etablissement.code_devise|default:"FCFA" }}
+        </div>
+    </div>
+</div>
+<div class="card">
+    <div class="card-body">
+        {% if mouvements %}
+        <table class="table">
+            <thead><tr><th>Référence</th><th>Type</th><th class="text-end">Montant</th><th>Description</th><th>Date</th><th>Statut</th></tr></thead>
+            <tbody>
+                {% for mouvement in mouvements %}
+                <tr {% if mouvement.annule %}style="color: var(--ink-300); text-decoration: line-through;"{% endif %}>
+                    <td>{{ mouvement.reference }}</td>
+                    <td>
+                        <span class="badge {% if mouvement.type_mouvement == 'entree' %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ mouvement.get_type_mouvement_display }}
+                        </span>
+                    </td>
+                    <td class="text-end montant-val">{{ mouvement.montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td>{{ mouvement.description }}</td>
+                    <td>{{ mouvement.date_mouvement|date:"d/m/Y H:i" }}</td>
+                    <td>{% if mouvement.annule %}Annulé{% else %}Actif{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide"><p>Aucun mouvement de caisse pour le moment.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

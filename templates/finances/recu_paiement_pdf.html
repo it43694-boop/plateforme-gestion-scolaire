@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+    @page { size: A5 landscape; margin: 1.5cm; }
+    body { font-family: Helvetica, sans-serif; font-size: 12px; color: #262626; }
+    h1 { font-size: 16px; color: #1F3864; margin-bottom: 2px; }
+    p.etablissement { color: #595959; margin-top: 0; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+    td { padding: 7px 4px; border-bottom: 1px solid #dddddd; }
+    td.libelle { color: #595959; width: 45%; }
+    td.valeur { font-weight: bold; }
+    .bloc-montant { margin-top: 14px; padding: 12px 16px; background-color: #F1E4C4; text-align: center; }
+    .bloc-montant .valeur { font-size: 22px; font-weight: bold; color: #1F3864; }
+    .pied { margin-top: 24px; color: #8c8c8c; font-size: 10px; }
+</style>
+</head>
+<body>
+    <h1>{{ paiement.etablissement.nom }}</h1>
+    <p class="etablissement">Reçu de paiement de scolarité</p>
+
+    <table>
+        <tr><td class="libelle">Référence</td><td class="valeur">{{ paiement.reference }}</td></tr>
+        <tr><td class="libelle">Élève</td><td class="valeur">{{ paiement.eleve.nom_complet }} ({{ paiement.eleve.matricule }})</td></tr>
+        <tr><td class="libelle">Classe</td><td class="valeur">{{ paiement.inscription.classe }}</td></tr>
+        <tr><td class="libelle">Échéance réglée</td><td class="valeur">{{ paiement.get_tranche_display }}</td></tr>
+        <tr><td class="libelle">Mode de paiement</td><td class="valeur">{{ paiement.get_mode_paiement_display }}</td></tr>
+        <tr><td class="libelle">Date</td><td class="valeur">{{ paiement.date_paiement|date:"d/m/Y à H:i" }}</td></tr>
+        <tr><td class="libelle">Enregistré par</td><td class="valeur">{{ paiement.enregistre_par.nom_complet|default:"-" }}</td></tr>
+    </table>
+
+    <div class="bloc-montant">
+        Montant réglé : <span class="valeur">{{ paiement.montant }} {{ etablissement.code_devise|default:"FCFA" }}</span>
+    </div>
+
+    <p class="pied">Ce reçu fait foi de paiement. Conservez-le.</p>
+</body>
+</html>

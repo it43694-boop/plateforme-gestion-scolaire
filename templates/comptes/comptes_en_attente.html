@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titre %}Comptes en attente{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Comptes en attente de validation</h1>
+        <p>Demandes d'inscription en attente d'activation par le secrétariat ou la direction.</p>
+    </div>
+</div>
+<div class="card">
+    <div class="card-body">
+        {% if comptes %}
+        <table class="table">
+            <thead>
+                <tr><th>Nom</th><th>Email</th><th>Rôle demandé</th><th>Inscrit le</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for compte in comptes %}
+                <tr>
+                    <td>{{ compte.nom_complet }}</td>
+                    <td>{{ compte.email }}</td>
+                    <td>{{ compte.get_role_display }}</td>
+                    <td>{{ compte.date_creation|date:"d/m/Y H:i" }}</td>
+                    <td class="text-end">
+                        <form method="post" action="{% url 'comptes:valider_compte' compte.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-success">Valider</button>
+                        </form>
+                        <form method="post" action="{% url 'comptes:refuser_compte' compte.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-outline-danger">Refuser</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide"><p>Aucune demande en attente pour le moment.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

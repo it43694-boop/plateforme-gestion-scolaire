@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+    @page { size: A4 portrait; margin: 1.8cm; }
+    body { font-family: Helvetica, sans-serif; font-size: 11px; color: #12203D; }
+
+    .entete { width: 100%; margin-bottom: 6px; }
+    .entete td { vertical-align: middle; padding: 0; border: none; }
+    .logo { width: 56px; height: 56px; }
+    .logo-emblème {
+        width: 52px; height: 52px; border: 1.5px solid #B98B2E; border-radius: 50%;
+        text-align: center; color: #9A7423; font-size: 22px; font-weight: bold;
+    }
+    h1 { font-size: 17px; color: #12203D; margin: 0 0 2px; }
+    p.sous-titre { color: #55607A; margin: 0 0 2px; font-size: 10px; }
+    p.matricule { color: #55607A; margin: 0; font-size: 10px; }
+    hr.separateur { border: none; border-top: 1.5px solid #B98B2E; margin: 10px 0 16px; }
+
+    table.notes { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    table.notes th {
+        background-color: #12203D; color: #ffffff; padding: 6px 8px; text-align: left; font-size: 10px;
+    }
+    table.notes td { padding: 6px 8px; border-bottom: 1px solid #DEE1E6; }
+    td.numerique, th.numerique { text-align: right; }
+
+    .bloc-moyenne {
+        margin-top: 10px; padding: 10px 14px; background-color: #F8F1DF;
+        border: 1px solid #F1E4C4;
+    }
+    .bloc-moyenne .valeur { font-size: 20px; font-weight: bold; color: #12203D; }
+
+    .signatures { width: 100%; margin-top: 46px; }
+    .signatures td { vertical-align: top; padding: 0; border: none; font-size: 10px; color: #55607A; }
+    .ligne-signature {
+        border-top: 1px solid #8993A8; width: 170px; margin-top: 34px; padding-top: 4px;
+    }
+
+    .pied {
+        margin-top: 30px; padding-top: 8px; border-top: 1px solid #DEE1E6;
+        font-size: 8px; color: #8993A8;
+    }
+</style>
+</head>
+<body>
+    <table class="entete">
+        <tr>
+            <td style="width: 66px;">
+                {% if etablissement.logo %}
+                <img src="{{ etablissement.logo.url }}" class="logo" />
+                {% else %}
+                <div class="logo-emblème">{{ etablissement.initiale|default:"É" }}</div>
+                {% endif %}
+            </td>
+            <td>
+                <h1>{{ etablissement.nom|default:"Établissement" }}</h1>
+                {% if etablissement.devise %}<p class="sous-titre">{{ etablissement.devise }}</p>{% endif %}
+            </td>
+        </tr>
+    </table>
+    <hr class="separateur">
+
+    <p class="sous-titre" style="font-size: 12px; color: #12203D; font-weight: bold;">
+        Bulletin scolaire — {{ eleve.nom_complet }}
+    </p>
+    <p class="matricule">
+        Matricule : {{ eleve.matricule }}
+        {% if inscription %} — Classe : {{ inscription.classe }}{% endif %}
+    </p>
+
+    <br>
+
+    <table class="notes">
+        <thead>
+            <tr><th>Matière</th><th class="numerique">Coeff.</th><th>Trimestre</th><th class="numerique">Note / 20</th></tr>
+        </thead>
+        <tbody>
+            {% for note in notes %}
+            <tr>
+                <td>{{ note.affectation.matiere|default:"Titulaire" }}</td>
+                <td class="numerique">{{ note.affectation.coefficient }}</td>
+                <td>{{ note.get_trimestre_display }}</td>
+                <td class="numerique">{{ note.valeur }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4">Aucune note enregistrée.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if moyennes_par_trimestre %}
+    <table class="notes">
+        <thead><tr><th>Trimestre</th><th class="numerique">Moyenne / 20</th></tr></thead>
+        <tbody>
+            {% for ligne in moyennes_par_trimestre %}
+            <tr><td>{{ ligne.trimestre }}</td><td class="numerique">{{ ligne.moyenne }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if moyenne_generale %}
+    <div class="bloc-moyenne">
+        Moyenne générale : <span class="valeur">{{ moyenne_generale }}/20</span>
+        {% if rang %}<br><span style="font-size: 11px; font-weight: normal;">Rang : {{ rang }}{% if rang == 1 %}er{% else %}ème{% endif %} sur {{ effectif_classe }}</span>{% endif %}
+    </div>
+    {% endif %}
+
+    <table class="signatures">
+        <tr>
+            <td style="width: 50%;">Fait le {% now "d/m/Y" %}</td>
+            <td style="width: 50%; text-align: right;">
+                <div class="ligne-signature" style="margin-left: auto;">
+                    Signature et cachet de l'établissement
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    {% if verification %}
+    <div class="pied">
+        {% if qr_code %}<img src="{{ qr_code }}" style="width: 60px; height: 60px; float: left; margin-right: 8px;" />{% endif %}
+        Document vérifiable à l'adresse : {{ verification_url }}
+    </div>
+    {% endif %}
+</body>
+</html>

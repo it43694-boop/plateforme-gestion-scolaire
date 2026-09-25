@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block titre %}Bulletin{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div><h1>{{ eleve.nom_complet }}</h1><p>Matricule : {{ eleve.matricule }}</p></div>
+    <div style="display: flex; align-items: center; gap: 1.2rem;">
+        <a href="{% url 'pedagogie:exporter_bulletin_pdf' eleve.matricule %}" class="btn btn-outline-secondary btn-sm">Exporter en PDF</a>
+        {% if moyenne_generale %}
+        <div style="text-align: right;">
+            <div style="font-size: 0.78rem; color: var(--ink-500);">Moyenne générale</div>
+            <div style="font-family: var(--police-affichage); font-size: 1.7rem; font-weight: 600; color: var(--ink-900);">
+                {{ moyenne_generale }}/20
+            </div>
+            {% if rang %}
+            <div style="font-size: 0.82rem; color: var(--ink-500);">{{ rang }}{% if rang == 1 %}er{% else %}ème{% endif %} sur {{ effectif_classe }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if moyennes_par_trimestre %}
+<div class="row g-3 mb-1">
+    {% for ligne in moyennes_par_trimestre %}
+    <div class="col-6 col-md-4">
+        <div class="card"><div class="card-body" style="padding: 1rem 1.2rem !important;">
+            <div style="font-size: 0.76rem; color: var(--ink-500);">{{ ligne.trimestre }}</div>
+            <div style="font-family: var(--police-affichage); font-size: 1.4rem; font-weight: 600;">{{ ligne.moyenne }}/20</div>
+        </div></div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="card mt-3">
+    <div class="card-body">
+        {% if notes %}
+        <table class="table">
+            <thead><tr><th>Matière</th><th>Coeff.</th><th>Trimestre</th><th class="text-end">Note</th></tr></thead>
+            <tbody>
+                {% for note in notes %}
+                <tr>
+                    <td>{{ note.affectation.matiere|default:"Titulaire" }}</td>
+                    <td>{{ note.affectation.coefficient }}</td>
+                    <td>{{ note.get_trimestre_display }}</td>
+                    <td class="text-end montant-val">{{ note.valeur }}/20</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide"><p>Aucune note enregistrée pour le moment.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

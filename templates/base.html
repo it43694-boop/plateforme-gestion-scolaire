@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+{% load static icones %}
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block titre %}Tableau de bord{% endblock %} - {{ etablissement.nom|default:"Plateforme" }}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
+    <meta name="theme-color" content="#12203D">
+    <script nonce="{{ request.csp_nonce }}">
+        (function () {
+            try {
+                var theme = localStorage.getItem("theme");
+                if (theme === "dark" || theme === "light") {
+                    document.documentElement.setAttribute("data-theme", theme);
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/toumai.css' %}" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+        <div class="marque">
+            {% if etablissement.logo %}
+            <img src="{{ etablissement.logo.url }}" alt="{{ etablissement.nom }}" class="marque-logo">
+            {% else %}
+            <div class="marque-emblème">{{ etablissement.initiale|default:"P" }}</div>
+            {% endif %}
+            <div class="marque-texte">
+                <div class="marque-nom">{{ etablissement.nom|default:"Plateforme de gestion scolaire" }}</div>
+                {% if etablissement.devise %}<div class="marque-sous-titre">{{ etablissement.devise }}</div>{% endif %}
+            </div>
+        </div>
+
+        <nav>
+            <div class="nav-section">
+                <a class="nav-lien {% if request.resolver_match.view_name == 'comptes:redirection_tableau_de_bord' %}actif{% endif %}"
+                   href="{% url 'comptes:redirection_tableau_de_bord' %}">{% icone "accueil" %} Tableau de bord</a>
+            </div>
+            {% for section in sections_navigation %}
+            <div class="nav-section">
+                <div class="nav-section-titre">{% icone section.icone %} {{ section.titre }}</div>
+                {% for lien in section.liens %}
+                <a class="nav-lien {% if request.resolver_match.view_name == lien.url %}actif{% endif %}"
+                   href="{% url lien.url %}">{{ lien.label }}</a>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </nav>
+
+        {% if etablissement.devise %}<div class="sidebar-pied">{{ etablissement.devise }}</div>{% endif %}
+    </aside>
+
+    <div class="app-main">
+        <header class="topbar">
+            <button class="bouton-menu-mobile" aria-label="Menu">☰</button>
+            {% if user.is_authenticated %}
+            <div class="topbar-utilisateur">
+                <span><span class="role">{{ user.get_role_display }}</span> - {{ user.nom_complet }}</span>
+                <div class="avatar-initiales">{{ user.prenom|first }}{{ user.nom|first }}</div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bouton-theme>Mode sombre</button>
+                <a href="{% url 'comptes:changer_mot_de_passe' %}" class="btn btn-sm btn-outline-secondary">Mot de passe</a>
+                <a href="{% url 'comptes:changer_email' %}" class="btn btn-sm btn-outline-secondary">Email</a>
+                {% if user.deux_facteurs_actif %}
+                <a href="{% url 'comptes:desactiver_2fa' %}" class="btn btn-sm btn-outline-secondary">2FA activée</a>
+                {% else %}
+                <a href="{% url 'comptes:activer_2fa' %}" class="btn btn-sm btn-outline-secondary">Activer la 2FA</a>
+                {% endif %}
+                <form method="post" action="{% url 'comptes:deconnexion' %}" class="mb-0">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-secondary" type="submit">{% icone "sortie" %} Déconnexion</button>
+                </form>
+            </div>
+            {% endif %}
+        </header>
+
+        <main class="app-content">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}" role="alert">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            {% block contenu %}{% endblock %}
+        </main>
+    </div>
+</div>
+<script src="{% static 'js/app.js' %}" defer></script>
+</body>
+</html>

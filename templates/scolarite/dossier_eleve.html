@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block titre %}Dossier de {{ eleve.nom_complet }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>{{ eleve.nom_complet }}</h1>
+        <p>Matricule {{ eleve.matricule }} - {{ eleve.get_sexe_display|default:"Sexe non renseigné" }}</p>
+    </div>
+    <span class="badge {% if dossier_complet %}bg-success{% else %}bg-warning{% endif %}">
+        Dossier {% if dossier_complet %}complet{% else %}incomplet{% endif %}
+    </span>
+</div>
+
+<div class="row g-3 mb-1">
+    {% if inscription_active %}
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body" style="padding: 1rem 1.2rem !important;">
+            <div style="font-size: 0.76rem; color: var(--ink-500);">Classe actuelle</div>
+            <div style="font-family: var(--police-affichage); font-size: 1.15rem; font-weight: 600;">{{ inscription_active.classe }}</div>
+        </div></div>
+    </div>
+    {% endif %}
+    {% if peut_voir_absences %}
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body" style="padding: 1rem 1.2rem !important;">
+            <div style="font-size: 0.76rem; color: var(--ink-500);">Absences totales</div>
+            <div style="font-family: var(--police-affichage); font-size: 1.4rem; font-weight: 600;">{{ total_absences }}</div>
+        </div></div>
+    </div>
+    {% endif %}
+    {% if peut_voir_finances %}
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body" style="padding: 1rem 1.2rem !important;">
+            <div style="font-size: 0.76rem; color: var(--ink-500);">Total payé (cumulé)</div>
+            <div style="font-family: var(--police-affichage); font-size: 1.4rem; font-weight: 600;">{{ total_paye }} {{ etablissement.code_devise|default:"FCFA" }}</div>
+        </div></div>
+    </div>
+    {% if inscription_active %}
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body" style="padding: 1rem 1.2rem !important;">
+            <div style="font-size: 0.76rem; color: var(--ink-500);">Solde année en cours</div>
+            <div style="font-family: var(--police-affichage); font-size: 1.4rem; font-weight: 600; {% if solde_annee_active > 0 %}color: var(--danger-600);{% endif %}">
+                {{ solde_annee_active }} {{ etablissement.code_devise|default:"FCFA" }}
+            </div>
+        </div></div>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+
+<div class="d-flex gap-2 mb-3 mt-2">
+    {% if peut_voir_notes %}<a href="{% url 'pedagogie:bulletin_eleve' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Voir le bulletin</a>{% endif %}
+    {% if peut_voir_absences %}<a href="{% url 'pedagogie:historique_absences' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Historique des absences</a>{% endif %}
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h3 style="font-size: 1rem; margin-bottom: 0.8rem;">Parents liés</h3>
+        {% if parents %}
+        <ul class="mb-0">
+            {% for parent in parents %}<li>{{ parent.nom_complet }} - {{ parent.email }}{% if parent.telephone %} - {{ parent.telephone }}{% endif %}</li>{% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted mb-0">Aucun parent lié.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h3 style="font-size: 1rem; margin-bottom: 0.8rem;">Historique des classes</h3>
+        <table class="table">
+            <thead><tr><th>Année scolaire</th><th>Classe</th><th>Statut</th></tr></thead>
+            <tbody>
+                {% for inscription in inscriptions %}
+                <tr>
+                    <td>{{ inscription.classe.annee_scolaire.libelle }}</td>
+                    <td>{{ inscription.classe.nom }}</td>
+                    <td>{{ inscription.get_statut_display }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3">Aucune inscription enregistrée.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

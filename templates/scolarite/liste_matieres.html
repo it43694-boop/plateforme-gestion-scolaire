@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titre %}Matières{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Matières enseignées</h1>
+        <p>Déduites des affectations enseignant/classe.</p>
+    </div>
+    <a href="{% url 'scolarite:affecter_enseignant' %}" class="btn btn-primary btn-sm">Affecter un enseignant</a>
+</div>
+
+{% if matieres %}
+{% for matiere, affectations in matieres.items %}
+<div class="card mb-3">
+    <div class="card-body">
+        <h3 style="font-size: 1.05rem; margin-bottom: 0.8rem;">{{ matiere }}</h3>
+        <table class="table mb-0">
+            <thead><tr><th>Classe</th><th>Enseignant</th></tr></thead>
+            <tbody>
+                {% for affectation in affectations %}
+                <tr>
+                    <td>{{ affectation.classe }}</td>
+                    <td>{{ affectation.enseignant.nom_complet }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card"><div class="card-body">
+    <div class="etat-vide">
+        <p>Aucune matière enregistrée pour le moment - chaque matière apparaît ici dès qu'un enseignant y est affecté.</p>
+        <a href="{% url 'scolarite:affecter_enseignant' %}" class="btn btn-primary btn-sm">Affecter un enseignant</a>
+    </div>
+</div></div>
+{% endif %}
+{% endblock %}

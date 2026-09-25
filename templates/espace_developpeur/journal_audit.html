@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block titre %}Journal d'audit{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Journal d'audit</h1>
+        <p>Actions sensibles de votre établissement. Ajout seul - rien ici ne peut être modifié ni supprimé.</p>
+    </div>
+</div>
+<form method="get" class="mb-3" style="max-width: 360px;">
+    <input type="text" name="q" value="{{ recherche }}" class="form-control" placeholder="Rechercher une action, une personne...">
+</form>
+<div class="card">
+    <div class="card-body">
+        {% if entrees %}
+        <table class="table">
+            <thead><tr><th>Date</th><th>Acteur</th><th>Action</th><th>Cible</th></tr></thead>
+            <tbody>
+                {% for entree in entrees %}
+                <tr>
+                    <td>{{ entree.horodatage|date:"d/m/Y H:i" }}</td>
+                    <td>{{ entree.acteur.nom_complet|default:"Système" }}</td>
+                    <td>{{ entree.action }}</td>
+                    <td>{{ entree.cible|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide"><p>Aucune entrée pour le moment.</p></div>
+        {% endif %}
+        {% include "_pagination.html" %}
+    </div>
+</div>
+{% endblock %}

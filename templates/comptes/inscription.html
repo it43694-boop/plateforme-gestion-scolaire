@@ -1,0 +1,24 @@
+{% extends "base_auth.html" %}
+{% block titre %}Inscription{% endblock %}
+{% block auth_sous_titre %}Créer un compte{% endblock %}
+{% block contenu %}
+<p class="text-muted small mb-3" style="color: var(--ink-500);">
+    Après validation de votre email, votre demande sera transmise au secrétariat
+    pour activation.
+</p>
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% for champ in formulaire %}
+        <div class="mb-3">
+            <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+            {{ champ }}
+            {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+            {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+        </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary w-100">S'inscrire</button>
+</form>
+<p class="mt-3 text-center" style="font-size: 0.86rem;">
+    Déjà un compte ? <a href="{% url 'comptes:connexion' %}">Se connecter</a>
+</p>
+{% endblock %}

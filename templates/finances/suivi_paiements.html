@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block titre %}Suivi des paiements{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Suivi des paiements</h1>
+        <p>Solde restant par élève, calculé sur l'échéancier de sa classe.</p>
+    </div>
+</div>
+
+<form method="get" class="mb-3 d-flex gap-2" style="max-width: 560px;">
+    <select name="classe" class="form-select" data-auto-submit>
+        <option value="">Toutes les classes</option>
+        {% for classe in classes %}
+        <option value="{{ classe.id }}" {% if classe_id == classe.id|stringformat:"s" %}selected{% endif %}>{{ classe }}</option>
+        {% endfor %}
+    </select>
+    <select name="statut" class="form-select" data-auto-submit>
+        <option value="">Tous les statuts</option>
+        <option value="impaye" {% if filtre_statut == "impaye" %}selected{% endif %}>Impayé</option>
+        <option value="partiel" {% if filtre_statut == "partiel" %}selected{% endif %}>Partiel</option>
+        <option value="paye" {% if filtre_statut == "paye" %}selected{% endif %}>Payé</option>
+    </select>
+</form>
+
+<div class="card">
+    <div class="card-body">
+        {% if lignes %}
+        <table class="table">
+            <thead>
+                <tr><th>Élève</th><th>Classe</th><th class="text-end">Dû</th><th class="text-end">Payé</th><th class="text-end">Solde</th><th>Statut</th></tr>
+            </thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td>{{ ligne.inscription.eleve.nom_complet }} <span class="text-muted">({{ ligne.inscription.eleve.matricule }})</span></td>
+                    <td>{{ ligne.inscription.classe }}</td>
+                    <td class="text-end montant-val">{{ ligne.total_du }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td class="text-end montant-val">{{ ligne.total_paye }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td class="text-end montant-val" style="{% if ligne.solde > 0 %}color: var(--danger-600);{% endif %}">{{ ligne.solde }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td>
+                        <span class="badge {% if ligne.statut == 'paye' %}bg-success{% elif ligne.statut == 'partiel' %}bg-warning{% else %}bg-danger{% endif %}">
+                            {% if ligne.statut == 'paye' %}Payé{% elif ligne.statut == 'partiel' %}Partiel{% else %}Impayé{% endif %}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide"><p>Aucun élève ne correspond à ce filtre.</p></div>
+        {% endif %}
+        {% include "_pagination.html" %}
+    </div>
+</div>
+{% endblock %}

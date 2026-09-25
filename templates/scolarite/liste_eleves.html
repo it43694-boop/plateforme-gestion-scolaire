@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block titre %}Élèves{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Élèves</h1>
+        <p>{{ page_obj.paginator.count }} élève{{ page_obj.paginator.count|pluralize }} inscrit{{ page_obj.paginator.count|pluralize }}.</p>
+    </div>
+    <a href="{% url 'scolarite:inscrire_eleve' %}" class="btn btn-primary btn-sm">Inscrire un élève</a>
+</div>
+
+<form method="get" class="mb-3" style="max-width: 320px;">
+    <select name="classe" class="form-select" data-auto-submit>
+        <option value="">Toutes les classes</option>
+        {% for classe in classes %}
+        <option value="{{ classe.id }}" {% if classe_id == classe.id|stringformat:"s" %}selected{% endif %}>{{ classe }}</option>
+        {% endfor %}
+    </select>
+</form>
+
+<div class="card">
+    <div class="card-body">
+        {% if inscriptions %}
+        <table class="table">
+            <thead><tr><th>Matricule</th><th>Nom</th><th>Classe</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+                {% for inscription in inscriptions %}
+                <tr>
+                    <td>{{ inscription.eleve.matricule }}</td>
+                    <td>{{ inscription.eleve.nom_complet }}</td>
+                    <td>{{ inscription.classe }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'scolarite:dossier_eleve' inscription.eleve.matricule %}" class="btn btn-sm btn-outline-primary">Dossier</a>
+                        {% if peut_voir_bulletin %}
+                        <a href="{% url 'pedagogie:bulletin_eleve' inscription.eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Bulletin</a>
+                        {% endif %}
+                        {% if peut_voir_absences %}
+                        <a href="{% url 'pedagogie:historique_absences' inscription.eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Absences</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide">
+            <p>Aucun élève inscrit pour le moment.</p>
+            <a href="{% url 'scolarite:inscrire_eleve' %}" class="btn btn-primary btn-sm">Inscrire le premier élève</a>
+        </div>
+        {% endif %}
+        {% include "_pagination.html" %}
+    </div>
+</div>
+{% endblock %}

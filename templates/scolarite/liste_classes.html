@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block titre %}Classes{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Classes</h1>
+        <p>{{ classes.count }} classe{{ classes.count|pluralize }} visible{{ classes.count|pluralize }} pour votre rôle.</p>
+    </div>
+    <a href="{% url 'scolarite:creer_classe' %}" class="btn btn-primary btn-sm">Créer une classe</a>
+    <a href="{% url 'scolarite:affecter_enseignant' %}" class="btn btn-outline-secondary btn-sm">Affecter un enseignant</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        {% if classes %}
+        <table class="table">
+            <thead><tr><th>Nom</th><th>Cycle</th><th>Année scolaire</th><th>Effectif</th><th></th></tr></thead>
+            <tbody>
+                {% for classe in classes %}
+                <tr>
+                    <td>{{ classe.nom }}</td>
+                    <td>{{ classe.get_cycle_display }}</td>
+                    <td>{{ classe.annee_scolaire.libelle }}</td>
+                    <td class="montant-val">{{ classe.effectif }}</td>
+                    <td class="text-end">
+                        {% if peut_voir_emploi_du_temps %}
+                        <a href="{% url 'pedagogie:gerer_emploi_du_temps' classe.id %}" class="btn btn-sm btn-outline-secondary">Emploi du temps</a>
+                        <a href="{% url 'scolarite:passage_de_classe' classe.id %}" class="btn btn-sm btn-outline-secondary">Passage de classe</a>
+                        {% endif %}
+                        {% if peut_voir_statistiques %}
+                        <a href="{% url 'statistiques:statistiques_classe' classe.id %}" class="btn btn-sm btn-outline-secondary">Statistiques</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide"><p>Aucune classe pour le moment.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

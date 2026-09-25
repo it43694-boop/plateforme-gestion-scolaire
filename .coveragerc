@@ -1,0 +1,14 @@
+[run]
+source = .
+omit =
+    manage.py
+    */migrations/*
+    */tests.py
+    venv/*
+    .venv/*
+    config/asgi.py
+    config/wsgi.py
+
+[report]
+skip_empty = True
+precision = 1

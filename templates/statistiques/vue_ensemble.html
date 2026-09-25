@@ -1,0 +1,36 @@
+{% extends "statistiques/base_statistiques.html" %}
+{% block contenu_stats %}
+<div class="page-header"><div><h1>Statistique globale</h1><p>{{ annee.libelle }}</p></div>
+    <a href="{% url 'statistiques:exporter_effectifs_csv' %}?annee={{ annee.id }}" class="btn btn-outline-secondary btn-sm">Exporter en CSV</a>
+</div>
+<div class="row g-3 mb-1">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body" style="padding: 1.1rem 1.2rem !important;">
+            <div style="font-size: 0.76rem; color: var(--ink-500);">Effectif total</div>
+            <div style="font-family: var(--police-affichage); font-size: 1.7rem; font-weight: 600;">{{ effectif_total }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body" style="padding: 1.1rem 1.2rem !important;">
+            <div style="font-size: 0.76rem; color: var(--ink-500);">Garçons / Filles</div>
+            <div style="font-family: var(--police-affichage); font-size: 1.7rem; font-weight: 600;">{{ repartition_sexe.M }} / {{ repartition_sexe.F }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body" style="padding: 1.1rem 1.2rem !important;">
+            <div style="font-size: 0.76rem; color: var(--ink-500);">Taux de réussite</div>
+            <div style="font-family: var(--police-affichage); font-size: 1.7rem; font-weight: 600; color: var(--success-600);">{{ taux_reussite|default:"-" }}{% if taux_reussite %}%{% endif %}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body" style="padding: 1.1rem 1.2rem !important;">
+            <div style="font-size: 0.76rem; color: var(--ink-500);">Taux d'échec</div>
+            <div style="font-family: var(--police-affichage); font-size: 1.7rem; font-weight: 600; color: var(--danger-600);">{{ taux_echec|default:"-" }}{% if taux_echec %}%{% endif %}</div>
+        </div></div>
+    </div>
+</div>
+<p style="color: var(--ink-500); font-size: 0.84rem;">
+    Les taux de réussite/échec ne sont calculés qu'une fois les décisions de fin d'année
+    (admis/redouble) saisies pour les élèves concernés.
+</p>
+{% endblock %}

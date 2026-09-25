@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block titre %}Établissements{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Établissements</h1>
+        <p>Chaque établissement a ses propres élèves, classes, finances et comptes.</p>
+    </div>
+    <a href="{% url 'espace_plateforme:creer_etablissement' %}" class="btn btn-primary btn-sm">Créer un établissement</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        {% if etablissements %}
+        <table class="table">
+            <thead><tr><th>Nom</th><th>Comptes</th><th>Statut</th><th>Visible dans l'annuaire</th><th></th></tr></thead>
+            <tbody>
+                {% for etablissement in etablissements %}
+                <tr>
+                    <td>{{ etablissement.nom }}</td>
+                    <td class="montant-val">{{ etablissement.nb_comptes }}</td>
+                    <td>
+                        <span class="badge {% if etablissement.actif %}bg-success{% else %}bg-danger{% endif %}">
+                            {% if etablissement.actif %}Actif{% else %}Désactivé{% endif %}
+                        </span>
+                    </td>
+                    <td>{% if etablissement.visible_dans_annuaire %}Oui{% else %}Non{% endif %}</td>
+                    <td class="text-end">
+                        <a href="{% url 'espace_plateforme:voir_comptes_etablissement' etablissement.id %}" class="btn btn-sm btn-outline-secondary">Comptes</a>
+                        <a href="{% url 'espace_plateforme:modifier_etablissement' etablissement.id %}" class="btn btn-sm btn-outline-secondary">Modifier</a>
+                        <form method="post" action="{% url 'espace_plateforme:basculer_actif' etablissement.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button class="btn btn-sm {% if etablissement.actif %}btn-outline-danger{% else %}btn-success{% endif %}">
+                                {% if etablissement.actif %}Désactiver{% else %}Réactiver{% endif %}
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide">
+            <p>Aucun établissement pour le moment.</p>
+            <a href="{% url 'espace_plateforme:creer_etablissement' %}" class="btn btn-primary btn-sm">Créer le premier établissement</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

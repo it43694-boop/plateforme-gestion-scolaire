@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block titre %}Ajouter un candidat{% endblock %}
+{% block contenu %}
+<div class="page-header"><div><h1>Ajouter un candidat</h1></div></div>
+<div class="card" style="max-width: 560px;">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for champ in formulaire %}
+                <div class="mb-3">
+                    <label class="form-label">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary w-100">Enregistrer</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

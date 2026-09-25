@@ -1,0 +1,141 @@
+services:
+  # Personnalisez le "name" ci-dessous et le domaine dans ALLOWED_HOSTS /
+  # CSRF_TRUSTED_ORIGINS / DEFAULT_FROM_EMAIL pour votre propre déploiement.
+  # Le nom et le logo affichés dans l'application eux-mêmes se configurent
+  # depuis l'espace développeur (/espace-developpeur/etablissement/), pas ici.
+  #
+  # Déploiement de test à coût nul :
+  #   - web + Key-Value (Redis) sur Render, plan "free"
+  #   - base de données Postgres sur Supabase (DATABASE_URL à coller dans le
+  #     dashboard Render - voir README, section Déploiement gratuit)
+  #   - médias (logos, pièces jointes) sur Supabase Storage, compatible S3
+  # Limites du plan gratuit Render à connaître : le service web s'endort
+  # après 15 min d'inactivité (premier chargement plus lent après une
+  # pause) ; le Key-Value gratuit stocke en mémoire uniquement (compteurs de
+  # rate-limiting remis à zéro si le service redémarre - acceptable pour un
+  # test). Passez ces "plan:" à "starter" ou plus pour une exploitation
+  # réelle.
+  - type: web
+    name: plateforme-gestion-scolaire
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput"
+    startCommand: "python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 3"
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "toumai-edu-school.onrender.com"
+      - key: CSRF_TRUSTED_ORIGINS
+        value: "https://toumai-edu-school.onrender.com"
+      # Chaîne de connexion Postgres Supabase (Project Settings > Database >
+      # Connection string > URI, mode "Transaction" recommandé). Format :
+      # postgres://postgres.[ref]:[mot-de-passe]@[hote]:6543/postgres
+      - key: DATABASE_URL
+        sync: false
+      - key: EMAIL_BACKEND
+        value: "django.core.mail.backends.smtp.EmailBackend"
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: plateforme-gestion-scolaire-redis
+          property: connectionString
+      # Stockage médias Supabase (Project Settings > Storage > S3 Connection).
+      - key: AWS_STORAGE_BUCKET_NAME
+        sync: false
+      - key: AWS_S3_ENDPOINT_URL
+        sync: false
+      - key: AWS_S3_REGION_NAME
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+      - key: EMAIL_ASYNC
+        value: "True"
+
+  - type: redis
+    name: plateforme-gestion-scolaire-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+
+  - type: cron
+    name: plateforme-gestion-scolaire-email-worker
+    runtime: python
+    plan: free
+    schedule: "*/5 * * * *"
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python manage.py envoyer_emails"
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        fromService:
+          type: web
+          name: plateforme-gestion-scolaire
+          envVarKey: DJANGO_SECRET_KEY
+      - key: DATABASE_URL
+        sync: false
+      - key: DEBUG
+        value: "False"
+      - key: EMAIL_BACKEND
+        value: "django.core.mail.backends.smtp.EmailBackend"
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: EMAIL_ASYNC
+        value: "True"
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: plateforme-gestion-scolaire-redis
+          property: connectionString
+      - key: AWS_STORAGE_BUCKET_NAME
+        sync: false
+      - key: AWS_S3_ENDPOINT_URL
+        sync: false
+      - key: AWS_S3_REGION_NAME
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+
+  - type: cron
+    name: plateforme-gestion-scolaire-relance-impayes
+    runtime: python
+    plan: free
+    schedule: "0 8 * * *"
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python manage.py relancer_impayes"
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        fromService:
+          type: web
+          name: plateforme-gestion-scolaire
+          envVarKey: DJANGO_SECRET_KEY
+      - key: DATABASE_URL
+        sync: false
+      - key: DEBUG
+        value: "False"
+      - key: EMAIL_ASYNC
+        value: "True"
+      - key: DEFAULT_FROM_EMAIL
+        sync: false

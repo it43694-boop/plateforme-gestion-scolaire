@@ -1,0 +1,16 @@
+{% if page_obj.has_other_pages %}
+<nav class="d-flex justify-content-between align-items-center mt-3">
+    <span style="color: var(--ink-500); font-size: 0.82rem;">
+        Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+        ({{ page_obj.paginator.count }} au total)
+    </span>
+    <div>
+        {% if page_obj.has_previous %}
+        <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-sm btn-outline-secondary">Précédent</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+        <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-sm btn-outline-secondary">Suivant</a>
+        {% endif %}
+    </div>
+</nav>
+{% endif %}

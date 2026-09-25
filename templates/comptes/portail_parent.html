@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titre %}Portail parent{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div><h1>Portail parent</h1><p>Suivi des enfants rattachés à votre compte.</p></div>
+</div>
+{% if dossiers %}
+<div class="row g-3">
+{% for dossier in dossiers %}
+<div class="col-12 col-lg-6">
+    <div class="card h-100"><div class="card-body">
+        <h2 class="h5">{{ dossier.eleve.nom_complet }}</h2>
+        <p class="text-muted mb-3">Matricule : {{ dossier.eleve.matricule }}{% if dossier.inscription %} · {{ dossier.inscription.classe }}{% endif %}</p>
+        <div class="row g-2 small mb-3">
+            <div class="col-4"><strong>{{ dossier.absences }}</strong><br>Absences</div>
+            <div class="col-4"><strong>{{ dossier.moyenne|default:"-" }}</strong><br>Moyenne</div>
+            <div class="col-4"><strong>{{ dossier.solde }} {{ etablissement.code_devise|default:"FCFA" }}</strong><br>Solde</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'pedagogie:bulletin_eleve' dossier.eleve.matricule %}">Bulletin</a>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'pedagogie:historique_absences' dossier.eleve.matricule %}">Absences</a>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'scolarite:dossier_eleve' dossier.eleve.matricule %}">Dossier</a>
+        </div>
+    </div></div>
+</div>
+{% endfor %}
+</div>
+{% else %}
+<div class="card"><div class="card-body etat-vide"><p>Aucun enfant n’est encore rattaché à votre compte.</p></div></div>
+{% endif %}
+{% endblock %}

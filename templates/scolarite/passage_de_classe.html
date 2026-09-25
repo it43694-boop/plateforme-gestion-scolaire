@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block titre %}Passage de classe{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Passage de classe - {{ classe_source }}</h1>
+        <p>{{ eleves_en_cours|length }} élève{{ eleves_en_cours|length|pluralize }} actuellement inscrit{{ eleves_en_cours|length|pluralize }}.</p>
+    </div>
+</div>
+
+<form method="get" class="mb-3" style="max-width: 400px;">
+    <label class="form-label">Année scolaire de destination</label>
+    <select name="annee_destination" class="form-select" data-auto-submit>
+        <option value="">Choisir...</option>
+        {% for annee in annees_destination %}
+        <option value="{{ annee.id }}" {% if annee_destination.id == annee.id %}selected{% endif %}>{{ annee.libelle }}</option>
+        {% endfor %}
+    </select>
+</form>
+
+{% if annee_destination %}
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="annee_destination" value="{{ annee_destination.id }}">
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <label class="form-label">Classe de destination pour les élèves admis</label>
+            <select name="classe_admis" class="form-select">
+                <option value="">Choisir...</option>
+                {% for classe in classes_destination %}
+                <option value="{{ classe.id }}" {% if classe_source.classe_suivante_id == classe.id %}selected{% endif %}>{{ classe.nom }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Classe de destination pour les redoublants</label>
+            <select name="classe_redouble" class="form-select">
+                <option value="">Choisir...</option>
+                {% for classe in classes_destination %}
+                <option value="{{ classe.id }}">{{ classe.nom }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    {% if not classes_destination %}
+    <div class="alert alert-warning">
+        Aucune classe n'existe encore pour {{ annee_destination.libelle }}. 
+        <a href="{% url 'scolarite:creer_classe' %}">Créez-en une d'abord</a>, puis revenez ici.
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-body">
+            {% if eleves_en_cours %}
+            <table class="table">
+                <thead><tr><th>Élève</th><th>Décision</th></tr></thead>
+                <tbody>
+                    {% for inscription in eleves_en_cours %}
+                    <tr>
+                        <td>{{ inscription.eleve.nom_complet }} <span class="text-muted">({{ inscription.eleve.matricule }})</span></td>
+                        <td>
+                            <select name="decision_{{ inscription.id }}" class="form-select form-select-sm" style="max-width: 200px;">
+                                <option value="admis" selected>Admis</option>
+                                <option value="redouble">Redouble</option>
+                                <option value="transfere">Transféré / parti</option>
+                            </select>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button type="submit" class="btn btn-primary">Valider le passage de classe</button>
+            {% else %}
+            <div class="etat-vide"><p>Aucun élève à traiter dans cette classe.</p></div>
+            {% endif %}
+        </div>
+    </div>
+</form>
+{% endif %}
+{% endblock %}

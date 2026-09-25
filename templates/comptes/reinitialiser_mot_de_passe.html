@@ -1,0 +1,22 @@
+{% extends "base_auth.html" %}
+{% block titre %}Nouveau mot de passe{% endblock %}
+{% block auth_sous_titre %}Choisir un nouveau mot de passe{% endblock %}
+{% block contenu %}
+{% if validlink %}
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% for champ in form %}
+        <div class="mb-3">
+            <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+            {{ champ }}
+            {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+            {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+        </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary w-100">Valider</button>
+</form>
+{% else %}
+<p class="text-danger text-center">Ce lien de réinitialisation n'est plus valide.</p>
+<p class="text-center"><a href="{% url 'comptes:mot_de_passe_oublie' %}">Demander un nouveau lien</a></p>
+{% endif %}
+{% endblock %}

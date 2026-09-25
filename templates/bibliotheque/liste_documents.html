@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block titre %}Bibliothèque{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div><h1>Bibliothèque numérique</h1></div>
+    <a href="{% url 'bibliotheque:exporter_zip' %}" class="btn btn-outline-secondary btn-sm">Exporter toute la bibliothèque (.zip)</a>
+</div>
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-body">
+                <p style="font-weight: 600; margin-bottom: 0.8rem;">Ajouter un document</p>
+                <form method="post" action="{% url 'bibliotheque:ajouter_document' %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {% for champ in formulaire_ajout %}
+                        <div class="mb-3">
+                            <label class="form-label">{{ champ.label }}</label>
+                            {{ champ }}
+                        </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary w-100">Ajouter</button>
+                </form>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <p style="font-weight: 600; margin-bottom: 0.8rem;">Importer une archive (.zip)</p>
+                <form method="post" action="{% url 'bibliotheque:importer_zip' %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {% for champ in formulaire_import %}
+                        <div class="mb-3">
+                            <label class="form-label">{{ champ.label }}</label>
+                            {{ champ }}
+                        </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-outline-primary w-100">Importer</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                {% if documents %}
+                <table class="table">
+                    <thead><tr><th>Titre</th><th>Fichier</th><th>Ajouté le</th></tr></thead>
+                    <tbody>
+                        {% for document in documents %}
+                        <tr>
+                            <td>{{ document.titre }}</td>
+                            <td><a href="{{ document.fichier.url }}">{{ document.nom_fichier }}</a></td>
+                            <td>{{ document.ajoute_le|date:"d/m/Y" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="etat-vide"><p>Aucun document pour le moment.</p></div>
+                {% endif %}
+                {% include "_pagination.html" %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

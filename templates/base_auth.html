@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block titre %}Connexion{% endblock %} - {{ etablissement.nom }}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
+    <meta name="theme-color" content="#12203D">
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/toumai.css' %}" rel="stylesheet">
+</head>
+<body>
+<div class="auth-scene">
+    <div style="width: 100%; max-width: 420px;">
+        <div class="auth-carte">
+            <a href="{% url 'vitrine:accueil' %}" style="text-decoration: none; display: block;">
+            {% if etablissement.logo %}
+            <img src="{{ etablissement.logo.url }}" alt="{{ etablissement.nom }}" class="auth-logo">
+            {% else %}
+            <div class="auth-emblème">{{ etablissement.initiale }}</div>
+            {% endif %}
+            </a>
+            <h1 class="auth-titre">{% block auth_titre %}{{ etablissement.nom }}{% endblock %}</h1>
+            <p class="auth-sous-titre">{% block auth_sous_titre %}{{ etablissement.devise }}{% endblock %}</p>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}" role="alert">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            {% block contenu %}{% endblock %}
+        </div>
+        <p style="text-align: center; margin-top: 1.2rem;">
+            <a href="{% url 'vitrine:accueil' %}" style="color: rgba(255,255,255,0.65); font-size: 0.85rem;">← Retour à l'accueil</a>
+        </p>
+    </div>
+</div>
+</body>
+</html>

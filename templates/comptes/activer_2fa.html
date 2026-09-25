@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titre %}Activer la double authentification{% endblock %}
+{% block contenu %}
+<div class="page-header"><div><h1>Activer l'authentification à deux facteurs</h1>
+<p>Recommandé en particulier pour les rôles à privilège élevé.</p></div></div>
+<div class="card" style="max-width: 480px;">
+    <div class="card-body">
+        <ol style="padding-left: 1.1rem; color: var(--ink-800); font-size: 0.92rem;">
+            <li class="mb-2">Installez une application d'authentification (Google Authenticator, Microsoft Authenticator, Authy...).</li>
+            <li class="mb-2">Scannez ce code, ou saisissez la clé manuellement :</li>
+        </ol>
+        <div class="text-center mb-3">
+            {% if qr_code %}
+            <img src="{{ qr_code }}" alt="QR code d'activation" style="width: 180px; height: 180px;">
+            {% endif %}
+            <div style="font-family: monospace; font-size: 0.85rem; background: var(--paper-050); padding: 0.5rem; border-radius: var(--rayon-controle); margin-top: 0.6rem; word-break: break-all;">
+                {{ secret }}
+            </div>
+        </div>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label" for="code">Code affiché par l'application</label>
+                <input type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+                       class="form-control" id="code" name="code" autofocus>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Confirmer et activer</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

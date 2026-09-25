@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+    @page { size: A4 landscape; margin: 1.5cm; }
+    body { font-family: Helvetica, sans-serif; font-size: 11px; color: #262626; }
+    h1 { font-size: 16px; color: #1F3864; margin-bottom: 2px; }
+    p.sous-titre { color: #595959; margin-top: 0; margin-bottom: 14px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background-color: #1F3864; color: #ffffff; padding: 6px; text-align: left; }
+    td { padding: 6px; border-bottom: 1px solid #dddddd; }
+</style>
+</head>
+<body>
+    <h1>{{ etablissement.nom }}</h1>
+    <p class="sous-titre">Emploi du temps - {{ classe }}</p>
+    <table>
+        <thead>
+            <tr><th>Jour</th><th>Horaire</th><th>Matière</th><th>Enseignant</th><th>Salle</th></tr>
+        </thead>
+        <tbody>
+            {% for creneau in creneaux %}
+            <tr>
+                <td>{{ creneau.get_jour_semaine_display }}</td>
+                <td>{{ creneau.heure_debut|time:"H:i" }} - {{ creneau.heure_fin|time:"H:i" }}</td>
+                <td>{{ creneau.affectation.matiere|default:"Titulaire" }}</td>
+                <td>{{ creneau.affectation.enseignant.nom_complet }}</td>
+                <td>{{ creneau.salle|default:"-" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5">Aucun créneau défini pour cette classe.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

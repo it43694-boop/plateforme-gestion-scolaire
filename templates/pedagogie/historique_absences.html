@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block titre %}Historique des absences{% endblock %}
+{% block contenu %}
+<div class="page-header"><div><h1>{{ eleve.nom_complet }}</h1><p>Historique des absences</p></div></div>
+
+<div class="row g-3 mb-1">
+    <div class="col-4">
+        <div class="card"><div class="card-body" style="padding: 1rem 1.2rem !important;">
+            <div style="font-size: 0.76rem; color: var(--ink-500);">Total</div>
+            <div style="font-family: var(--police-affichage); font-size: 1.5rem; font-weight: 600;">{{ total_absences }}</div>
+        </div></div>
+    </div>
+    <div class="col-4">
+        <div class="card"><div class="card-body" style="padding: 1rem 1.2rem !important;">
+            <div style="font-size: 0.76rem; color: var(--ink-500);">Justifiées</div>
+            <div style="font-family: var(--police-affichage); font-size: 1.5rem; font-weight: 600; color: var(--success-600);">{{ total_justifiees }}</div>
+        </div></div>
+    </div>
+    <div class="col-4">
+        <div class="card"><div class="card-body" style="padding: 1rem 1.2rem !important;">
+            <div style="font-size: 0.76rem; color: var(--ink-500);">Non justifiées</div>
+            <div style="font-family: var(--police-affichage); font-size: 1.5rem; font-weight: 600; color: var(--danger-600);">{{ total_non_justifiees }}</div>
+        </div></div>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        {% if absences %}
+        <table class="table">
+            <thead><tr><th>Date</th><th>Justifiée</th><th>Motif</th></tr></thead>
+            <tbody>
+                {% for absence in absences %}
+                <tr>
+                    <td>{{ absence.date_absence|date:"d/m/Y" }}</td>
+                    <td>{% if absence.justifiee %}Oui{% else %}Non{% endif %}</td>
+                    <td>{{ absence.motif|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide"><p>Aucune absence enregistrée.</p></div>
+        {% endif %}
+        {% include "_pagination.html" %}
+    </div>
+</div>
+{% endblock %}

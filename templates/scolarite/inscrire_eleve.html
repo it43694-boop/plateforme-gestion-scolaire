@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titre %}Inscrire un élève{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Inscrire un nouvel élève</h1>
+        <p>Le matricule et le compte élève sont créés automatiquement. Les parents doivent déjà posséder un compte actif - recherchez-les par leur email.</p>
+    </div>
+</div>
+<div class="card" style="max-width: 560px;">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for champ in formulaire %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary w-100">Inscrire l'élève</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

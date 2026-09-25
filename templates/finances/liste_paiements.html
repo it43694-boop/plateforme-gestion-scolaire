@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block titre %}Paiements{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Paiements de scolarité</h1>
+        <p>Chaque paiement crée automatiquement sa ligne dans le registre de Caisse.</p>
+    </div>
+    <a href="{% url 'finances:enregistrer_paiement' %}" class="btn btn-primary btn-sm">Enregistrer un paiement</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        {% if paiements %}
+        <table class="table">
+            <thead>
+                <tr><th>Référence</th><th>Élève</th><th>Tranche</th><th class="text-end">Montant</th><th>Mode</th><th>Date</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for paiement in paiements %}
+                <tr>
+                    <td>{{ paiement.reference }}</td>
+                    <td>{{ paiement.eleve.nom_complet }} <span style="color: var(--ink-300);">({{ paiement.eleve.matricule }})</span></td>
+                    <td>{{ paiement.get_tranche_display }}</td>
+                    <td class="text-end montant-val">{{ paiement.montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td>{{ paiement.get_mode_paiement_display }}</td>
+                    <td>{{ paiement.date_paiement|date:"d/m/Y H:i" }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'finances:exporter_recu_paiement_pdf' paiement.id %}" class="btn btn-sm btn-outline-secondary">Reçu PDF</a>
+                        <a href="{% url 'finances:corriger_paiement' paiement.id %}" class="btn btn-sm btn-outline-secondary">Corriger</a>
+                        {% if est_direction %}
+                        <form method="post" action="{% url 'finances:supprimer_paiement' paiement.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-outline-danger">Supprimer</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide">
+            <p>Aucun paiement enregistré pour le moment.</p>
+            <a href="{% url 'finances:enregistrer_paiement' %}" class="btn btn-primary btn-sm">Enregistrer le premier paiement</a>
+        </div>
+        {% endif %}
+        {% include "_pagination.html" %}
+    </div>
+</div>
+{% endblock %}

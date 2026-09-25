@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titre %}Modifier un compte{% endblock %}
+{% block contenu %}
+<div class="page-header"><div><h1>{{ compte.nom_complet }}</h1><p>{{ compte.email }}</p></div></div>
+<div class="card" style="max-width: 460px;">
+    <div class="card-body">
+        {% if est_soi_meme %}
+        <div class="alert alert-warning mb-3">
+            Vous consultez votre propre compte : vous ne pouvez pas changer votre propre rôle
+            depuis cette page (protection contre le verrouillage accidentel).
+        </div>
+        {% endif %}
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for champ in formulaire %}
+                <div class="mb-3">
+                    <label class="form-label">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary w-100">Enregistrer</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

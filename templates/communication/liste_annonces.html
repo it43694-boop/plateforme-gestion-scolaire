@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titre %}Annonces{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div><h1>Annonces</h1></div>
+    <a href="{% url 'communication:publier_annonce' %}" class="btn btn-primary btn-sm">Publier une annonce</a>
+</div>
+{% for annonce in annonces %}
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+            <h2 style="font-size: 1.05rem;">{{ annonce.titre }}</h2>
+            <span class="badge bg-secondary">
+                {% if annonce.portee == 'toute_ecole' %}Toute l'école{% else %}{{ annonce.classe_ciblee }}{% endif %}
+            </span>
+        </div>
+        <p style="color: var(--ink-500); font-size: 0.85rem; margin-bottom: 0.8rem;">
+            {{ annonce.auteur.nom_complet }} - {{ annonce.date_publication|date:"d/m/Y H:i" }}
+        </p>
+        <p>{{ annonce.contenu|linebreaks }}</p>
+        {% if annonce.piece_jointe %}
+        <a href="{{ annonce.piece_jointe.url }}" class="btn btn-sm btn-outline-secondary">Pièce jointe</a>
+        {% endif %}
+    </div>
+</div>
+{% empty %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Aucune annonce pour le moment.</p></div></div></div>
+{% endfor %}
+{% include "_pagination.html" %}
+{% endblock %}

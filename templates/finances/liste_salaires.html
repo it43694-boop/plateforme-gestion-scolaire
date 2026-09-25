@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block titre %}Salaires{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div><h1>Salaires</h1><p>Marquer un salaire payé crée automatiquement la dépense en Caisse.</p></div>
+    <a href="{% url 'finances:saisir_salaire' %}" class="btn btn-primary btn-sm">Saisir un salaire</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        {% if salaires %}
+        <table class="table">
+            <thead><tr><th>Employé</th><th>Période</th><th class="text-end">Montant</th><th>Statut</th><th>Référence</th><th></th></tr></thead>
+            <tbody>
+                {% for salaire in salaires %}
+                <tr>
+                    <td>{{ salaire.employe.nom_complet }}</td>
+                    <td>{{ salaire.periode }}</td>
+                    <td class="text-end montant-val">{{ salaire.montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td>
+                        <span class="badge {% if salaire.statut == 'paye' %}bg-success{% else %}bg-warning{% endif %}">
+                            {{ salaire.get_statut_display }}
+                        </span>
+                    </td>
+                    <td>{{ salaire.reference|default:"-" }}</td>
+                    <td class="text-end">
+                        {% if salaire.statut != 'paye' %}
+                        <form method="post" action="{% url 'finances:marquer_salaire_paye' salaire.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-success">Marquer payé</button>
+                        </form>
+                        {% endif %}
+                        {% if est_direction %}
+                        <form method="post" action="{% url 'finances:supprimer_salaire' salaire.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-outline-danger">Supprimer</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide">
+            <p>Aucun salaire enregistré pour le moment.</p>
+            <a href="{% url 'finances:saisir_salaire' %}" class="btn btn-primary btn-sm">Saisir le premier salaire</a>
+        </div>
+        {% endif %}
+        {% include "_pagination.html" %}
+    </div>
+</div>
+{% endblock %}

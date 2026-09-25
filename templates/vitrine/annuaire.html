@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ nom_plateforme }} - Choisir un établissement</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
+    <meta name="theme-color" content="#12203D">
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/toumai.css' %}" rel="stylesheet">
+</head>
+<body>
+<div class="annuaire-layout">
+    <aside class="annuaire-sidebar">
+        <div class="annuaire-marque">
+            <span style="color: var(--gold-400);">Ω</span> {{ nom_plateforme }}
+        </div>
+        <nav>
+            {% for etablissement in etablissements %}
+            <button type="button" class="annuaire-item {% if forloop.first %}actif{% endif %}"
+                    data-cible="etab-{{ etablissement.id }}">
+                {% if etablissement.logo %}
+                <img src="{{ etablissement.logo.url }}" alt="" class="annuaire-item-logo">
+                {% else %}
+                <span class="annuaire-item-emblème">{{ etablissement.initiale }}</span>
+                {% endif %}
+                {{ etablissement.nom }}
+            </button>
+            {% endfor %}
+        </nav>
+    </aside>
+
+    <main class="annuaire-contenu">
+        {% for etablissement in etablissements %}
+        <div class="annuaire-panneau" id="etab-{{ etablissement.id }}" {% if not forloop.first %}style="display: none;"{% endif %}>
+            <div class="annuaire-panneau-texte">
+                <h1>{{ etablissement.nom }}</h1>
+                <p>
+                    {% if etablissement.devise %}{{ etablissement.devise }}{% else %}
+                    Retrouvez votre espace de connexion pour accéder à la gestion de votre scolarité.
+                    {% endif %}
+                </p>
+                <a href="{% url 'vitrine:choisir_etablissement' etablissement.slug %}" class="btn-hero-primaire">
+                    Se connecter à {{ etablissement.nom }}
+                </a>
+            </div>
+            <div class="annuaire-panneau-decor">
+                {% if etablissement.logo %}
+                <img src="{{ etablissement.logo.url }}" alt="">
+                {% else %}
+                <span>{{ etablissement.initiale }}</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </main>
+</div>
+
+<script src="{% static 'js/app.js' %}" defer></script>
+</body>
+</html>

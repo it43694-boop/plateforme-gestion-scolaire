@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block titre %}Saisir une note{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div><h1>{{ affectation }}</h1><p>Resaisir une note pour le même élève et le même trimestre la corrige.</p></div>
+</div>
+<div class="row">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% for champ in formulaire %}
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                            {{ champ }}
+                            {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                        </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary w-100">Enregistrer</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-body">
+                <p style="font-weight: 600; margin-bottom: 0.8rem;">Notes déjà saisies</p>
+                {% if notes_existantes %}
+                <table class="table">
+                    <thead><tr><th>Élève</th><th>Trimestre</th><th class="text-end">Note</th></tr></thead>
+                    <tbody>
+                        {% for note in notes_existantes %}
+                        <tr><td>{{ note.eleve.nom_complet }}</td><td>{{ note.get_trimestre_display }}</td><td class="text-end montant-val">{{ note.valeur }}/20</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="etat-vide"><p>Aucune note saisie pour le moment.</p></div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

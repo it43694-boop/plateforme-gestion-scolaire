@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if etablissement %}{{ etablissement.nom }} - {% endif %}{{ nom_plateforme }}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
+    <meta name="theme-color" content="#12203D">
+    <meta name="description" content="{{ nom_plateforme }} — logiciel de gestion scolaire multi-établissement.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{ nom_plateforme }}">
+    <meta property="og:description" content="Logiciel de gestion scolaire multi-établissement.">
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/toumai.css' %}" rel="stylesheet">
+</head>
+<body style="background: var(--paper-050);">
+
+<div class="vitrine-hero">
+    <div class="vitrine-hero-fond"></div>
+    <nav class="vitrine-nav">
+        <div class="marque">
+            {% if etablissement %}
+                {% if etablissement.logo %}
+                <img src="{{ etablissement.logo.url }}" alt="{{ etablissement.nom }}" class="marque-logo">
+                {% else %}
+                <div class="marque-emblème">{{ etablissement.initiale }}</div>
+                {% endif %}
+                <div class="marque-texte">
+                    <div class="marque-nom">{{ etablissement.nom }}</div>
+                    {% if etablissement.devise %}<div class="marque-sous-titre">{{ etablissement.devise }}</div>{% endif %}
+                </div>
+            {% else %}
+                <div class="marque-emblème">Ω</div>
+                <div class="marque-texte">
+                    <div class="marque-nom">{{ nom_plateforme }}</div>
+                </div>
+            {% endif %}
+        </div>
+        <div class="vitrine-nav-liens">
+            <a href="#fonctionnalites">Fonctionnalités</a>
+            <a href="#securite">Sécurité</a>
+        </div>
+        {% if mode_multi %}
+        <a href="#choisir-etablissement" class="btn-hero-primaire">Se connecter</a>
+        {% else %}
+        <a href="{% url 'comptes:connexion' %}" class="btn-hero-primaire">Se connecter</a>
+        {% endif %}
+    </nav>
+
+    <div class="vitrine-hero-corps">
+        <div>
+            <h1>{{ nom_plateforme }}</h1>
+            <p class="lead">
+                Une plateforme unique pour piloter l'inscription des élèves, la scolarité,
+                les finances, la pédagogie et la communication{% if etablissement %} de {{ etablissement.nom }}{% endif %},
+                avec des rôles précis et une matrice de permissions qui s'adapte à chaque
+                membre de l'équipe.
+            </p>
+
+            {% if mode_multi %}
+            <div class="vitrine-hero-ctas" id="choisir-etablissement" style="flex-direction: column; align-items: stretch; gap: 0.6rem; max-width: 340px;">
+                <p style="color: #B7C0D6; font-size: 0.85rem; margin-bottom: 0.2rem;">Choisissez votre établissement pour continuer :</p>
+                {% for etab in etablissements %}
+                <a href="{% url 'vitrine:choisir_etablissement' etab.slug %}" class="btn-hero-secondaire"
+                   style="display: flex; align-items: center; gap: 0.6rem; justify-content: flex-start;">
+                    {% if etab.logo %}
+                    <img src="{{ etab.logo.url }}" alt="" style="width: 22px; height: 22px; border-radius: 5px; object-fit: contain; background: #fff;">
+                    {% else %}
+                    <span style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid currentColor; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0;">{{ etab.initiale }}</span>
+                    {% endif %}
+                    {{ etab.nom }}
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="vitrine-hero-ctas">
+                <a href="{% url 'comptes:connexion' %}" class="btn-hero-primaire">Se connecter</a>
+                <a href="{% url 'comptes:inscription' %}" class="btn-hero-secondaire">Créer un compte</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="vitrine-decor" aria-hidden="true">
+            <div class="vitrine-decor-centre">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="34" height="34">
+                    <path d="M2 9l10-5 10 5-10 5-10-5z"/>
+                    <path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5"/>
+                    <path d="M22 9v6"/>
+                </svg>
+            </div>
+            <div class="vitrine-orbite">
+            <div class="vitrine-icone-satellite p1">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>
+                </svg>
+            </div>
+            <div class="vitrine-icone-satellite p2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <circle cx="12" cy="12" r="9"/><path d="M9 12h6M12 8v8"/>
+                </svg>
+            </div>
+            <div class="vitrine-icone-satellite p3">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <path d="M4 4h16v12H8l-4 4V4z"/>
+                </svg>
+            </div>
+            <div class="vitrine-icone-satellite p4">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5V4.5z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                </svg>
+            </div>
+            <div class="vitrine-icone-satellite p5">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <path d="M4 20V10M12 20V4M20 20v-7"/>
+                </svg>
+            </div>
+            <div class="vitrine-icone-satellite p6">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/>
+                </svg>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="vitrine-ticker">
+        <div class="vitrine-ticker-piste">
+            <span>Élèves &amp; classes</span><span>·</span>
+            <span><strong>Finances</strong>, Caisse &amp; Salaires</span><span>·</span>
+            <span>Notes &amp; bulletins</span><span>·</span>
+            <span>Absences</span><span>·</span>
+            <span>Emploi du temps</span><span>·</span>
+            <span>Bibliothèque numérique</span><span>·</span>
+            <span>Communication &amp; annonces</span><span>·</span>
+            <span><strong>Statistiques</strong> en temps réel</span><span>·</span>
+            <span>Élèves &amp; classes</span><span>·</span>
+            <span><strong>Finances</strong>, Caisse &amp; Salaires</span><span>·</span>
+            <span>Notes &amp; bulletins</span><span>·</span>
+            <span>Absences</span><span>·</span>
+            <span>Emploi du temps</span><span>·</span>
+            <span>Bibliothèque numérique</span><span>·</span>
+            <span>Communication &amp; annonces</span><span>·</span>
+            <span><strong>Statistiques</strong> en temps réel</span><span>·</span>
+        </div>
+    </div>
+</div>
+
+<section class="vitrine-section" id="fonctionnalites">
+    <h2>Tout l'établissement, une seule plateforme</h2>
+    <p class="intro">
+        Chaque rôle - direction, secrétariat, comptabilité, enseignants, parents,
+        élèves - accède exactement à ce qui le concerne, ni plus ni moins.
+    </p>
+    <div class="vitrine-grille">
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M2 9l10-5 10 5-10 5-10-5z"/><path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5"/></svg>
+            </div>
+            <h3>Élèves, classes &amp; inscriptions</h3>
+            <p>Matricule et compte élève générés automatiquement, dossier complété dès qu'un parent est lié, cloisonnement par cycle.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="9"/><path d="M9 12h6M12 8v8"/></svg>
+            </div>
+            <h3>Finances, Caisse &amp; Salaires</h3>
+            <p>Chaque paiement et chaque salaire payé alimente automatiquement un registre de Caisse unique et infalsifiable.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+            </div>
+            <h3>Notes, absences &amp; emploi du temps</h3>
+            <p>Seul l'enseignant affecté peut noter ; bulletins et historiques consultables par l'élève, ses parents et la direction.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5V4.5z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/></svg>
+            </div>
+            <h3>Bibliothèque numérique</h3>
+            <p>Ajout unitaire ou import en masse par archive, export de toute la bibliothèque en un clic.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M4 4h16v12H8l-4 4V4z"/></svg>
+            </div>
+            <h3>Communication &amp; annonces</h3>
+            <p>Notification email automatique aux destinataires concernés ; un enseignant ne diffuse jamais à toute l'école.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+            </div>
+            <h3>Statistiques &amp; pilotage</h3>
+            <p>Effectifs par sexe, taux de réussite, finances par échéance - filtrés par année scolaire et par cycle.</p>
+        </div>
+    </div>
+</section>
+
+<section class="vitrine-section" id="securite" style="padding-top: 0;">
+    <div class="card">
+        <div class="card-body" style="display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between;">
+            <div>
+                <h3 style="margin-bottom: 0.3rem;">Sécurité intégrée, pas ajoutée après coup</h3>
+                <p style="color: var(--ink-500); margin: 0; max-width: 60ch;">
+                    Mots de passe robustes, verrouillage après tentatives échouées, sessions
+                    limitées dans le temps, journal d'audit en ajout seul, et une matrice de
+                    permissions modifiable sans redéploiement.
+                </p>
+            </div>
+            {% if mode_multi %}
+            <a href="#choisir-etablissement" class="btn btn-outline-primary">Accéder à la plateforme</a>
+            {% else %}
+            <a href="{% url 'comptes:connexion' %}" class="btn btn-outline-primary">Accéder à la plateforme</a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<footer class="vitrine-pied">
+    {% if etablissement %}
+    <p><strong>{{ etablissement.nom }}</strong>{% if etablissement.devise %} - {{ etablissement.devise }}{% endif %}</p>
+    {% endif %}
+    <p>{{ nom_plateforme }}</p>
+</footer>
+
+</body>
+</html>

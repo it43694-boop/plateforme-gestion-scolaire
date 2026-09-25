@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titre %}Corriger un paiement{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div><h1>Corriger le paiement {{ paiement.reference }}</h1>
+    <p>La correction se répercute automatiquement sur la ligne de Caisse liée.</p></div>
+</div>
+<div class="card" style="max-width: 480px;">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for champ in formulaire %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary w-100">Enregistrer la correction</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

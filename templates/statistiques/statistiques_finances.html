@@ -1,0 +1,21 @@
+{% extends "statistiques/base_statistiques.html" %}
+{% block contenu_stats %}
+<div class="page-header"><div><h1>Finances par échéance</h1><p>{{ annee.libelle }}</p></div>
+    <a href="{% url 'statistiques:exporter_finances_csv' %}?annee={{ annee.id }}" class="btn btn-outline-secondary btn-sm">Exporter en CSV</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        <table class="table">
+            <thead><tr><th>Échéance</th><th class="text-end">Total encaissé</th></tr></thead>
+            <tbody>
+                {% for ligne in par_tranche %}
+                <tr><td>{{ ligne.libelle }}</td><td class="text-end montant-val">{{ ligne.total }} {{ etablissement.code_devise|default:"FCFA" }}</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="font-weight: 700;"><td>Total général</td><td class="text-end montant-val">{{ total_general }} {{ etablissement.code_devise|default:"FCFA" }}</td></tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endblock %}

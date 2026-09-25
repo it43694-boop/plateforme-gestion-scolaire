@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block titre %}Désactiver la double authentification{% endblock %}
+{% block contenu %}
+<div class="page-header"><div><h1>Désactiver l'authentification à deux facteurs</h1></div></div>
+<div class="card" style="max-width: 440px;">
+    <div class="card-body">
+        <p style="color: var(--ink-500); font-size: 0.89rem;">
+            Confirmez avec un code actuel de votre application d'authentification.
+        </p>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label" for="code">Code</label>
+                <input type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+                       class="form-control" id="code" name="code" autofocus>
+            </div>
+            <button type="submit" class="btn btn-outline-danger w-100">Désactiver</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
