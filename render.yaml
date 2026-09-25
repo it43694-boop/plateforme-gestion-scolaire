@@ -13,8 +13,12 @@ services:
   # après 15 min d'inactivité (premier chargement plus lent après une
   # pause) ; le Key-Value gratuit stocke en mémoire uniquement (compteurs de
   # rate-limiting remis à zéro si le service redémarre - acceptable pour un
-  # test). Passez ces "plan:" à "starter" ou plus pour une exploitation
-  # réelle.
+  # test). Render n'accepte pas le plan gratuit pour les cron jobs : la file
+  # d'emails différés et les relances d'impayés automatiques ne sont donc PAS
+  # déployées ici (EMAIL_ASYNC=False - les emails partent immédiatement ou
+  # échouent, jamais mis en attente indéfiniment). Passez ces "plan:" à
+  # "starter" ou plus, et réintroduisez les deux services "cron" ci-dessous
+  # (voir git history / README) pour une exploitation réelle.
   - type: web
     name: plateforme-gestion-scolaire
     runtime: python
@@ -31,8 +35,9 @@ services:
       - key: CSRF_TRUSTED_ORIGINS
         value: "https://toumai-edu-school.onrender.com"
       # Chaîne de connexion Postgres Supabase (Project Settings > Database >
-      # Connection string > URI, mode "Transaction" recommandé). Format :
-      # postgres://postgres.[ref]:[mot-de-passe]@[hote]:6543/postgres
+      # Connection string > URI). Préférez le "Session pooler" (port 5432,
+      # utilisateur postgres.[ref]) à la connexion directe (db.[ref].supabase.co) :
+      # cette dernière est IPv6 uniquement et peut ne pas joindre Render.
       - key: DATABASE_URL
         sync: false
       - key: EMAIL_BACKEND
@@ -66,76 +71,10 @@ services:
       - key: DEFAULT_FROM_EMAIL
         sync: false
       - key: EMAIL_ASYNC
-        value: "True"
+        value: "False"
 
   - type: redis
     name: plateforme-gestion-scolaire-redis
     plan: free
+    ipAllowList: []
     maxmemoryPolicy: allkeys-lru
-
-  - type: cron
-    name: plateforme-gestion-scolaire-email-worker
-    runtime: python
-    plan: free
-    schedule: "*/5 * * * *"
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python manage.py envoyer_emails"
-    envVars:
-      - key: DJANGO_SECRET_KEY
-        fromService:
-          type: web
-          name: plateforme-gestion-scolaire
-          envVarKey: DJANGO_SECRET_KEY
-      - key: DATABASE_URL
-        sync: false
-      - key: DEBUG
-        value: "False"
-      - key: EMAIL_BACKEND
-        value: "django.core.mail.backends.smtp.EmailBackend"
-      - key: EMAIL_HOST
-        sync: false
-      - key: EMAIL_HOST_USER
-        sync: false
-      - key: EMAIL_HOST_PASSWORD
-        sync: false
-      - key: EMAIL_ASYNC
-        value: "True"
-      - key: DEFAULT_FROM_EMAIL
-        sync: false
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: plateforme-gestion-scolaire-redis
-          property: connectionString
-      - key: AWS_STORAGE_BUCKET_NAME
-        sync: false
-      - key: AWS_S3_ENDPOINT_URL
-        sync: false
-      - key: AWS_S3_REGION_NAME
-        sync: false
-      - key: AWS_ACCESS_KEY_ID
-        sync: false
-      - key: AWS_SECRET_ACCESS_KEY
-        sync: false
-
-  - type: cron
-    name: plateforme-gestion-scolaire-relance-impayes
-    runtime: python
-    plan: free
-    schedule: "0 8 * * *"
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python manage.py relancer_impayes"
-    envVars:
-      - key: DJANGO_SECRET_KEY
-        fromService:
-          type: web
-          name: plateforme-gestion-scolaire
-          envVarKey: DJANGO_SECRET_KEY
-      - key: DATABASE_URL
-        sync: false
-      - key: DEBUG
-        value: "False"
-      - key: EMAIL_ASYNC
-        value: "True"
-      - key: DEFAULT_FROM_EMAIL
-        sync: false
