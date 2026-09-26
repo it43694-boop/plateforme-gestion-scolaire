@@ -192,6 +192,7 @@ if AWS_STORAGE_BUCKET_NAME and not DEBUG:
                 "access_key": env("AWS_ACCESS_KEY_ID", default=""),
                 "secret_key": env("AWS_SECRET_ACCESS_KEY", default=""),
                 "default_acl": None,
+                "addressing_style": "path",
                 "querystring_auth": env.bool("AWS_QUERYSTRING_AUTH", default=True),
             },
         },
