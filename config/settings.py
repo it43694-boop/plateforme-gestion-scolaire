@@ -193,6 +193,7 @@ if AWS_STORAGE_BUCKET_NAME and not DEBUG:
                 "secret_key": env("AWS_SECRET_ACCESS_KEY", default=""),
                 "default_acl": None,
                 "addressing_style": "path",
+                "custom_domain": "jladyhlthlyvqkvzjuyi.supabase.co/storage/v1/object/public",
                 "querystring_auth": env.bool("AWS_QUERYSTRING_AUTH", default=True),
             },
         },
