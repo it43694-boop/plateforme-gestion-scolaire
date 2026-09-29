@@ -373,6 +373,43 @@ dans les fichiers de déploiement.
 - SMS, WhatsApp, Mobile Money, CSP `unsafe-inline`, tests de charge et
   rattrapage : toujours ouverts, inchangés depuis la phase précédente
 
+## État du projet : Phase 13 — Confirmations, recherche globale, emploi du temps visuel, CSP durcie
+
+- **Confirmation avant suppression** (`data-confirmer` sur les formulaires
+  POST, géré dans `app.js` sans JS en ligne) sur les suppressions de
+  paiement/salaire et le refus d'une demande de compte.
+- **Blocage anti-double-soumission** : tout formulaire POST de
+  l'application désactive son bouton d'envoi (avec un repère de
+  chargement animé) dès la soumission.
+- **Relance WhatsApp manuelle** (`comptes/utils.py::lien_whatsapp`) sur la
+  page Suivi des paiements - un lien `wa.me` pré-rempli, sans clé API ni
+  compte prestataire, pour les rôles n'ayant pas de solution SMS/WhatsApp
+  automatisée.
+- **Recherche globale** : une barre de recherche dans la barre supérieure
+  (visible seulement pour les rôles ayant le module Élèves) trouve un
+  élève par nom, prénom ou matricule, avec le même cloisonnement que la
+  liste des élèves.
+- **Emploi du temps en grille hebdomadaire** (une colonne par jour, Lundi
+  à Samedi, y compris les jours vides) à la place du tableau plat.
+- **CSP `style-src` sans `unsafe-inline`** : les 170 attributs `style=""`
+  des gabarits web ont été déplacés vers des classes CSS. Vérifié avec
+  l'événement navigateur `securitypolicyviolation` (pas seulement une
+  relecture du code) sur 39 pages couvrant 3 rôles : aucune violation.
+  Les gabarits PDF (xhtml2pdf) et l'email HTML restent inline par
+  nécessité - ils ne sont jamais servis au navigateur avec cet en-tête.
+- 303 tests au total, tous passent (hors erreurs Windows connues et sans
+  rapport).
+
+### Ce qui reste ouvert après cette phase
+
+- SMS, WhatsApp et Mobile Money automatisés (connecteur prestataire),
+  tests de charge, restauration de sauvegarde jamais testée, et
+  rattrapage : toujours ouverts
+- La grille visuelle de l'emploi du temps ne détecte pas les conflits de
+  salle (la classe et l'enseignant, si)
+- Pas encore d'indicateur de chargement pour les actions longues (export
+  PDF, question à l'Assistant IA) au-delà du bouton d'envoi
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque
