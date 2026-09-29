@@ -26,3 +26,5 @@ jobs:
       - run: coverage run manage.py test --noinput
       - run: coverage report
       - run: pip check
+      - run: pip install pip-audit
+      - run: pip-audit -r requirements.txt

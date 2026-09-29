@@ -461,6 +461,59 @@ dans les fichiers de déploiement.
   par le commanditaire, avec ses vraies données et sa politique de
   rétention - je n'ai pas accès à cet environnement depuis ici.
 
+## État du projet : Phase 15 — Application installable, accessibilité, sécurité des dépendances, mobile
+
+- **Application installable (PWA)** : manifeste (`/manifest.webmanifest`,
+  généré dynamiquement - le nom affiché sur l'écran d'accueil est celui
+  de l'établissement de l'utilisateur connecté) et service worker
+  (`/sw.js`) permettant d'installer l'application sur téléphone comme
+  une app native. Le service worker ne met en cache **que** les fichiers
+  statiques (CSS/JS/icônes) - jamais les pages ou données dynamiques -
+  pour qu'aucune note, paiement ou emploi du temps ne risque d'être
+  affiché à partir d'une copie obsolète.
+- **Accessibilité (a11y)** :
+  - Lien d'évitement (« Aller au contenu principal ») pour sauter la
+    barre latérale au clavier, avant tout le reste de la navigation.
+  - 12 formulaires (répartis sur 11 gabarits) affichaient un `<label>`
+    non relié à son champ (`for` manquant) - invisible pour un
+    utilisateur voyant à la souris, mais un vrai obstacle au clavier et
+    au lecteur d'écran, qui n'annonçait aucun nom de champ. Corrigé
+    partout avec le même attribut déjà utilisé correctement ailleurs
+    dans l'application.
+  - Attributs `alt` ajoutés aux deux images qui n'en avaient pas
+    (logo et QR code du bulletin PDF).
+- **Comportement mobile** : les tableaux (listes d'élèves, paiements,
+  audit, etc.) débordaient silencieusement de leur carte sur petit
+  écran. Ils défilent désormais horizontalement à l'intérieur de leur
+  propre carte au lieu de casser la mise en page de la page entière -
+  un seul correctif CSS a suffi car 27 des 31 gabarits concernés
+  partageaient déjà le même conteneur (`.card-body`).
+- **Sécurité des dépendances** : `pip-audit` intégré à la CI (le build
+  échoue si une dépendance a une faille connue) et Dependabot activé
+  (alerte hebdomadaire GitHub). Premier scan réel : Pillow 12.1.1 avait
+  35 failles connues, corrigées en mettant à jour vers la version 12.3.0
+  - deuxième scan confirmé propre.
+- Vérifié réellement, pas seulement relu : absence de défilement
+  horizontal de page sur mobile (375 px) avec des données réelles,
+  lien d'évitement fonctionnel au clavier, manifeste et service worker
+  effectivement chargés par le navigateur, suite complète (307 tests)
+  toujours au vert après la mise à jour de Pillow.
+
+### Ce qui reste ouvert après cette phase
+
+- SMS, WhatsApp et Mobile Money automatisés, tests de charge,
+  restauration testée uniquement en local, rattrapage : toujours
+  ouverts (voir phases précédentes).
+- L'icône de l'application installée reste la même pour tous les
+  établissements (comme le favicon existant) ; seul le nom affiché est
+  personnalisé par établissement. Utiliser le logo propre à chaque école
+  comme icône demanderait un redimensionnement fiable d'images
+  arbitraires envoyées par les écoles, non fait ici pour rester sûr.
+- Audit d'accessibilité fait par relecture ciblée (labels, alt, lien
+  d'évitement, contraste des styles de focus déjà en place) - pas par
+  un outil automatisé (ex. axe-core) ni par un test avec un vrai lecteur
+  d'écran.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

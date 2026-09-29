@@ -19,11 +19,13 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
-from config.views import sante
+from config.views import manifeste_pwa, sante, service_worker
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("healthz", sante, name="sante"),
+    path("manifest.webmanifest", manifeste_pwa, name="manifeste_pwa"),
+    path("sw.js", service_worker, name="service_worker"),
     path("comptes/", include("comptes.urls")),
     path("scolarite/", include("scolarite.urls")),
     path("finances/", include("finances.urls")),

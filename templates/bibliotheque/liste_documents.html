@@ -18,7 +18,7 @@
                     {% csrf_token %}
                     {% for champ in formulaire_ajout %}
                         <div class="mb-3">
-                            <label class="form-label">{{ champ.label }}</label>
+                            <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
                             {{ champ }}
                         </div>
                     {% endfor %}
@@ -33,7 +33,7 @@
                     {% csrf_token %}
                     {% for champ in formulaire_import %}
                         <div class="mb-3">
-                            <label class="form-label">{{ champ.label }}</label>
+                            <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
                             {{ champ }}
                         </div>
                     {% endfor %}

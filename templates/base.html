@@ -6,7 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block titre %}Tableau de bord{% endblock %} - {{ etablissement.nom|default:"Plateforme" }}</title>
     <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
+    <link rel="manifest" href="{% url 'manifeste_pwa' %}">
+    <link rel="apple-touch-icon" href="{% static 'img/icons/icone-apple-touch.png' %}">
     <meta name="theme-color" content="#12203D">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="{{ etablissement.nom|default:'Gestion scolaire' }}">
     <script nonce="{{ request.csp_nonce }}">
         (function () {
             try {
@@ -22,6 +28,7 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+<a href="#contenu-principal" class="lien-saut">Aller au contenu principal</a>
 <div class="app-shell">
     <aside class="sidebar" id="sidebar">
         <div class="marque">
@@ -84,7 +91,7 @@
             {% endif %}
         </header>
 
-        <main class="app-content">
+        <main class="app-content" id="contenu-principal">
             {% block contenu %}{% endblock %}
         </main>
         {% if messages %}

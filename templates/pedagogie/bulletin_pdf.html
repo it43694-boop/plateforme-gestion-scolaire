@@ -48,7 +48,7 @@
         <tr>
             <td style="width: 66px;">
                 {% if etablissement.logo %}
-                <img src="{{ etablissement.logo.url }}" class="logo" />
+                <img src="{{ etablissement.logo.url }}" alt="{{ etablissement.nom }}" class="logo" />
                 {% else %}
                 <div class="logo-emblème">{{ etablissement.initiale|default:"É" }}</div>
                 {% endif %}
@@ -120,7 +120,7 @@
 
     {% if verification %}
     <div class="pied">
-        {% if qr_code %}<img src="{{ qr_code }}" style="width: 60px; height: 60px; float: left; margin-right: 8px;" />{% endif %}
+        {% if qr_code %}<img src="{{ qr_code }}" alt="QR code de vérification" style="width: 60px; height: 60px; float: left; margin-right: 8px;" />{% endif %}
         Document vérifiable à l'adresse : {{ verification_url }}
     </div>
     {% endif %}

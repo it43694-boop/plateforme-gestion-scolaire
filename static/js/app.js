@@ -102,3 +102,13 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 });
+
+// Enregistrement du service worker : rend l'application installable et met
+// en cache les fichiers statiques. Ne concerne jamais les pages/données
+// dynamiques (voir static/js/sw.js) - sans risque pour la fraîcheur des
+// notes, paiements, etc.
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+        navigator.serviceWorker.register("/sw.js").catch(function () {});
+    });
+}
