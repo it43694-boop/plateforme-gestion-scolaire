@@ -1,7 +1,16 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Historique des absences{% endblock %}
 {% block contenu %}
-<div class="page-header"><div><h1>{{ eleve.nom_complet }}</h1><p>Historique des absences</p></div></div>
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone rouge">{% icone "alerte" 24 %}</div>
+        <div>
+            <h1>{{ eleve.nom_complet }}</h1>
+            <p>Historique des absences</p>
+        </div>
+    </div>
+</div>
 
 <div class="row g-3 mb-1">
     <div class="col-4">

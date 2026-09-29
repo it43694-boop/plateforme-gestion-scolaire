@@ -404,6 +404,12 @@ a:hover { color: var(--gold-600); }
 .page-header h1 { font-size: 1.5rem; }
 .page-header p { color: var(--ink-500); margin: 0.15rem 0 0; font-size: 0.92rem; }
 
+.page-header-titre { display: flex; align-items: center; gap: 0.9rem; }
+.page-header-icone {
+  width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+
 /* -------------------------------------------------------------------- */
 /* Panneaux (remplace les cartes Bootstrap génériques)                   */
 /* -------------------------------------------------------------------- */
@@ -430,10 +436,10 @@ a:hover { color: var(--gold-600); }
   width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
 }
-.stat-carte-icone.bleu { background: var(--bleu-100); color: var(--bleu-700); }
-.stat-carte-icone.or { background: var(--gold-050); color: var(--gold-600); }
-.stat-carte-icone.vert { background: var(--success-100); color: var(--success-700); }
-.stat-carte-icone.rouge { background: var(--danger-100); color: var(--danger-700); }
+.stat-carte-icone.bleu, .page-header-icone.bleu { background: var(--bleu-100); color: var(--bleu-700); }
+.stat-carte-icone.or, .page-header-icone.or { background: var(--gold-050); color: var(--gold-600); }
+.stat-carte-icone.vert, .page-header-icone.vert { background: var(--success-100); color: var(--success-700); }
+.stat-carte-icone.rouge, .page-header-icone.rouge { background: var(--danger-100); color: var(--danger-700); }
 .stat-carte-corps { min-width: 0; }
 .stat-carte-valeur {
   font-family: var(--police-affichage); font-size: 1.6rem; font-weight: 600;
@@ -487,6 +493,12 @@ a:hover { color: var(--gold-600); }
   vertical-align: middle;
   color: var(--ink-800);
 }
+.table tbody tr { animation: entree-douce 0.3s ease both; }
+.table tbody tr:nth-child(2) { animation-delay: 0.03s; }
+.table tbody tr:nth-child(3) { animation-delay: 0.06s; }
+.table tbody tr:nth-child(4) { animation-delay: 0.09s; }
+.table tbody tr:nth-child(5) { animation-delay: 0.12s; }
+.table tbody tr:nth-child(n+6) { animation-delay: 0.15s; }
 .table tbody tr:last-child td { border-bottom: none !important; }
 .table tbody tr:hover td { background: var(--paper-050); }
 
@@ -594,11 +606,27 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 /* -------------------------------------------------------------------- */
 
 .etat-vide {
-  text-align: left;
-  padding: 2rem 0;
+  text-align: center;
+  padding: 2.75rem 1rem;
   color: var(--ink-500);
 }
-.etat-vide p { margin: 0 0 0.9rem; }
+.etat-vide::before {
+  content: "";
+  display: block;
+  width: 48px; height: 48px;
+  margin: 0 auto 1rem;
+  background-color: var(--ink-300);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+.etat-vide p { margin: 0 0 0.9rem; text-align: center; }
+.etat-vide .btn { margin: 0 auto; }
 
 /* -------------------------------------------------------------------- */
 /* Page d'accueil publique (vitrine)                                     */

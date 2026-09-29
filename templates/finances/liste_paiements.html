@@ -1,10 +1,14 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Paiements{% endblock %}
 {% block contenu %}
 <div class="page-header">
-    <div>
-        <h1>Paiements de scolarité</h1>
-        <p>Chaque paiement crée automatiquement sa ligne dans le registre de Caisse.</p>
+    <div class="page-header-titre">
+        <div class="page-header-icone vert">{% icone "finances" 24 %}</div>
+        <div>
+            <h1>Paiements de scolarité</h1>
+            <p>Chaque paiement crée automatiquement sa ligne dans le registre de Caisse.</p>
+        </div>
     </div>
     <a href="{% url 'finances:enregistrer_paiement' %}" class="btn btn-primary btn-sm">Enregistrer un paiement</a>
 </div>
