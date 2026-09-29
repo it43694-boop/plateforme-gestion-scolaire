@@ -592,6 +592,7 @@ class ImporterElevesExcelTests(TestCase):
         feuille.append(["Awa", "Coulibaly", "1ère année A"])
         feuille.append(["Sekou", "Traore", "1ère année A"])
         classeur.save(self.fichier.name)
+        self.fichier.close()
 
     def tearDown(self):
         os.unlink(self.fichier.name)
@@ -623,6 +624,7 @@ class ImporterElevesExcelTests(TestCase):
         feuille.append(["prenom", "nom", "classe"])
         feuille.append(["Test", "Inconnu", "Classe qui n'existe pas"])
         classeur.save(fichier_invalide.name)
+        fichier_invalide.close()
         try:
             with self.assertRaises(CommandError):
                 call_command(

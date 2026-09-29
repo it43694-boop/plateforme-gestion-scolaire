@@ -50,8 +50,16 @@ class Command(BaseCommand):
             )
         classe_par_nom = {classe.nom.strip().lower(): classe for classe in classe_qs}
 
-        feuille = openpyxl.load_workbook(fichier, read_only=True, data_only=True).active
-        lignes = feuille.iter_rows(values_only=True)
+        classeur = openpyxl.load_workbook(fichier, read_only=True, data_only=True)
+        try:
+            lignes = list(classeur.active.iter_rows(values_only=True))
+        finally:
+            # En mode read_only, openpyxl garde le fichier ouvert (zip mappé)
+            # tant que close() n'est pas appelé explicitement - sur Windows,
+            # ça empêche la suppression du fichier tant que ce handle vit.
+            classeur.close()
+
+        lignes = iter(lignes)
         try:
             ligne_entete = next(lignes)
         except StopIteration as erreur:
