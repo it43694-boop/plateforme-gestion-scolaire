@@ -1,3 +1,5 @@
+from django.conf import settings
+
 from comptes.roles import ROLES_VALIDATION_COMPTES, Role
 
 
@@ -127,4 +129,5 @@ def navigation(request):
     return {
         "sections_navigation": sections, "notifications_non_lues": notifications_non_lues,
         "peut_rechercher_eleves": "eleves" in modules_autorises,
+        "app_version": settings.APP_VERSION,
     }

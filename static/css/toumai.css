@@ -1115,6 +1115,15 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
   font-family: monospace; font-size: 0.85rem; background: var(--paper-050);
   padding: 0.5rem; border-radius: var(--rayon-controle); margin-top: 0.6rem; word-break: break-all;
 }
+.liste-codes-secours {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;
+  list-style: none; padding: 0; margin: 0 0 1.2rem;
+}
+.liste-codes-secours li {
+  font-family: monospace; font-size: 0.95rem; text-align: center;
+  background: var(--paper-050); border: 1px solid var(--line-300);
+  border-radius: var(--rayon-controle); padding: 0.5rem;
+}
 .pagination-info { color: var(--ink-500); font-size: 0.82rem; }
 .texte-matricule { color: var(--ink-300); }
 .ligne-annulee { color: var(--ink-300); text-decoration: line-through; }

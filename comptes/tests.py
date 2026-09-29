@@ -228,10 +228,12 @@ class DeuxFacteursTests(TestCase):
         code = pyotp.TOTP(secret).now()
 
         reponse = self.client.post(reverse("comptes:activer_2fa"), {"code": code})
-        self.assertEqual(reponse.status_code, 302)
+        self.assertEqual(reponse.status_code, 200)  # affiche les codes de secours, pas de redirection
+        self.assertEqual(len(reponse.context["codes"]), 10)
         self.utilisateur.refresh_from_db()
         self.assertTrue(self.utilisateur.deux_facteurs_actif)
         self.assertEqual(self.utilisateur.totp_secret, secret)
+        self.assertEqual(self.utilisateur.codes_secours_2fa.count(), 10)
 
     def test_activer_avec_mauvais_code_najoute_pas(self):
         self.client.force_login(self.utilisateur)
@@ -284,6 +286,83 @@ class DeuxFacteursTests(TestCase):
         self.utilisateur.refresh_from_db()
         self.assertFalse(self.utilisateur.deux_facteurs_actif)
         self.assertEqual(self.utilisateur.totp_secret, "")
+
+
+class CodesSecours2FATests(TestCase):
+    def setUp(self):
+        self.utilisateur = creer_utilisateur_actif("secours@example.com", Role.DEVELOPPEUR)
+        self.secret = self.utilisateur.generer_secret_2fa()
+        self.utilisateur.totp_secret = self.secret
+        self.utilisateur.deux_facteurs_actif = True
+        self.utilisateur.save(update_fields=["totp_secret", "deux_facteurs_actif"])
+        self.codes = self.utilisateur.generer_codes_secours_2fa()
+
+    def test_generer_cree_dix_codes_uniques(self):
+        self.assertEqual(len(self.codes), 10)
+        self.assertEqual(len(set(self.codes)), 10)
+        self.assertEqual(self.utilisateur.codes_secours_2fa.count(), 10)
+
+    def test_regenerer_invalide_les_anciens_codes(self):
+        ancien_code = self.codes[0]
+        nouveaux = self.utilisateur.generer_codes_secours_2fa()
+        self.assertNotIn(ancien_code, nouveaux)
+        self.assertFalse(self.utilisateur.verifier_et_consommer_code_secours(ancien_code))
+
+    def test_connexion_avec_code_secours_valide_connecte_et_force_reactivation(self):
+        self.client.post(reverse("comptes:connexion"), {
+            "email": "secours@example.com", "mot_de_passe": "MotDePasse#2026",
+        })
+        reponse = self.client.post(reverse("comptes:verifier_2fa"), {"code": self.codes[0]})
+        self.assertRedirects(reponse, reverse("comptes:activer_2fa"))
+        self.assertTrue(reponse.wsgi_request.user.is_authenticated)
+        self.utilisateur.refresh_from_db()
+        self.assertFalse(self.utilisateur.deux_facteurs_actif)
+        self.assertEqual(self.utilisateur.totp_secret, "")
+
+    def test_code_secours_est_a_usage_unique(self):
+        self.client.post(reverse("comptes:connexion"), {
+            "email": "secours@example.com", "mot_de_passe": "MotDePasse#2026",
+        })
+        self.client.post(reverse("comptes:verifier_2fa"), {"code": self.codes[0]})
+        self.client.logout()
+
+        # La 2FA a été désactivée par la connexion précédente : on la
+        # réactive pour isoler ce que ce test vérifie (réutilisation du code).
+        self.utilisateur.refresh_from_db()
+        self.utilisateur.totp_secret = self.secret
+        self.utilisateur.deux_facteurs_actif = True
+        self.utilisateur.save(update_fields=["totp_secret", "deux_facteurs_actif"])
+
+        self.client.post(reverse("comptes:connexion"), {
+            "email": "secours@example.com", "mot_de_passe": "MotDePasse#2026",
+        })
+        reponse = self.client.post(reverse("comptes:verifier_2fa"), {"code": self.codes[0]})
+        self.assertFalse(reponse.wsgi_request.user.is_authenticated)
+
+    def test_code_secours_invalide_refuse(self):
+        reponse = self.utilisateur.verifier_et_consommer_code_secours("ZZZZ-ZZZZ")
+        self.assertFalse(reponse)
+
+    def test_regenerer_vue_avec_bon_code(self):
+        import pyotp
+        self.client.force_login(self.utilisateur)
+        code = pyotp.TOTP(self.secret).now()
+        reponse = self.client.post(reverse("comptes:regenerer_codes_secours_2fa"), {"code": code})
+        self.assertEqual(reponse.status_code, 200)
+        self.assertEqual(len(reponse.context["codes"]), 10)
+        self.assertFalse(self.utilisateur.verifier_et_consommer_code_secours(self.codes[0]))
+
+    def test_regenerer_vue_avec_mauvais_code_ne_change_rien(self):
+        self.client.force_login(self.utilisateur)
+        self.client.post(reverse("comptes:regenerer_codes_secours_2fa"), {"code": "000000"})
+        self.assertTrue(self.utilisateur.verifier_et_consommer_code_secours(self.codes[0]))
+
+    def test_regenerer_vue_sans_2fa_active_redirige(self):
+        self.utilisateur.deux_facteurs_actif = False
+        self.utilisateur.save(update_fields=["deux_facteurs_actif"])
+        self.client.force_login(self.utilisateur)
+        reponse = self.client.get(reverse("comptes:regenerer_codes_secours_2fa"))
+        self.assertRedirects(reponse, reverse("comptes:activer_2fa"))
 
 
 @override_settings(TESTING=False)

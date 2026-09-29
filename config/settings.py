@@ -19,6 +19,12 @@ import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Numéro de version : un seul fichier texte, mis à jour et tagué (git tag)
+# à chaque mise en production - voir la section "Versionner l'application"
+# du README. Ne pas confondre avec les anciennes sections "Phase N" du
+# README, qui restent un journal informel antérieur à ce système.
+APP_VERSION = (BASE_DIR / "VERSION").read_text(encoding="utf-8").strip()
+
 # Détecté une seule fois au démarrage : évite qu'un test doive créer un
 # compte avec la 2FA déjà activée juste pour accéder à une page protégée
 # par ForcerActivation2FAMiddleware - la matrice de permissions, elle, reste

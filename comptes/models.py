@@ -239,6 +239,42 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
             return False
         return pyotp.TOTP(secret_a_verifier).verify(code.strip(), valid_window=1)
 
+    # Alphabet sans 0/O ni 1/I/L : ambigus à recopier à la main depuis un
+    # papier - contrairement au secret TOTP (scanné en QR code une fois),
+    # ces codes sont faits pour être notés et relus par un humain.
+    ALPHABET_CODES_SECOURS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+    def generer_codes_secours_2fa(self) -> list[str]:
+        """
+        Remplace tous les codes de secours existants par 10 nouveaux codes à
+        usage unique, retournés en clair pour être affichés une seule fois :
+        seul leur hachage est conservé ensuite (comme un mot de passe), donc
+        impossible de les reconsulter après coup - uniquement les régénérer.
+        """
+        from django.contrib.auth.hashers import make_password
+
+        self.codes_secours_2fa.all().delete()
+        codes_affiches = []
+        for _ in range(10):
+            brut = "".join(secrets.choice(self.ALPHABET_CODES_SECOURS) for _ in range(8))
+            codes_affiches.append(f"{brut[:4]}-{brut[4:]}")
+            CodeSecours2FA.objects.create(utilisateur=self, code_hache=make_password(brut))
+        return codes_affiches
+
+    def verifier_et_consommer_code_secours(self, code: str) -> bool:
+        """Un code de secours n'est valable qu'une seule fois - consommé dès qu'il sert."""
+        from django.contrib.auth.hashers import check_password
+
+        normalise = (code or "").strip().upper().replace("-", "").replace(" ", "")
+        if not normalise:
+            return False
+        for entree in self.codes_secours_2fa.filter(utilise=False):
+            if check_password(normalise, entree.code_hache):
+                entree.utilise = True
+                entree.save(update_fields=["utilise"])
+                return True
+        return False
+
 
 def _expiration_par_defaut():
     return timezone.now() + timedelta(minutes=settings.DUREE_VALIDITE_CODE_VERIFICATION_MINUTES)
@@ -277,6 +313,27 @@ class CodeVerificationEmail(models.Model):
 
     def __str__(self):
         return f"Code pour {self.utilisateur.email} (expire le {self.expire_le:%d/%m/%Y %H:%M})"
+
+
+class CodeSecours2FA(models.Model):
+    """
+    Code de secours à usage unique pour la 2FA (voir
+    Utilisateur.generer_codes_secours_2fa) : permet de se connecter si
+    l'appareil TOTP est perdu, sans quoi la 2FA obligatoire de certains
+    rôles bloquerait définitivement le compte. Stocké haché, jamais en
+    clair après l'écran d'affichage initial.
+    """
+
+    utilisateur = models.ForeignKey(
+        Utilisateur, on_delete=models.CASCADE, related_name="codes_secours_2fa",
+    )
+    code_hache = models.CharField(max_length=128)
+    cree_le = models.DateTimeField(auto_now_add=True)
+    utilise = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "code de secours 2FA"
+        verbose_name_plural = "codes de secours 2FA"
 
 
 class JournalAudit(models.Model):

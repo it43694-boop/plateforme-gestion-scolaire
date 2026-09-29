@@ -23,4 +23,20 @@
         </form>
     </div>
 </div>
+{% if compte.deux_facteurs_actif and not est_soi_meme %}
+<div class="card mw-460 mt-3">
+    <div class="card-body">
+        <p class="texte-auth-note">
+            À utiliser uniquement si ce compte a perdu à la fois son appareil
+            d'authentification et ses codes de secours : la double authentification
+            sera entièrement désactivée et devra être reconfigurée à la prochaine connexion.
+        </p>
+        <form method="post" action="{% url 'espace_developpeur:reinitialiser_2fa_compte' compte.id %}"
+              data-confirmer="Réinitialiser la double authentification de {{ compte.nom_complet }} ?">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger w-100">Réinitialiser la double authentification</button>
+        </form>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

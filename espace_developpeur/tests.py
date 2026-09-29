@@ -97,6 +97,55 @@ class ModifierCompteTests(TestCase):
         self.assertFalse(self.personnel.is_active)
 
 
+class ReinitialiserDeuxFacteursTests(TestCase):
+    def setUp(self):
+        self.developpeur = creer_utilisateur_actif("dev-2fa-reset@example.com", Role.DEVELOPPEUR)
+        self.cible = creer_utilisateur_actif("cible-2fa-reset@example.com", Role.COMPTABLE)
+        self.cible.totp_secret = self.cible.generer_secret_2fa()
+        self.cible.deux_facteurs_actif = True
+        self.cible.save(update_fields=["totp_secret", "deux_facteurs_actif"])
+        self.cible.generer_codes_secours_2fa()
+
+    def test_developpeur_peut_reinitialiser_la_2fa_dun_autre_compte(self):
+        self.client.force_login(self.developpeur)
+        reponse = self.client.post(
+            reverse("espace_developpeur:reinitialiser_2fa_compte", args=[self.cible.id]),
+        )
+        self.assertEqual(reponse.status_code, 302)
+        self.cible.refresh_from_db()
+        self.assertFalse(self.cible.deux_facteurs_actif)
+        self.assertEqual(self.cible.totp_secret, "")
+        self.assertEqual(self.cible.codes_secours_2fa.count(), 0)
+
+    def test_developpeur_ne_peut_pas_reinitialiser_sa_propre_2fa(self):
+        self.developpeur.totp_secret = self.developpeur.generer_secret_2fa()
+        self.developpeur.deux_facteurs_actif = True
+        self.developpeur.save(update_fields=["totp_secret", "deux_facteurs_actif"])
+        self.client.force_login(self.developpeur)
+        self.client.post(
+            reverse("espace_developpeur:reinitialiser_2fa_compte", args=[self.developpeur.id]),
+        )
+        self.developpeur.refresh_from_db()
+        self.assertTrue(self.developpeur.deux_facteurs_actif)
+
+    def test_role_autre_que_developpeur_refuse(self):
+        autre = creer_utilisateur_actif("autre-2fa-reset@example.com", Role.SECRETAIRE)
+        self.client.force_login(autre)
+        reponse = self.client.post(
+            reverse("espace_developpeur:reinitialiser_2fa_compte", args=[self.cible.id]),
+        )
+        self.assertEqual(reponse.status_code, 403)
+        self.cible.refresh_from_db()
+        self.assertTrue(self.cible.deux_facteurs_actif)
+
+    def test_requiert_post(self):
+        self.client.force_login(self.developpeur)
+        reponse = self.client.get(
+            reverse("espace_developpeur:reinitialiser_2fa_compte", args=[self.cible.id]),
+        )
+        self.assertEqual(reponse.status_code, 405)
+
+
 class MatricePermissionsVueTests(TestCase):
     def setUp(self):
         from etablissement.models import Etablissement

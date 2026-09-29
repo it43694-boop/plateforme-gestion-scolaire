@@ -60,6 +60,7 @@
         </nav>
 
         {% if etablissement.devise %}<div class="sidebar-pied">{{ etablissement.devise }}</div>{% endif %}
+        {% if user.role == "developpeur" %}<div class="sidebar-pied">Version {{ app_version }}</div>{% endif %}
     </aside>
 
     <div class="app-main">
@@ -79,6 +80,7 @@
                 <a href="{% url 'comptes:changer_mot_de_passe' %}" class="btn btn-sm btn-outline-secondary">Mot de passe</a>
                 <a href="{% url 'comptes:changer_email' %}" class="btn btn-sm btn-outline-secondary">Email</a>
                 {% if user.deux_facteurs_actif %}
+                <a href="{% url 'comptes:regenerer_codes_secours_2fa' %}" class="btn btn-sm btn-outline-secondary">Codes de secours</a>
                 <a href="{% url 'comptes:desactiver_2fa' %}" class="btn btn-sm btn-outline-secondary">2FA activée</a>
                 {% else %}
                 <a href="{% url 'comptes:activer_2fa' %}" class="btn btn-sm btn-outline-secondary">Activer la 2FA</a>

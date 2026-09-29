@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titre %}Régénérer les codes de secours{% endblock %}
+{% block contenu %}
+<div class="page-header"><div><h1>Régénérer les codes de secours</h1></div></div>
+<div class="card mw-440">
+    <div class="card-body">
+        <p class="texte-auth-note">
+            Les codes actuels seront définitivement invalidés et remplacés par 10
+            nouveaux. Confirmez avec un code actuel de votre application
+            d'authentification.
+        </p>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label" for="code">Code</label>
+                <input type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+                       class="form-control" id="code" name="code" autofocus>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Régénérer mes codes de secours</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

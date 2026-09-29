@@ -103,6 +103,36 @@ def modifier_compte(request, utilisateur_id):
 
 
 @role_requis(*ROLE_ESPACE_DEVELOPPEUR)
+@require_http_methods(["POST"])
+def reinitialiser_2fa_compte(request, utilisateur_id):
+    """
+    Filet de secours quand un compte a perdu à la fois son appareil TOTP et
+    ses codes de secours : désactive complètement la 2FA du compte, qui
+    devra la reconfigurer entièrement à sa prochaine connexion (voir
+    ForcerActivation2FAMiddleware pour les rôles où elle est obligatoire).
+    """
+    compte = get_object_or_404(Utilisateur, id=utilisateur_id, etablissement=request.user.etablissement)
+    if compte.id == request.user.id:
+        messages.error(request, "Vous ne pouvez pas réinitialiser votre propre 2FA depuis cette page.")
+        return redirect("espace_developpeur:modifier_compte", utilisateur_id=compte.id)
+
+    compte.totp_secret = ""
+    compte.deux_facteurs_actif = False
+    compte.save(update_fields=["totp_secret", "deux_facteurs_actif"])
+    compte.codes_secours_2fa.all().delete()
+    enregistrer_action(
+        acteur=request.user, action="reinitialisation_2fa_espace_developpeur",
+        cible=compte.email, request=request,
+    )
+    messages.success(
+        request,
+        f"Double authentification réinitialisée pour {compte.nom_complet}. "
+        "Le compte devra la reconfigurer à sa prochaine connexion.",
+    )
+    return redirect("espace_developpeur:modifier_compte", utilisateur_id=compte.id)
+
+
+@role_requis(*ROLE_ESPACE_DEVELOPPEUR)
 def matrice_permissions_vue(request):
     etablissement = request.user.etablissement
     if etablissement is None:

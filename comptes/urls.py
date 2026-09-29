@@ -17,6 +17,7 @@ urlpatterns = [
     path("changer-email/", views.changer_email, name="changer_email"),
     path("2fa/activer/", views.activer_2fa, name="activer_2fa"),
     path("2fa/desactiver/", views.desactiver_2fa, name="desactiver_2fa"),
+    path("2fa/codes-secours/regenerer/", views.regenerer_codes_secours_2fa, name="regenerer_codes_secours_2fa"),
     path("tableau-de-bord/", views.redirection_tableau_de_bord, name="redirection_tableau_de_bord"),
     path("portail-parent/", views.portail_parent, name="portail_parent"),
     path("notifications/", views.liste_notifications, name="liste_notifications"),

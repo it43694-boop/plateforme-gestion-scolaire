@@ -22,6 +22,30 @@ les pages et tous les emails via un processeur de contexte
 (`comptes/context_processors.py`) — aucun autre fichier n'a besoin d'être
 modifié pour personnaliser l'identité visuelle d'un déploiement.
 
+## Versionner l'application
+
+Le fichier `VERSION` à la racine contient le numéro de version actuel
+(format [semver](https://semver.org/lang/fr/) : `MAJOR.MINOR.PATCH`).
+Ce système démarre à la version `1.0.0`, **à partir de maintenant** — il
+ne couvre pas rétroactivement les phases déjà livrées avant sa mise en
+place (voir les sections "État du projet : Phase N" ci-dessous, qui
+restent l'historique informel de ce qui a été construit avant).
+
+Pour publier une nouvelle version :
+1. Mettre à jour le fichier `VERSION` (`1.0.0` → `1.1.0` pour une
+   nouvelle fonctionnalité, `1.0.1` pour un correctif, `2.0.0` pour un
+   changement qui casse quelque chose, ex. une migration de données
+   lourde ou un comportement existant modifié).
+2. Committer ce changement, puis créer un tag git annoté :
+   `git tag -a v1.1.0 -m "Description courte"` et `git push --tags`.
+3. Le tag apparaît automatiquement dans l'onglet *Releases* du dépôt
+   GitHub et permet de revenir précisément à cet état si besoin.
+
+Le numéro de version est lu depuis ce fichier au démarrage de Django
+(`settings.APP_VERSION`) et affiché discrètement dans la barre latérale
+pour le rôle `developpeur` uniquement — utile pour savoir en un coup
+d'œil quelle version tourne sur un déploiement donné.
+
 ## État du projet : Phase 8 — Modules manquants, sécurité, pagination, page d'accueil
 
 En plus de la Phase 7, cette livraison ajoute :
@@ -513,6 +537,52 @@ dans les fichiers de déploiement.
   d'évitement, contraste des styles de focus déjà en place) - pas par
   un outil automatisé (ex. axe-core) ni par un test avec un vrai lecteur
   d'écran.
+
+## État du projet : Phase 16 — Versionnement, récupération de compte (2FA perdue)
+
+- **Versionnement** : voir la section "Versionner l'application"
+  ci-dessus - démarre à `1.0.0` à partir de cette phase, sans toucher
+  rétroactivement à l'historique des phases précédentes.
+- **Codes de secours pour la 2FA** : jusqu'ici, un compte ayant activé
+  la double authentification et perdu son téléphone n'avait *aucun*
+  moyen de récupérer son compte lui-même (`desactiver_2fa` exige
+  justement un code TOTP valide) - la seule issue était une intervention
+  manuelle en base de données. Corrigé :
+  - 10 codes de secours à usage unique sont générés et affichés **une
+    seule fois** à l'activation de la 2FA (jamais par email, jamais
+    reconsultables ensuite - seul leur hachage est conservé, comme un
+    mot de passe).
+  - L'écran de connexion à deux facteurs accepte maintenant un code de
+    secours à la place du code TOTP. L'utiliser désactive
+    automatiquement la 2FA du compte (l'ancien secret étant sur
+    l'appareil perdu) et le renvoie vers la page d'activation pour une
+    reconfiguration complète avec un nouvel appareil.
+  - Régénération possible à tout moment (« Codes de secours » dans la
+    barre supérieure), en confirmant avec un code TOTP actuel - invalide
+    immédiatement les anciens codes.
+  - **Filet de secours supplémentaire**, réservé au rôle `developpeur` :
+    un bouton dans l'espace développeur permet de réinitialiser
+    entièrement la 2FA d'un compte qui aurait perdu à la fois son
+    téléphone et ses codes de secours (impossible de le faire sur son
+    propre compte, pour éviter un contournement trivial).
+  - Le mot de passe oublié fonctionnait déjà correctement (lien à usage
+    unique par email, ou par matricule vers le(s) parent(s) pour un
+    élève) - vérifié, aucun changement nécessaire de ce côté.
+- 17 nouveaux tests (modèle, connexion par code de secours, usage
+  unique, régénération, réinitialisation par le développeur, restriction
+  de rôle) - tous au vert, suite complète revérifiée derrière.
+
+### Ce qui reste ouvert après cette phase
+
+- SMS, WhatsApp et Mobile Money automatisés, tests de charge,
+  restauration testée uniquement en local, rattrapage : toujours
+  ouverts (voir phases précédentes).
+- Si un compte perd son téléphone ET ses codes de secours ET n'a accès
+  à aucun `developpeur` de son établissement (cas d'un développeur
+  unique qui se retrouve lui-même dans cette situation), le retour à une
+  intervention manuelle en base reste la seule issue - c'est un choix
+  assumé : permettre à un rôle de réinitialiser sa propre 2FA sans
+  aucune preuve de possession ouvrirait une faille bien plus grave.
 
 ## Sauvegardes locales (base de données et médias)
 

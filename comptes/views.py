@@ -252,6 +252,24 @@ def verifier_2fa(request):
             request.session["etablissement_id"] = utilisateur.etablissement_id
             enregistrer_action(acteur=utilisateur, action="connexion_reussie_2fa", request=request)
             return redirect("comptes:redirection_tableau_de_bord")
+        if utilisateur.verifier_et_consommer_code_secours(code):
+            del request.session["utilisateur_en_attente_2fa_id"]
+            login(request, utilisateur)
+            request.session["etablissement_id"] = utilisateur.etablissement_id
+            # L'appareil TOTP est probablement celui qui a été perdu : on force
+            # une reconfiguration complète (nouveau secret, nouveaux codes)
+            # avant de continuer, sans quoi le compte se retrouverait
+            # simplement bloqué à nouveau une fois les codes restants épuisés.
+            utilisateur.totp_secret = ""
+            utilisateur.deux_facteurs_actif = False
+            utilisateur.save(update_fields=["totp_secret", "deux_facteurs_actif"])
+            enregistrer_action(acteur=utilisateur, action="connexion_via_code_secours_2fa", request=request)
+            messages.warning(
+                request,
+                "Connexion effectuée avec un code de secours. Reconfigurez la double "
+                "authentification avec votre nouvel appareil.",
+            )
+            return redirect("comptes:activer_2fa")
         enregistrer_action(acteur=utilisateur, action="echec_code_2fa", request=request)
         messages.error(request, "Code invalide.")
 
@@ -489,9 +507,13 @@ def activer_2fa(request):
             request.user.deux_facteurs_actif = True
             request.user.save(update_fields=["totp_secret", "deux_facteurs_actif"])
             del request.session["secret_2fa_en_attente"]
+            codes_secours = request.user.generer_codes_secours_2fa()
             enregistrer_action(acteur=request.user, action="activation_2fa", request=request)
             messages.success(request, "Authentification à deux facteurs activée.")
-            return redirect("comptes:redirection_tableau_de_bord")
+            # Affichés une seule fois ici : impossible de les reconsulter
+            # ensuite (seul leur hachage est conservé) - d'où l'avertissement
+            # dans le gabarit plutôt qu'une redirection directe au tableau de bord.
+            return render(request, "comptes/codes_secours_2fa.html", {"codes": codes_secours})
         messages.error(request, "Code invalide. Réessayez.")
     else:
         request.session["secret_2fa_en_attente"] = request.user.generer_secret_2fa()
@@ -510,6 +532,27 @@ def activer_2fa(request):
         pass
 
     return render(request, "comptes/activer_2fa.html", {"secret": secret, "qr_code": qr_code})
+
+
+@login_required
+def regenerer_codes_secours_2fa(request):
+    """
+    Remplace les codes de secours existants, par ex. après en avoir utilisé
+    plusieurs ou en cas de doute sur leur confidentialité. Exige un code TOTP
+    actuel (preuve de possession de l'appareil), comme desactiver_2fa.
+    """
+    if not request.user.deux_facteurs_actif:
+        return redirect("comptes:activer_2fa")
+
+    if request.method == "POST":
+        code = request.POST.get("code", "")
+        if request.user.verifier_code_2fa(code):
+            codes_secours = request.user.generer_codes_secours_2fa()
+            enregistrer_action(acteur=request.user, action="regeneration_codes_secours_2fa", request=request)
+            return render(request, "comptes/codes_secours_2fa.html", {"codes": codes_secours})
+        messages.error(request, "Code invalide.")
+
+    return render(request, "comptes/regenerer_codes_secours_2fa.html")
 
 
 @login_required
