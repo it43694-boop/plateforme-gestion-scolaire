@@ -26,7 +26,7 @@
                             {% csrf_token %}
                             <button class="btn btn-sm btn-success">Valider</button>
                         </form>
-                        <form method="post" action="{% url 'comptes:refuser_compte' compte.id %}" class="d-inline">
+                        <form method="post" action="{% url 'comptes:refuser_compte' compte.id %}" class="d-inline" data-confirmer="Refuser la demande de compte de {{ compte.nom_complet }} ?">
                             {% csrf_token %}
                             <button class="btn btn-sm btn-outline-danger">Refuser</button>
                         </form>

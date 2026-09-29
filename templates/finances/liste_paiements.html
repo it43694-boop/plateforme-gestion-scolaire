@@ -32,7 +32,7 @@
                         <a href="{% url 'finances:exporter_recu_paiement_pdf' paiement.id %}" class="btn btn-sm btn-outline-secondary">Reçu PDF</a>
                         <a href="{% url 'finances:corriger_paiement' paiement.id %}" class="btn btn-sm btn-outline-secondary">Corriger</a>
                         {% if est_direction %}
-                        <form method="post" action="{% url 'finances:supprimer_paiement' paiement.id %}" class="d-inline">
+                        <form method="post" action="{% url 'finances:supprimer_paiement' paiement.id %}" class="d-inline" data-confirmer="Supprimer ce paiement de {{ paiement.eleve.nom_complet }} ({{ paiement.montant }} {{ etablissement.code_devise|default:"FCFA" }}) ? Cette action est irréversible.">
                             {% csrf_token %}
                             <button class="btn btn-sm btn-outline-danger">Supprimer</button>
                         </form>

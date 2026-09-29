@@ -37,7 +37,7 @@
                         </form>
                         {% endif %}
                         {% if est_direction %}
-                        <form method="post" action="{% url 'finances:supprimer_salaire' salaire.id %}" class="d-inline">
+                        <form method="post" action="{% url 'finances:supprimer_salaire' salaire.id %}" class="d-inline" data-confirmer="Supprimer ce salaire de {{ salaire.employe.nom_complet }} ({{ salaire.montant }} {{ etablissement.code_devise|default:"FCFA" }}) ? Cette action est irréversible.">
                             {% csrf_token %}
                             <button class="btn btn-sm btn-outline-danger">Supprimer</button>
                         </form>

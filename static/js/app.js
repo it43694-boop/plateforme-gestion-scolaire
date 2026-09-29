@@ -3,6 +3,19 @@ document.addEventListener("DOMContentLoaded", function () {
         champ.addEventListener("change", function () { champ.form.submit(); });
     });
 
+    document.querySelectorAll('form[method="post"], form[method="POST"]').forEach(function (formulaire) {
+        formulaire.addEventListener("submit", function (evenement) {
+            var confirmation = formulaire.getAttribute("data-confirmer");
+            if (confirmation && !window.confirm(confirmation)) {
+                evenement.preventDefault();
+                return;
+            }
+            formulaire.querySelectorAll("button, input[type='submit']").forEach(function (bouton) {
+                if (bouton.type === "submit") bouton.disabled = true;
+            });
+        });
+    });
+
     var boutonMenu = document.querySelector(".bouton-menu-mobile");
     if (boutonMenu) {
         boutonMenu.addEventListener("click", function () {
