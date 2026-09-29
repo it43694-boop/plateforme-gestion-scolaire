@@ -1,4 +1,6 @@
+import os
 from datetime import timedelta
+from pathlib import Path
 from unittest.mock import patch
 
 from django.core import mail
@@ -661,3 +663,128 @@ class JournalAuditAdresseIpTests(TestCase):
         )
         entree = JournalAudit.objects.filter(action="connexion_reussie").latest("horodatage")
         self.assertEqual(entree.adresse_ip, "203.0.113.9")
+
+
+class SauvegarderDonneesTests(TestCase):
+    """
+    manage.py sauvegarder_donnees - lancée depuis un poste local, jamais par
+    le serveur lui-même (voir docstring de la commande). pg_dump et boto3
+    sont simulés (aucun vrai Postgres ni bucket S3 dans cet environnement de
+    test) ; seuls les chemins SQLite et dossier local sont exercés en réel.
+    """
+
+    def test_sqlite_est_copiee(self):
+        import sqlite3
+        import tempfile
+        from django.core.management import call_command
+
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as destination:
+            base_source = Path(source_dir) / "base.sqlite3"
+            connexion = sqlite3.connect(base_source)
+            connexion.execute("CREATE TABLE t (x INTEGER)")
+            connexion.commit()
+            connexion.close()
+
+            with override_settings(DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": str(base_source)}}):
+                call_command("sauvegarder_donnees", destination=destination, **{"garder_jours": 30})
+
+            sous_dossiers = list(Path(destination).glob("sauvegarde_*"))
+            self.assertEqual(len(sous_dossiers), 1)
+            self.assertTrue((sous_dossiers[0] / "base_de_donnees.sqlite3").exists())
+
+    def test_medias_locaux_sont_copies(self):
+        import tempfile
+        from django.core.management import call_command
+
+        with tempfile.TemporaryDirectory() as media_dir, tempfile.TemporaryDirectory() as destination:
+            (Path(media_dir) / "logo.png").write_bytes(b"contenu-factice")
+
+            with override_settings(MEDIA_ROOT=media_dir), patch.dict(os.environ, {"AWS_STORAGE_BUCKET_NAME": ""}):
+                call_command("sauvegarder_donnees", destination=destination, **{"garder_jours": 30})
+
+            sous_dossier = next(Path(destination).glob("sauvegarde_*"))
+            self.assertTrue((sous_dossier / "medias" / "logo.png").exists())
+
+    def test_postgres_appelle_pg_dump_avec_les_bons_parametres(self):
+        import tempfile
+        from django.core.management import call_command
+
+        config_postgres = {
+            "ENGINE": "django.db.backends.postgresql",
+            "HOST": "db.exemple.supabase.co", "PORT": 5432,
+            "USER": "postgres", "PASSWORD": "secret", "NAME": "postgres",
+        }
+        with tempfile.TemporaryDirectory() as destination:
+            with override_settings(DATABASES={"default": config_postgres}), \
+                 patch("comptes.management.commands.sauvegarder_donnees.subprocess.run") as mock_run, \
+                 patch.dict(os.environ, {"AWS_STORAGE_BUCKET_NAME": ""}):
+                mock_run.return_value = None
+                call_command("sauvegarder_donnees", destination=destination, **{"garder_jours": 30})
+
+            self.assertTrue(mock_run.called)
+            commande = mock_run.call_args.args[0]
+            self.assertIn("pg_dump", commande)
+            self.assertIn("db.exemple.supabase.co", commande)
+            environnement = mock_run.call_args.kwargs["env"]
+            self.assertEqual(environnement["PGPASSWORD"], "secret")
+
+    def test_pg_dump_absent_leve_une_erreur_claire(self):
+        import tempfile
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        config_postgres = {
+            "ENGINE": "django.db.backends.postgresql",
+            "HOST": "db.exemple.supabase.co", "PORT": 5432,
+            "USER": "postgres", "PASSWORD": "secret", "NAME": "postgres",
+        }
+        with tempfile.TemporaryDirectory() as destination:
+            with override_settings(DATABASES={"default": config_postgres}), \
+                 patch("comptes.management.commands.sauvegarder_donnees.subprocess.run", side_effect=FileNotFoundError), \
+                 patch.dict(os.environ, {"AWS_STORAGE_BUCKET_NAME": ""}):
+                with self.assertRaises(CommandError):
+                    call_command("sauvegarder_donnees", destination=destination, **{"garder_jours": 30})
+
+    def test_bucket_s3_est_parcouru_et_telecharge(self):
+        import tempfile
+        from django.core.management import call_command
+
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as destination:
+            base_source = Path(source_dir) / "base.sqlite3"
+            base_source.write_bytes(b"")
+
+            paginateur_simule = type("Paginateur", (), {
+                "paginate": lambda self, Bucket: [{"Contents": [{"Key": "logos/ecole.png"}]}],
+            })()
+            client_simule = type("Client", (), {
+                "get_paginator": lambda self, nom: paginateur_simule,
+                "download_file": lambda self, bucket, cle, chemin: Path(chemin).write_bytes(b"contenu"),
+            })()
+
+            with override_settings(DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": str(base_source)}}), \
+                 patch("comptes.management.commands.sauvegarder_donnees.boto3.client", return_value=client_simule), \
+                 patch.dict(os.environ, {"AWS_STORAGE_BUCKET_NAME": "mon-bucket"}):
+                call_command("sauvegarder_donnees", destination=destination, **{"garder_jours": 30})
+
+            sous_dossier = next(Path(destination).glob("sauvegarde_*"))
+            self.assertTrue((sous_dossier / "medias" / "logos" / "ecole.png").exists())
+
+    def test_purge_les_sauvegardes_trop_anciennes(self):
+        import tempfile
+        from django.core.management import call_command
+
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as destination:
+            base_source = Path(source_dir) / "base.sqlite3"
+            base_source.write_bytes(b"")
+
+            ancienne = Path(destination) / "sauvegarde_20200101_000000"
+            ancienne.mkdir()
+            ancien_horodatage = (timezone.now() - timedelta(days=60)).timestamp()
+            os.utime(ancienne, (ancien_horodatage, ancien_horodatage))
+
+            with override_settings(DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": str(base_source)}}), \
+                 patch.dict(os.environ, {"AWS_STORAGE_BUCKET_NAME": ""}):
+                call_command("sauvegarder_donnees", destination=destination, **{"garder_jours": 30})
+
+            self.assertFalse(ancienne.exists())
+            self.assertEqual(len(list(Path(destination).glob("sauvegarde_*"))), 1)

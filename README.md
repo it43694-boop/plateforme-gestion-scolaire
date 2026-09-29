@@ -336,14 +336,79 @@ dans les fichiers de déploiement.
 ### Ce qui reste ouvert après cette phase
 
 - SMS, WhatsApp et Mobile Money restent des connecteurs à configurer selon
-  le prestataire choisi - aucun n'est câblé dans le code
+  le prestataire choisi - aucun n'est câblé dans le code (nécessite un
+  compte et des clés chez le prestataire retenu, aucune voie sans compte
+  n'existe côté opérateurs/Meta)
 - CSP : `style-src` reste en `'unsafe-inline'` (chantier séparé, inchangé)
-- Sauvegardes Postgres/médias : toujours aucune automatisation ni
-  restauration testée documentée dans ce dépôt
-- `SENTRY_DSN` est déclaré dans `render.yaml` mais sa valeur réelle sur le
-  déploiement n'est pas vérifiable depuis ce dépôt - à confirmer côté Render
 - Les tests de charge et la recette utilisateur formelle restent à faire
 - Rattrapage/repêchage toujours volontairement non couvert
+
+## État du projet : Phase 12 — Sauvegardes locales planifiables, Sentry vérifié en conditions réelles
+
+- **`SENTRY_DSN` vérifié en conditions réelles** : un événement de test
+  envoyé depuis ce dépôt est bien apparu dans le tableau de bord Sentry -
+  la supervision d'erreurs est confirmée active sur le déploiement.
+- **Commande `manage.py sauvegarder_donnees`** : sauvegarde la base de
+  données (SQLite en local, `pg_dump` en PostgreSQL) et les médias (copie
+  locale, ou téléchargement complet du bucket S3/Supabase Storage si
+  `AWS_STORAGE_BUCKET_NAME` est renseigné) vers `--destination DOSSIER`,
+  avec purge des sauvegardes de plus de `--garder-jours` jours (30 par
+  défaut). Volontairement **jamais automatique côté serveur** : le plan
+  gratuit utilisé n'a ni disque persistant ni tâches planifiées - la
+  commande est conçue pour tourner depuis un poste local, sur la base et
+  le bucket de production via les mêmes variables d'environnement
+  (`DATABASE_URL`, `AWS_*`) que celles déjà utilisées pour Render, jamais
+  de secret codé en dur. Voir la section « Sauvegardes locales »
+  ci-dessous pour la planifier avec les Tâches planifiées Windows.
+- 288 tests au total, tous passent (hors erreurs Windows connues et sans
+  rapport, absentes sous Linux/macOS et en CI).
+
+### Ce qui reste ouvert après cette phase
+
+- La sauvegarde reste manuelle à planifier (Tâches planifiées Windows ou
+  cron) - rien ne la déclenche tant que l'administrateur ne l'a pas configurée
+- Aucune restauration n'a encore été testée à partir d'une sauvegarde produite
+  par cette commande - une sauvegarde jamais restaurée n'est pas considérée
+  comme fiable
+- SMS, WhatsApp, Mobile Money, CSP `unsafe-inline`, tests de charge et
+  rattrapage : toujours ouverts, inchangés depuis la phase précédente
+
+## Sauvegardes locales (base de données et médias)
+
+Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque
+persistant, ni tâches planifiées (cron) : la sauvegarde ne peut donc pas
+tourner automatiquement sur le serveur lui-même. `manage.py
+sauvegarder_donnees` est prévue pour être lancée depuis un poste local,
+pointée vers la base et le bucket de production.
+
+1. Dans le dossier du projet, sur le poste qui exécutera les sauvegardes,
+   créez ou éditez `.env` avec les vraies valeurs de production :
+   `DATABASE_URL` (la chaîne de connexion Supabase - Session pooler
+   recommandé) et, si les médias sont sur Supabase Storage,
+   `AWS_STORAGE_BUCKET_NAME`, `AWS_S3_ENDPOINT_URL`, `AWS_S3_REGION_NAME`,
+   `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (les mêmes valeurs que sur
+   Render). **Ne commitez jamais ce `.env` rempli.**
+2. Pour la base PostgreSQL, installez les outils client PostgreSQL
+   (https://www.postgresql.org/download/) et vérifiez que `pg_dump` est
+   accessible depuis une invite de commande (`pg_dump --version`).
+3. Test manuel :
+   ```
+   python manage.py sauvegarder_donnees --destination "D:\Sauvegardes\EcoleGestion"
+   ```
+   Chaque exécution crée un sous-dossier horodaté
+   (`sauvegarde_20260101_020000`) contenant `base_de_donnees.sql` (ou
+   `.sqlite3` en local) et `medias/`.
+4. Pour l'automatiser à la fréquence de votre choix, ouvrez le
+   **Planificateur de tâches Windows** (`taskschd.msc`) → *Créer une tâche
+   de base* → choisissez la fréquence (quotidienne, hebdomadaire...) →
+   action *Démarrer un programme* :
+   - Programme : le chemin complet de votre `python.exe`
+   - Arguments : `manage.py sauvegarder_donnees --destination "D:\Sauvegardes\EcoleGestion"`
+   - Démarrer dans : le dossier du projet (celui contenant `manage.py`)
+5. Testez la tâche planifiée une fois manuellement (clic droit → Exécuter)
+   avant de lui faire confiance sur la durée. Pensez aussi, de temps en
+   temps, à restaurer une sauvegarde sur une base de test pour vérifier
+   qu'elle est réellement exploitable.
 
 ## À faire
 
