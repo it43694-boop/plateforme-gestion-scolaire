@@ -439,6 +439,13 @@ dans les fichiers de déploiement.
   supérieure corrigée après une première position incorrecte, repère de
   chargement posé puis retiré sur l'export PDF, transition de thème
   visible sans accroc.
+- **Cycle sauvegarde → restauration vérifié en local** : `manage.py
+  sauvegarder_donnees` exécuté sur la base SQLite de développement, puis
+  la copie produite comparée à l'originale (39/39 tables, même nombre de
+  lignes sur une table de référence, `PRAGMA integrity_check` = `ok` sur
+  les deux fichiers). La restauration d'une sauvegarde SQLite consiste à
+  recopier ce fichier à la place de la base active, ce qui est
+  exactement ce que ce contrôle valide.
 
 ### Ce qui reste ouvert après cette phase
 
@@ -448,10 +455,11 @@ dans les fichiers de déploiement.
   n'a été faite pour ces deux points.
 - Rattrapage : toujours hors périmètre tant que non redemandé
   explicitement.
-- Cycle sauvegarde → restauration : la commande existe et a été testée
-  unitairement, mais un essai complet de restauration en conditions
-  réelles (base de production ou copie) reste à faire par le
-  commanditaire selon la politique de rétention choisie.
+- Le cycle sauvegarde → restauration n'a été vérifié qu'en local sur
+  SQLite. En production (PostgreSQL + bucket S3/R2), la même vérification
+  (restaurer un `pg_dump` sur une base de test et comparer) reste à faire
+  par le commanditaire, avec ses vraies données et sa politique de
+  rétention - je n'ai pas accès à cet environnement depuis ici.
 
 ## Sauvegardes locales (base de données et médias)
 
