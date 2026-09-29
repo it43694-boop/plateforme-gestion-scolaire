@@ -59,6 +59,12 @@
         <header class="topbar">
             <button class="bouton-menu-mobile" aria-label="Menu">☰</button>
             {% if user.is_authenticated %}
+            {% if peut_rechercher_eleves %}
+            <form method="get" action="{% url 'scolarite:recherche_globale' %}" class="topbar-recherche" role="search">
+                {% icone "recherche" 16 %}
+                <input type="search" name="q" placeholder="Rechercher un élève..." aria-label="Rechercher un élève">
+            </form>
+            {% endif %}
             <div class="topbar-utilisateur">
                 <span><span class="role">{{ user.get_role_display }}</span> - {{ user.nom_complet }}</span>
                 <div class="avatar-initiales">{{ user.prenom|first }}{{ user.nom|first }}</div>

@@ -6,6 +6,7 @@ app_name = "scolarite"
 
 urlpatterns = [
     path("eleves/", views.liste_eleves, name="liste_eleves"),
+    path("recherche/", views.recherche_globale, name="recherche_globale"),
     path("eleves/<str:matricule>/dossier/", views.dossier_eleve, name="dossier_eleve"),
     path("eleves/inscrire/", views.inscrire_eleve, name="inscrire_eleve"),
     path("classes/", views.liste_classes, name="liste_classes"),

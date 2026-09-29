@@ -124,4 +124,7 @@ def navigation(request):
             "liens": [{"label": "Établissements", "url": "espace_plateforme:liste_etablissements"}],
         })
 
-    return {"sections_navigation": sections, "notifications_non_lues": notifications_non_lues}
+    return {
+        "sections_navigation": sections, "notifications_non_lues": notifications_non_lues,
+        "peut_rechercher_eleves": "eleves" in modules_autorises,
+    }

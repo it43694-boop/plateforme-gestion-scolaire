@@ -17,7 +17,7 @@ from comptes.decorators import module_requis
 from comptes.models import Utilisateur
 from comptes.roles import Role
 from pedagogie.forms import CreneauForm, SaisirAbsenceForm, SaisirNoteForm
-from pedagogie.models import Absence, CreneauEmploiDuTemps, Note, Trimestre, VerificationBulletin, saisir_note
+from pedagogie.models import Absence, CreneauEmploiDuTemps, JourSemaine, Note, Trimestre, VerificationBulletin, saisir_note
 from permissions_matrix.modules import Module
 from scolarite.models import Affectation, Classe, Inscription, classes_visibles_pour, eleve_visible_pour
 
@@ -364,9 +364,13 @@ def gerer_emploi_du_temps(request, classe_id):
                 messages.success(request, "Créneau ajouté.")
                 return redirect("pedagogie:gerer_emploi_du_temps", classe_id=classe.id)
 
-    creneaux = classe.creneaux.select_related("affectation__enseignant").order_by("jour_semaine", "heure_debut")
+    creneaux = list(classe.creneaux.select_related("affectation__enseignant").order_by("jour_semaine", "heure_debut"))
+    jours = [
+        {"valeur": valeur, "label": label, "creneaux": [c for c in creneaux if c.jour_semaine == valeur]}
+        for valeur, label in JourSemaine.choices
+    ]
     return render(request, "pedagogie/emploi_du_temps.html", {
-        "classe": classe, "formulaire": formulaire, "creneaux": creneaux,
+        "classe": classe, "formulaire": formulaire, "creneaux": creneaux, "jours": jours,
     })
 
 

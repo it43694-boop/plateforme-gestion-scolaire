@@ -162,6 +162,30 @@ def liste_eleves(request):
     })
 
 
+@module_requis(Module.ELEVES)
+def recherche_globale(request):
+    """
+    Recherche par nom, prénom ou matricule, toujours cloisonnée aux mêmes
+    classes que liste_eleves (classes_visibles_pour) - jamais un raccourci
+    qui élargirait ce qu'un rôle peut déjà voir.
+    """
+    from django.db.models import Q
+
+    terme = request.GET.get("q", "").strip()
+    resultats = []
+    if terme:
+        inscriptions = Inscription.objects.filter(
+            classe__in=classes_visibles_pour(request.user), statut=Inscription.Statut.EN_COURS,
+        ).filter(
+            Q(eleve__nom__icontains=terme) | Q(eleve__prenom__icontains=terme) | Q(eleve__matricule__icontains=terme),
+        ).select_related("eleve", "classe").order_by("eleve__nom")
+        if request.user.role == Role.PARENT:
+            inscriptions = inscriptions.filter(eleve__parents_lies=request.user)
+        resultats = inscriptions[:25]
+
+    return render(request, "scolarite/recherche_globale.html", {"terme": terme, "resultats": resultats})
+
+
 @module_requis(Module.CLASSES)
 def affecter_enseignant(request):
     classes_disponibles = classes_visibles_pour(request.user)

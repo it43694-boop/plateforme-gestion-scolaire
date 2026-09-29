@@ -32,20 +32,22 @@
         <div class="card">
             <div class="card-body">
                 {% if creneaux %}
-                <table class="table">
-                    <thead><tr><th>Jour</th><th>Horaire</th><th>Matière</th><th>Enseignant</th><th>Salle</th></tr></thead>
-                    <tbody>
-                        {% for creneau in creneaux %}
-                        <tr>
-                            <td>{{ creneau.get_jour_semaine_display }}</td>
-                            <td>{{ creneau.heure_debut|time:"H:i" }} – {{ creneau.heure_fin|time:"H:i" }}</td>
-                            <td>{{ creneau.affectation.matiere|default:"Titulaire" }}</td>
-                            <td>{{ creneau.affectation.enseignant.nom_complet }}</td>
-                            <td>{{ creneau.salle|default:"-" }}</td>
-                        </tr>
+                <div class="emploi-grille">
+                    {% for jour in jours %}
+                    <div class="emploi-jour">
+                        <div class="emploi-jour-titre">{{ jour.label }}</div>
+                        {% for creneau in jour.creneaux %}
+                        <div class="emploi-creneau">
+                            <div class="emploi-creneau-heure">{{ creneau.heure_debut|time:"H:i" }} – {{ creneau.heure_fin|time:"H:i" }}</div>
+                            <div class="emploi-creneau-matiere">{{ creneau.affectation.matiere|default:"Titulaire" }}</div>
+                            <div class="emploi-creneau-detail">{{ creneau.affectation.enseignant.nom_complet }}{% if creneau.salle %} · {{ creneau.salle }}{% endif %}</div>
+                        </div>
+                        {% empty %}
+                        <div class="emploi-jour-vide">—</div>
                         {% endfor %}
-                    </tbody>
-                </table>
+                    </div>
+                    {% endfor %}
+                </div>
                 {% else %}
                 <div class="etat-vide"><p>Aucun créneau défini pour cette classe.</p></div>
                 {% endif %}

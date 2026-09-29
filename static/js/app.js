@@ -11,7 +11,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
             formulaire.querySelectorAll("button, input[type='submit']").forEach(function (bouton) {
-                if (bouton.type === "submit") bouton.disabled = true;
+                if (bouton.type !== "submit") return;
+                bouton.disabled = true;
+                if (bouton.tagName === "BUTTON") bouton.classList.add("bouton-en-cours");
             });
         });
     });

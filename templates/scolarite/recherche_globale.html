@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Recherche{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "recherche" 24 %}</div>
+        <div>
+            <h1>Résultats pour « {{ terme }} »</h1>
+            <p>{{ resultats|length }} élève{{ resultats|length|pluralize }} trouvé{{ resultats|length|pluralize }}.</p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if resultats %}
+        <table class="table">
+            <thead><tr><th>Matricule</th><th>Nom</th><th>Classe</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+                {% for inscription in resultats %}
+                <tr>
+                    <td>{{ inscription.eleve.matricule }}</td>
+                    <td>{{ inscription.eleve.nom_complet }}</td>
+                    <td>{{ inscription.classe }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'scolarite:dossier_eleve' inscription.eleve.matricule %}" class="btn btn-sm btn-outline-primary">Dossier</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide">
+            <p>{% if terme %}Aucun élève ne correspond à « {{ terme }} ».{% else %}Saisissez un nom, un prénom ou un matricule.{% endif %}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

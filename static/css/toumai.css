@@ -242,6 +242,29 @@ a:hover { color: var(--gold-600); }
   outline-offset: 2px;
 }
 
+/* Bouton d'envoi de formulaire pendant le traitement (app.js) - garde le
+   texte du bouton lisible, ajoute juste un repère de chargement à gauche. */
+@keyframes rotation-bouton {
+  to { transform: rotate(360deg); }
+}
+.bouton-en-cours {
+  position: relative;
+  padding-left: 2.1rem !important;
+}
+.bouton-en-cours::before {
+  content: "";
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: rotation-bouton 0.6s linear infinite;
+}
+
 /* -------------------------------------------------------------------- */
 /* Coquille applicative                                                  */
 /* -------------------------------------------------------------------- */
@@ -351,7 +374,29 @@ a:hover { color: var(--gold-600); }
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
 }
+
+.topbar-recherche {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--paper-050);
+  border: 1px solid var(--line-200);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  flex: 1 1 160px;
+  max-width: 220px;
+  color: var(--ink-500);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.topbar-recherche:focus-within { border-color: var(--gold-500); background: var(--paper-000); }
+.topbar-recherche .icone-svg { flex-shrink: 0; }
+.topbar-recherche input {
+  border: none; background: transparent; outline: none;
+  font-size: 0.86rem; color: var(--texte-principal); width: 100%;
+}
+.topbar-recherche input::placeholder { color: var(--ink-300); }
 
 .topbar-utilisateur {
   display: flex;
@@ -388,6 +433,7 @@ a:hover { color: var(--gold-600); }
 @media (max-width: 520px) {
   .topbar-utilisateur > span { display: none; }
   .topbar { padding: 0.7rem 1rem; }
+  .topbar-recherche { display: none; }
 }
 
 /* -------------------------------------------------------------------- */
@@ -409,6 +455,38 @@ a:hover { color: var(--gold-600); }
   width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
 }
+
+/* -------------------------------------------------------------------- */
+/* Emploi du temps - grille hebdomadaire (une colonne par jour)          */
+/* -------------------------------------------------------------------- */
+
+.emploi-grille {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+.emploi-jour { flex: 1 0 150px; min-width: 150px; }
+.emploi-jour-titre {
+  font-family: var(--police-affichage);
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--ink-800);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.6rem;
+  border-bottom: 2px solid var(--gold-500);
+}
+.emploi-creneau {
+  background: var(--paper-050);
+  border-left: 3px solid var(--gold-500);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  margin-bottom: 0.6rem;
+}
+.emploi-creneau-heure { font-size: 0.74rem; color: var(--ink-500); font-weight: 600; }
+.emploi-creneau-matiere { font-size: 0.9rem; font-weight: 600; color: var(--texte-principal); margin-top: 0.1rem; }
+.emploi-creneau-detail { font-size: 0.78rem; color: var(--ink-500); margin-top: 0.15rem; }
+.emploi-jour-vide { color: var(--ink-300); font-size: 0.82rem; text-align: center; padding: 1rem 0; }
 
 /* -------------------------------------------------------------------- */
 /* Panneaux (remplace les cartes Bootstrap génériques)                   */
@@ -551,6 +629,29 @@ a:hover { color: var(--gold-600); }
 .btn-outline-danger:hover { background: var(--danger-600); border-color: var(--danger-600); color: #fff; }
 .btn-success { background: var(--success-600); border-color: var(--success-600); }
 .btn-success:hover { background: var(--success-700); border-color: var(--success-700); }
+/* Bootstrap calcule son état :disabled à partir de ses propres variables de
+   couleur (--bs-primary, etc.), pas des couleurs ci-dessus redéfinies en
+   propriétés brutes - sans ces règles, un bouton désactivé (ex. pendant
+   l'envoi d'un formulaire, voir app.js) retombe sur le bleu Bootstrap par
+   défaut au lieu de la palette de la plateforme. */
+.btn-primary:disabled, .btn-primary.disabled {
+  background: var(--gold-500); border-color: var(--gold-500); color: var(--ink-900); opacity: 0.6;
+}
+.btn-outline-primary:disabled, .btn-outline-primary.disabled {
+  border-color: var(--ink-800); color: var(--ink-800); background: transparent; opacity: 0.6;
+}
+.btn-outline-secondary:disabled, .btn-outline-secondary.disabled {
+  border-color: var(--line-300); color: var(--ink-800); background: transparent; opacity: 0.6;
+}
+.btn-outline-danger:disabled, .btn-outline-danger.disabled {
+  border-color: var(--danger-600); color: var(--danger-600); background: transparent; opacity: 0.6;
+}
+.btn-success:disabled, .btn-success.disabled {
+  background: var(--success-600); border-color: var(--success-600); opacity: 0.6;
+}
+.btn-outline-success:disabled, .btn-outline-success.disabled {
+  border-color: var(--success-600); color: var(--success-600); background: transparent; opacity: 0.6;
+}
 .btn-sm { font-size: 0.8rem; padding: 0.35rem 0.75rem; }
 .btn-link { color: var(--ink-700); font-weight: 600; }
 .btn-link:hover { color: var(--gold-600); }

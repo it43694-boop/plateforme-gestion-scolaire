@@ -329,6 +329,67 @@ class VueListeElevesTests(TestCase):
         self.assertEqual(eleves, [self.eleve_2])
 
 
+class RechercheGlobaleTests(TestCase):
+    def setUp(self):
+        self.annee = creer_annee()
+        self.classe = Classe.objects.create(nom="1ère année A", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
+        self.autre_classe = Classe.objects.create(nom="7ème année A", cycle=Cycle.DEUXIEME_CYCLE, annee_scolaire=self.annee)
+        self.secretaire = creer_utilisateur_actif("sec-recherche@example.com", Role.SECRETAIRE)
+        self.eleve = creer_utilisateur_actif("eleve-recherche@example.com", Role.ELEVE)
+        self.eleve.prenom, self.eleve.nom = "Awa", "Coulibaly"
+        self.eleve.save(update_fields=["prenom", "nom"])
+        self.autre_eleve = creer_utilisateur_actif("autre-recherche@example.com", Role.ELEVE)
+        self.autre_eleve.prenom, self.autre_eleve.nom = "Sekou", "Traore"
+        self.autre_eleve.save(update_fields=["prenom", "nom"])
+        Inscription.objects.create(eleve=self.eleve, classe=self.classe)
+        Inscription.objects.create(eleve=self.autre_eleve, classe=self.autre_classe)
+
+    def test_recherche_par_nom(self):
+        self.client.force_login(self.secretaire)
+        reponse = self.client.get(reverse("scolarite:recherche_globale"), {"q": "Coulibaly"})
+        eleves = [i.eleve for i in reponse.context["resultats"]]
+        self.assertEqual(eleves, [self.eleve])
+
+    def test_recherche_par_matricule(self):
+        self.client.force_login(self.secretaire)
+        reponse = self.client.get(reverse("scolarite:recherche_globale"), {"q": self.eleve.matricule})
+        eleves = [i.eleve for i in reponse.context["resultats"]]
+        self.assertEqual(eleves, [self.eleve])
+
+    def test_recherche_insensible_a_la_casse_et_partielle(self):
+        self.client.force_login(self.secretaire)
+        reponse = self.client.get(reverse("scolarite:recherche_globale"), {"q": "coul"})
+        eleves = [i.eleve for i in reponse.context["resultats"]]
+        self.assertEqual(eleves, [self.eleve])
+
+    def test_sans_terme_ne_renvoie_rien(self):
+        self.client.force_login(self.secretaire)
+        reponse = self.client.get(reverse("scolarite:recherche_globale"))
+        self.assertEqual(list(reponse.context["resultats"]), [])
+
+    def test_directeur_de_cycle_ne_trouve_que_son_cycle(self):
+        directeur_2eme = creer_utilisateur_actif("dir2-recherche@example.com", Role.DIRECTEUR_2EME_CYCLE)
+        self.client.force_login(directeur_2eme)
+        reponse = self.client.get(reverse("scolarite:recherche_globale"), {"q": "Coulibaly"})
+        self.assertEqual(list(reponse.context["resultats"]), [])
+
+    def test_parent_ne_trouve_que_ses_enfants(self):
+        parent = creer_utilisateur_actif("parent-recherche@example.com", Role.PARENT, telephone="+22370000099")
+        self.autre_eleve.parents_lies.add(parent)
+        self.client.force_login(parent)
+        reponse = self.client.get(reverse("scolarite:recherche_globale"), {"q": "Coulibaly"})
+        self.assertEqual(list(reponse.context["resultats"]), [])
+        reponse = self.client.get(reverse("scolarite:recherche_globale"), {"q": "Traore"})
+        eleves = [i.eleve for i in reponse.context["resultats"]]
+        self.assertEqual(eleves, [self.autre_eleve])
+
+    def test_role_sans_module_eleves_na_pas_acces(self):
+        comptable = creer_utilisateur_actif("comptable-recherche@example.com", Role.COMPTABLE)
+        self.client.force_login(comptable)
+        reponse = self.client.get(reverse("scolarite:recherche_globale"), {"q": "Coulibaly"})
+        self.assertEqual(reponse.status_code, 403)
+
+
 class VueAffecterEnseignantTests(TestCase):
     def setUp(self):
         self.annee = creer_annee()
