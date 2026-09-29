@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Tableau de bord{% endblock %}
 {% block contenu %}
 <div class="page-header">
@@ -11,9 +12,12 @@
 <div class="row g-3 mb-4">
     {% for indicateur in indicateurs %}
     <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card h-100"><div class="card-body">
-            <div class="text-muted small">{{ indicateur.label }}</div>
-            <div class="fs-3 fw-bold">{{ indicateur.valeur }}</div>
+        <div class="card h-100"><div class="card-body stat-carte">
+            <div class="stat-carte-icone {{ indicateur.couleur }}">{% icone indicateur.icone 22 %}</div>
+            <div class="stat-carte-corps">
+                <div class="stat-carte-valeur" data-compteur>{{ indicateur.valeur }}</div>
+                <div class="stat-carte-label">{{ indicateur.label }}</div>
+            </div>
         </div></div>
     </div>
     {% endfor %}

@@ -294,12 +294,14 @@ def redirection_tableau_de_bord(request):
             "valeur": Inscription.objects.filter(
                 classe__in=classes, statut=Inscription.Statut.EN_COURS,
             ).count(),
+            "icone": "eleves", "couleur": "bleu",
         })
         actions_rapides.append({"label": "Voir les élèves", "url": "scolarite:liste_eleves"})
     if Module.CLASSES.value in valeurs_autorisees:
         indicateurs.append({
             "label": "Classes actives",
             "valeur": classes.filter(annee_scolaire__est_active=True).count(),
+            "icone": "pedagogie", "couleur": "or",
         })
         actions_rapides.append({"label": "Gérer les classes", "url": "scolarite:liste_classes"})
     if Module.FINANCES.value in valeurs_autorisees:
@@ -308,11 +310,18 @@ def redirection_tableau_de_bord(request):
             etablissement=request.user.etablissement, est_supprime=False,
         ).aggregate(total=Sum("montant"))["total"] or 0
         devise = getattr(request.user.etablissement, "code_devise", "FCFA")
-        indicateurs.append({"label": "Encaissements", "valeur": f"{total} {devise}"})
+        indicateurs.append({
+            "label": "Encaissements", "valeur": f"{total} {devise}",
+            "icone": "finances", "couleur": "vert",
+        })
         actions_rapides.append({"label": "Suivre les paiements", "url": "finances:suivi_paiements"})
     if Module.ABSENCES.value in valeurs_autorisees:
         from pedagogie.models import Absence
-        indicateurs.append({"label": "Absences enregistrées", "valeur": Absence.objects.filter(classe__in=classes).count()})
+        indicateurs.append({
+            "label": "Absences enregistrées",
+            "valeur": Absence.objects.filter(classe__in=classes).count(),
+            "icone": "alerte", "couleur": "rouge",
+        })
     if Module.SUIVI_DES_COURS.value in valeurs_autorisees:
         actions_rapides.append({"label": "Suivi des cours", "url": "pedagogie:suivi_des_cours"})
     if Module.COMMUNICATION.value in valeurs_autorisees:

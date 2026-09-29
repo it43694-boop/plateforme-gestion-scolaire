@@ -21,6 +21,26 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
+    var reductionMouvement = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    document.querySelectorAll("[data-compteur]").forEach(function (el) {
+        var texte = el.textContent.trim();
+        var correspondance = texte.match(/^([\d\s]+)(.*)$/);
+        if (!correspondance) return;
+        var cible = parseInt(correspondance[1].replace(/\s/g, ""), 10);
+        var suffixe = correspondance[2];
+        if (isNaN(cible) || cible === 0 || reductionMouvement) return;
+        var duree = 600;
+        var debut = null;
+        function etape(horodatage) {
+            if (!debut) debut = horodatage;
+            var progression = Math.min((horodatage - debut) / duree, 1);
+            el.textContent = Math.floor(progression * cible).toLocaleString("fr-FR") + suffixe;
+            if (progression < 1) requestAnimationFrame(etape);
+            else el.textContent = cible.toLocaleString("fr-FR") + suffixe;
+        }
+        requestAnimationFrame(etape);
+    });
+
     var boutonTheme = document.querySelector("[data-bouton-theme]");
     if (boutonTheme) {
         var estSombreActuellement = function () {
