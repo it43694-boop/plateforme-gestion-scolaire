@@ -410,6 +410,49 @@ dans les fichiers de déploiement.
 - Pas encore d'indicateur de chargement pour les actions longues (export
   PDF, question à l'Assistant IA) au-delà du bouton d'envoi
 
+## État du projet : Phase 14 — Conflits de salle, indicateurs de chargement, notifications, transition de thème
+
+- **Détection des conflits de salle** dans l'emploi du temps
+  (`CreneauEmploiDuTemps.clean()`) : impossible d'enregistrer un créneau
+  si la même salle est déjà occupée sur un horaire chevauchant, le même
+  jour, dans le même établissement - à côté du contrôle existant sur
+  l'enseignant. Un champ salle vide n'ajoute jamais de conflit, et deux
+  établissements différents ne se gênent jamais entre eux.
+- **Indicateur de chargement** sur les liens d'export PDF/CSV (attribut
+  `data-telechargement`, ajouté aux 6 gabarits concernés : bibliothèque,
+  paiements, bulletin, emploi du temps, statistiques finances, vue
+  d'ensemble) et sur la recherche de l'Assistant IA (formulaire GET) : le
+  lien ou bouton affiche un repère animé le temps du téléchargement, sans
+  bloquer de nouveaux clics au-delà du nécessaire.
+- **Notifications "toast"** : les messages Django (succès, erreur, info)
+  s'affichent désormais en superposition en haut à droite (bas de l'écran
+  en mobile), avec disparition automatique après 6 secondes ou fermeture
+  manuelle, au lieu d'un bandeau statique en haut du contenu.
+- **Transition douce entre les modes clair et sombre** : le changement de
+  thème anime les couleurs de fond, de texte et de bordure sur les
+  éléments principaux (page, cartes, tableaux, formulaires, boutons) au
+  lieu d'un changement instantané. Neutralisée automatiquement par
+  `prefers-reduced-motion`, comme toutes les autres animations de
+  l'application.
+- Vérifié en conditions réelles au navigateur (Playwright) : conflit de
+  salle refusé côté formulaire, superposition du toast avec la barre
+  supérieure corrigée après une première position incorrecte, repère de
+  chargement posé puis retiré sur l'export PDF, transition de thème
+  visible sans accroc.
+
+### Ce qui reste ouvert après cette phase
+
+- SMS, WhatsApp et Mobile Money automatisés (connecteur prestataire) et
+  tests de charge : toujours bloqués en attente d'un choix de prestataire
+  et de clés d'accès côté commanditaire - aucune tentative de simulation
+  n'a été faite pour ces deux points.
+- Rattrapage : toujours hors périmètre tant que non redemandé
+  explicitement.
+- Cycle sauvegarde → restauration : la commande existe et a été testée
+  unitairement, mais un essai complet de restauration en conditions
+  réelles (base de production ou copie) reste à faire par le
+  commanditaire selon la politique de rétention choisie.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

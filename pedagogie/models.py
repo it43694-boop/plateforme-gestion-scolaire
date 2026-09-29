@@ -248,6 +248,17 @@ class CreneauEmploiDuTemps(models.Model):
             if conflit_enseignant.exists():
                 raise ValidationError("Cet enseignant a déjà un cours ailleurs à ce moment-là.")
 
+        # Une salle (si renseignée) ne peut pas accueillir deux cours en même
+        # temps - cloisonné par établissement : une salle "A1" à une école ne
+        # doit jamais entrer en conflit avec une salle "A1" d'une autre école.
+        if self.salle and self.classe_id:
+            conflit_salle = CreneauEmploiDuTemps.objects.filter(
+                chevauchement, salle=self.salle,
+                classe__annee_scolaire__etablissement_id=self.classe.annee_scolaire.etablissement_id,
+            ).exclude(pk=self.pk)
+            if conflit_salle.exists():
+                raise ValidationError(f"La salle « {self.salle} » est déjà occupée à ce moment-là.")
+
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)

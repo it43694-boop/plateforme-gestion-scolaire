@@ -6,7 +6,7 @@
         <div class="page-header-icone bleu">{% icone "eleves" 24 %}</div>
         <div><h1>Statistique globale</h1><p>{{ annee.libelle }}</p></div>
     </div>
-    <a href="{% url 'statistiques:exporter_effectifs_csv' %}?annee={{ annee.id }}" class="btn btn-outline-secondary btn-sm">Exporter en CSV</a>
+    <a href="{% url 'statistiques:exporter_effectifs_csv' %}?annee={{ annee.id }}" class="btn btn-outline-secondary btn-sm" data-telechargement>Exporter en CSV</a>
 </div>
 <div class="row g-3 mb-1">
     <div class="col-6 col-md-3">

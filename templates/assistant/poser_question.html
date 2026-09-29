@@ -14,7 +14,7 @@
 
 <div class="card mb-3 mw-560">
     <div class="card-body">
-        <form method="get">
+        <form method="get" data-attente>
             <label class="form-label">Matricule de l'élève {% if ia_disponible %}(optionnel){% endif %}</label>
             <div class="d-flex gap-2 mb-3">
                 <input type="text" name="matricule" value="{{ matricule }}" class="form-control" placeholder="Ex. 202612345">

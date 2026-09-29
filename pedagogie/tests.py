@@ -342,6 +342,67 @@ class EmploiDuTempsTests(TestCase):
         with self.assertRaises(ValidationError):
             conflit.full_clean()
 
+    def test_meme_salle_en_meme_temps_refuse(self):
+        CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=self.affectation, jour_semaine=JourSemaine.MERCREDI,
+            heure_debut=datetime.time(8, 0), heure_fin=datetime.time(9, 0), salle="A1",
+        )
+        conflit = CreneauEmploiDuTemps(
+            classe=self.autre_classe, affectation=self.affectation_autre_classe, jour_semaine=JourSemaine.MERCREDI,
+            heure_debut=datetime.time(8, 30), heure_fin=datetime.time(9, 30), salle="A1",
+        )
+        with self.assertRaises(ValidationError):
+            conflit.full_clean()
+
+    def test_meme_salle_sans_chevauchement_horaire_accepte(self):
+        CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=self.affectation, jour_semaine=JourSemaine.JEUDI,
+            heure_debut=datetime.time(8, 0), heure_fin=datetime.time(9, 0), salle="A1",
+        )
+        creneau = CreneauEmploiDuTemps(
+            classe=self.autre_classe, affectation=self.affectation_autre_classe, jour_semaine=JourSemaine.JEUDI,
+            heure_debut=datetime.time(9, 0), heure_fin=datetime.time(10, 0), salle="A1",
+        )
+        creneau.full_clean()
+
+    def test_salle_vide_najoute_aucun_conflit(self):
+        autre_enseignant = creer_utilisateur_actif("prof-edt-salle-vide@example.com", Role.ENSEIGNANT)
+        autre_affectation = Affectation.objects.create(
+            enseignant=autre_enseignant, classe=self.autre_classe, matiere="Sciences",
+        )
+        CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=self.affectation, jour_semaine=JourSemaine.VENDREDI,
+            heure_debut=datetime.time(8, 0), heure_fin=datetime.time(9, 0),
+        )
+        creneau = CreneauEmploiDuTemps(
+            classe=self.autre_classe, affectation=autre_affectation, jour_semaine=JourSemaine.VENDREDI,
+            heure_debut=datetime.time(8, 30), heure_fin=datetime.time(9, 30),
+        )
+        creneau.full_clean()
+
+    def test_meme_salle_dans_un_autre_etablissement_najoute_pas_de_conflit(self):
+        from etablissement.models import Etablissement
+
+        autre_etablissement = Etablissement.objects.create(nom="Autre école EDT")
+        autre_annee = AnneeScolaire.objects.create(
+            libelle="2026-2027 bis", date_debut=datetime.date(2026, 10, 1), date_fin=datetime.date(2027, 7, 31),
+            est_active=True, etablissement=autre_etablissement,
+        )
+        classe_autre_etab = Classe.objects.create(nom="Classe autre école", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=autre_annee)
+        enseignant_autre_etab = creer_utilisateur_actif("prof-autre-etab-edt@example.com", Role.ENSEIGNANT)
+        affectation_autre_etab = Affectation.objects.create(
+            enseignant=enseignant_autre_etab, classe=classe_autre_etab, matiere="Sciences",
+        )
+        CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=self.affectation, jour_semaine=JourSemaine.SAMEDI,
+            heure_debut=datetime.time(8, 0), heure_fin=datetime.time(9, 0), salle="A1",
+        )
+        creneau = CreneauEmploiDuTemps(
+            classe=classe_autre_etab, affectation=affectation_autre_etab, jour_semaine=JourSemaine.SAMEDI,
+            heure_debut=datetime.time(8, 0), heure_fin=datetime.time(9, 0), salle="A1",
+        )
+        creneau.full_clean()
+
     def test_export_pdf_renvoie_un_pdf(self):
         CreneauEmploiDuTemps.objects.create(
             classe=self.classe, affectation=self.affectation, jour_semaine=JourSemaine.LUNDI,

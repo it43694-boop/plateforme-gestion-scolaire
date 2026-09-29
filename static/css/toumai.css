@@ -222,6 +222,14 @@ a:hover { color: var(--gold-600); }
   }
 }
 
+/* Bascule clair/sombre en douceur plutôt qu'un changement instantané -
+   .card, .btn et .form-control ont chacun leur propre transition étendue
+   plus haut/bas dans ce fichier pour ne pas écraser leurs transitions
+   existantes (transform, box-shadow...). */
+body, .topbar, table, th, td {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
 /* -------------------------------------------------------------------- */
 /* Micro-animations - entrée douce du contenu, relief au survol. La règle
    prefers-reduced-motion ci-dessus les neutralise déjà automatiquement. */
@@ -250,6 +258,7 @@ a:hover { color: var(--gold-600); }
 .bouton-en-cours {
   position: relative;
   padding-left: 2.1rem !important;
+  pointer-events: none;
 }
 .bouton-en-cours::before {
   content: "";
@@ -417,6 +426,54 @@ a:hover { color: var(--gold-600); }
 
 .app-content { padding: 1.75rem; max-width: 1180px; width: 100%; margin: 0 auto; }
 
+/* -------------------------------------------------------------------- */
+/* Notifications système (messages Django) en toasts flottants           */
+/* -------------------------------------------------------------------- */
+
+.toasts-conteneur {
+  position: fixed;
+  top: 5.2rem;
+  right: 1.2rem;
+  z-index: 1080;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-width: 360px;
+  width: calc(100% - 2.4rem);
+}
+@keyframes toast-entree {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes toast-sortie {
+  to { opacity: 0; transform: translateX(24px); }
+}
+.toast-message {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  box-shadow: var(--ombre-flottante);
+  animation: toast-entree 0.25s ease both;
+}
+.toast-message.masque { animation: toast-sortie 0.2s ease both; }
+.toast-fermer {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.toast-fermer:hover { opacity: 1; }
+
+@media (max-width: 520px) {
+  .toasts-conteneur { left: 1rem; right: 1rem; top: auto; bottom: 1rem; max-width: none; width: auto; }
+}
+
 .bouton-menu-mobile { display: none; }
 
 @media (max-width: 900px) {
@@ -497,7 +554,7 @@ a:hover { color: var(--gold-600); }
   border: 1px solid var(--line-200);
   border-radius: var(--rayon-panneau);
   box-shadow: var(--ombre-panneau) !important;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.2s ease, border-color 0.2s ease;
 }
 .card:hover, .panel:hover {
   transform: translateY(-2px);
@@ -610,7 +667,7 @@ a:hover { color: var(--gold-600); }
   font-size: 0.87rem;
   border-radius: var(--rayon-controle);
   padding: 0.5rem 1rem;
-  transition: filter 0.12s ease, background 0.12s ease, color 0.12s ease, transform 0.1s ease;
+  transition: filter 0.12s ease, background 0.12s ease, color 0.12s ease, transform 0.1s ease, border-color 0.2s ease;
 }
 .btn:hover { transform: translateY(-1px); }
 .btn:active { transform: translateY(0); }
@@ -670,6 +727,7 @@ label, .form-label { font-weight: 600; font-size: 0.85rem; color: var(--ink-800)
   font-size: 0.92rem;
   color: var(--texte-principal);
   background: var(--paper-000);
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.15s ease;
 }
 .form-control:focus {
   border-color: var(--gold-500);

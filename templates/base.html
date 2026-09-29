@@ -85,13 +85,18 @@
         </header>
 
         <main class="app-content">
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }}" role="alert">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
             {% block contenu %}{% endblock %}
         </main>
+        {% if messages %}
+        <div class="toasts-conteneur" aria-live="polite">
+            {% for message in messages %}
+            <div class="toast-message alert alert-{{ message.tags }}" role="alert">
+                <span>{{ message }}</span>
+                <button type="button" class="toast-fermer" aria-label="Fermer">&times;</button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
     </div>
 </div>
 <script src="{% static 'js/app.js' %}" defer></script>

@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", function () {
         champ.addEventListener("change", function () { champ.form.submit(); });
     });
 
-    document.querySelectorAll('form[method="post"], form[method="POST"]').forEach(function (formulaire) {
+    document.querySelectorAll('form[method="post"], form[method="POST"], form[data-attente]').forEach(function (formulaire) {
         formulaire.addEventListener("submit", function (evenement) {
             var confirmation = formulaire.getAttribute("data-confirmer");
             if (confirmation && !window.confirm(confirmation)) {
@@ -16,6 +16,32 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (bouton.tagName === "BUTTON") bouton.classList.add("bouton-en-cours");
             });
         });
+    });
+
+    // Liens de téléchargement (export PDF/CSV) : la page ne navigue pas
+    // ailleurs (le fichier part en pièce jointe), donc pas d'état "désactivé"
+    // fiable possible - juste un repère visuel qui se referme tout seul.
+    document.querySelectorAll("a[data-telechargement]").forEach(function (lien) {
+        lien.addEventListener("click", function () {
+            if (lien.classList.contains("bouton-en-cours")) return;
+            lien.classList.add("bouton-en-cours");
+            setTimeout(function () { lien.classList.remove("bouton-en-cours"); }, 4000);
+        });
+    });
+
+    function fermerToast(toast) {
+        toast.classList.add("masque");
+        toast.addEventListener("animationend", function () { toast.remove(); }, { once: true });
+    }
+    document.querySelectorAll(".toast-message").forEach(function (toast) {
+        var minuteur = setTimeout(function () { fermerToast(toast); }, 6000);
+        var bouton = toast.querySelector(".toast-fermer");
+        if (bouton) {
+            bouton.addEventListener("click", function () {
+                clearTimeout(minuteur);
+                fermerToast(toast);
+            });
+        }
     });
 
     var boutonMenu = document.querySelector(".bouton-menu-mobile");
