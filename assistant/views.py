@@ -36,6 +36,9 @@ def poser_question(request):
     reponse_ia = None
     erreur_ia = None
 
+    if not matricule and question_libre:
+        erreur = "Indiquez d'abord le matricule de l'élève concerné : l'Assistant répond sur un élève précis, pas sur l'ensemble de l'école."
+
     if matricule:
         eleve = Utilisateur.objects.filter(matricule=matricule, role=Role.ELEVE).first()
         if not eleve:
