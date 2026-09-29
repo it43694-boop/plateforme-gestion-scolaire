@@ -293,7 +293,7 @@ NOM_PLATEFORME = "L'éducation du Mali au service de l'avenir"
 # définit uniquement via la variable d'environnement, dans le .env local
 # (non versionné) ou les réglages de la plateforme d'hébergement.
 GROQ_API_KEY = env("GROQ_API_KEY", default="")
-ASSISTANT_MODELE_IA = env("ASSISTANT_MODELE_IA", default="llama-3.3-70b-versatile")
+ASSISTANT_MODELE_IA = env("ASSISTANT_MODELE_IA", default="openai/gpt-oss-120b")
 
 # Durée de validité du code de vérification à l'inscription (en minutes)
 DUREE_VALIDITE_CODE_VERIFICATION_MINUTES = 10
