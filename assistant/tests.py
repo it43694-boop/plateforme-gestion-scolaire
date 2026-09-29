@@ -206,6 +206,85 @@ class AssistantModeGeneratifTests(TestCase):
             self.assertIn("Limite de questions", reponse.context["erreur_ia"])
 
 
+class AssistantVueGeneraleTests(TestCase):
+    """
+    Mode « vue d'ensemble » : pas de matricule, une question sur
+    l'établissement - les chiffres retournés doivent être scopés
+    exactement aux modules que le rôle a le droit de consulter, jamais un
+    dossier individuel (élève, employé, paiement nommé).
+    """
+
+    def setUp(self):
+        from etablissement.models import Etablissement
+        from permissions_matrix.models import PermissionMatrix
+
+        self.etablissement = Etablissement.objects.create(nom="École Vue Générale")
+        PermissionMatrix.seed_pour(self.etablissement)
+
+        self.annee = AnneeScolaire.objects.create(
+            libelle="2026-2027", date_debut=datetime.date(2026, 10, 1), date_fin=datetime.date(2027, 7, 31),
+            est_active=True, etablissement=self.etablissement,
+        )
+        self.classe = Classe.objects.create(nom="5ème année A", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
+        self.comptable = creer_utilisateur_actif(
+            "comptable-general@example.com", Role.COMPTABLE, etablissement=self.etablissement,
+        )
+        self.enseignant = creer_utilisateur_actif(
+            "prof-general@example.com", Role.ENSEIGNANT, etablissement=self.etablissement,
+        )
+
+    def test_construire_donnees_generales_scope_par_module(self):
+        from assistant.views import construire_donnees_generales
+
+        donnees_comptable = {item["cle"]: item["valeur"] for item in construire_donnees_generales(self.comptable)}
+        self.assertIn("total_encaissements", donnees_comptable)
+        self.assertIn("solde_caisse", donnees_comptable)
+        self.assertIn("salaires_en_attente", donnees_comptable)
+        self.assertNotIn("eleves_inscrits", donnees_comptable)
+        self.assertNotIn("classes_actives", donnees_comptable)
+
+        donnees_enseignant = {item["cle"]: item["valeur"] for item in construire_donnees_generales(self.enseignant)}
+        self.assertIn("classes_actives", donnees_enseignant)
+        self.assertIn("absences_enregistrees", donnees_enseignant)
+        self.assertNotIn("total_encaissements", donnees_enseignant)
+        self.assertNotIn("solde_caisse", donnees_enseignant)
+
+    def test_sans_etablissement_aucune_donnee(self):
+        from assistant.views import construire_donnees_generales
+
+        sans_etablissement = creer_utilisateur_actif("sans-etab-general@example.com", Role.COMPTABLE)
+        self.assertEqual(construire_donnees_generales(sans_etablissement), [])
+
+    @override_settings(GROQ_API_KEY="cle-de-test-factice")
+    def test_question_sans_matricule_appelle_le_mode_general(self):
+        from django.core.cache import cache
+        cache.clear()
+        with patch("assistant.views.repondre_question_generale_avec_ia") as mock_ia:
+            mock_ia.return_value = "Le solde de caisse est positif."
+            self.client.force_login(self.comptable)
+            reponse = self.client.get(reverse("assistant:poser_question"), {"question": "Quel est le solde de caisse ?"})
+            self.assertTrue(mock_ia.called)
+            donnees_envoyees = mock_ia.call_args.kwargs["donnees_autorisees"]
+            self.assertIn("solde_caisse", donnees_envoyees)
+            self.assertNotIn("eleves_inscrits", donnees_envoyees)
+            self.assertEqual(reponse.context["reponse_ia"], "Le solde de caisse est positif.")
+            self.assertIsNone(reponse.context["resultat"])
+
+    @override_settings(GROQ_API_KEY="")
+    def test_sans_matricule_et_sans_cle_api_demande_un_matricule(self):
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("assistant:poser_question"), {"question": "Quel est le solde de caisse ?"})
+        self.assertIsNone(reponse.context["reponse_ia"])
+        self.assertIn("matricule", reponse.context["erreur"])
+
+    def test_sans_matricule_ni_question_ne_declenche_rien(self):
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("assistant:poser_question"))
+        self.assertIsNone(reponse.context["resultat"])
+        self.assertIsNone(reponse.context["resultat_general"])
+        self.assertIsNone(reponse.context["erreur"])
+
+
 class AssistantSansCleApiTests(TestCase):
     @override_settings(GROQ_API_KEY="")
     def test_sans_cle_api_le_mode_generatif_est_desactive(self):

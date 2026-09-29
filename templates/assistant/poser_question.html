@@ -4,23 +4,27 @@
 <div class="page-header">
     <div>
         <h1>Assistant</h1>
+        {% if ia_disponible %}
+        <p>Matricule pour le dossier d'un élève précis, ou une question seule pour une vue d'ensemble de l'établissement selon votre rôle.</p>
+        {% else %}
         <p>Recherche à partir des données réelles et autorisées pour votre rôle - sans IA générative.</p>
+        {% endif %}
     </div>
 </div>
 
 <div class="card mb-3" style="max-width: 560px;">
     <div class="card-body">
         <form method="get">
-            <label class="form-label">Matricule de l'élève</label>
+            <label class="form-label">Matricule de l'élève {% if ia_disponible %}(optionnel){% endif %}</label>
             <div class="d-flex gap-2 mb-3">
                 <input type="text" name="matricule" value="{{ matricule }}" class="form-control" placeholder="Ex. 202612345">
             </div>
             {% if ia_disponible %}
             <label class="form-label">
-                Question (optionnel)
+                Question
                 <span class="badge bg-success" style="font-size: 0.65rem;">IA activée</span>
             </label>
-            <input type="text" name="question" value="{{ question }}" class="form-control mb-3" placeholder="Ex. Cet élève a-t-il des absences non justifiées ?">
+            <input type="text" name="question" value="{{ question }}" class="form-control mb-3" placeholder="Ex. Combien d'élèves sont inscrits ? / Cet élève a-t-il des absences ?">
             {% endif %}
             <button type="submit" class="btn btn-primary w-100">Rechercher</button>
         </form>
@@ -91,6 +95,20 @@
             </tbody>
         </table>
         {% endif %}
+    </div>
+</div>
+{% elif resultat_general %}
+<div class="card">
+    <div class="card-body">
+        <p style="font-weight: 600; margin-bottom: 1rem;">Vue d'ensemble de l'établissement</p>
+        <div class="row g-3">
+            {% for item in resultat_general %}
+            <div class="col-6 col-md-4">
+                <div style="font-size: 0.76rem; color: var(--ink-500);">{{ item.label }}</div>
+                <div style="font-family: var(--police-affichage); font-size: 1.3rem; font-weight: 600;">{{ item.valeur }}</div>
+            </div>
+            {% endfor %}
+        </div>
     </div>
 </div>
 {% endif %}
