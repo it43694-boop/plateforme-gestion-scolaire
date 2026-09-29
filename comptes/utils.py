@@ -1,4 +1,28 @@
+import re
+from urllib.parse import quote
+
 from django.conf import settings
+
+
+def lien_whatsapp(telephone, message) -> str:
+    """
+    Lien wa.me pré-rempli - une alternative sans clé API, sans compte
+    prestataire et sans coût à l'envoi automatisé de SMS/WhatsApp (hors de
+    portée sans un fournisseur payant, cf. README section Assistant/À
+    faire) : la personne connectée ouvre WhatsApp avec le message déjà
+    rédigé et clique elle-même sur Envoyer - jamais un envoi silencieux
+    déclenché par le serveur.
+
+    Ne devine jamais un indicatif pays manquant : le logiciel reste
+    générique (pas propre à un pays), donc un numéro saisi sans indicatif
+    part tel quel plutôt que de risquer un mauvais indicatif ajouté à tort.
+    """
+    if not telephone:
+        return ""
+    chiffres = re.sub(r"\D", "", telephone)
+    if not chiffres:
+        return ""
+    return f"https://wa.me/{chiffres}?text={quote(message)}"
 
 
 def ip_client_fiable(request) -> str:

@@ -67,6 +67,7 @@ def suivi_paiements(request):
     if classe_id:
         inscriptions = inscriptions.filter(classe_id=classe_id)
 
+    devise = getattr(request.user.etablissement, "code_devise", "FCFA")
     lignes = []
     for inscription in inscriptions:
         total_du = calculer_total_du(inscription)
@@ -74,9 +75,15 @@ def suivi_paiements(request):
         statut = "paye" if solde <= 0 else ("partiel" if inscription.total_paye > 0 else "impaye")
         if filtre_statut and statut != filtre_statut:
             continue
+        telephone_whatsapp = inscription.eleve.telephone_effectif if solde > 0 else None
+        message_whatsapp = (
+            f"Bonjour, ceci est un rappel concernant le solde de scolarité de "
+            f"{inscription.eleve.nom_complet} ({inscription.classe}) : {solde} {devise}."
+        ) if telephone_whatsapp else ""
         lignes.append({
             "inscription": inscription, "total_du": total_du,
             "total_paye": inscription.total_paye, "solde": solde, "statut": statut,
+            "telephone_whatsapp": telephone_whatsapp, "message_whatsapp": message_whatsapp,
         })
 
     page_obj = Paginator(lignes, 30).get_page(request.GET.get("page"))

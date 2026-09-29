@@ -475,6 +475,33 @@ class SuiviPaiementsTests(TestCase):
         self.assertEqual(ligne["total_paye"], 0)
         self.assertEqual(ligne["statut"], "impaye")
 
+    def test_lien_whatsapp_propose_uniquement_en_cas_de_solde_et_de_telephone(self):
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("finances:suivi_paiements"))
+        par_eleve = {l["inscription"].eleve.email: l for l in reponse.context["lignes"]}
+
+        # Impayé mais sans parent/téléphone connu : pas de lien.
+        self.assertIsNone(par_eleve["eleve-impaye@example.com"]["telephone_whatsapp"])
+
+        # Payé (solde nul) : jamais de relance proposée, même avec un téléphone.
+        self.eleve_paye.telephone = "+223 76 00 00 01"
+        self.eleve_paye.save(update_fields=["telephone"])
+        reponse = self.client.get(reverse("finances:suivi_paiements"))
+        par_eleve = {l["inscription"].eleve.email: l for l in reponse.context["lignes"]}
+        self.assertIsNone(par_eleve["eleve-paye@example.com"]["telephone_whatsapp"])
+
+    def test_lien_whatsapp_present_quand_impaye_avec_telephone(self):
+        self.eleve_impaye.telephone = "+223 76 00 00 02"
+        self.eleve_impaye.save(update_fields=["telephone"])
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("finances:suivi_paiements"))
+        par_eleve = {l["inscription"].eleve.email: l for l in reponse.context["lignes"]}
+        ligne = par_eleve["eleve-impaye@example.com"]
+        self.assertEqual(ligne["telephone_whatsapp"], "+223 76 00 00 02")
+        self.assertIn(self.eleve_impaye.nom_complet, ligne["message_whatsapp"])
+        self.assertIn("30000", ligne["message_whatsapp"])
+        self.assertContains(reponse, "wa.me/22376000002")
+
 
 class RelancerImpayesTests(TestCase):
     def setUp(self):

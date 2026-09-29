@@ -665,6 +665,29 @@ class JournalAuditAdresseIpTests(TestCase):
         self.assertEqual(entree.adresse_ip, "203.0.113.9")
 
 
+class LienWhatsappTests(TestCase):
+    def test_construit_un_lien_wame_avec_le_message_encode(self):
+        from comptes.utils import lien_whatsapp
+        lien = lien_whatsapp("+223 76 00 00 00", "Bonjour !")
+        self.assertEqual(lien, "https://wa.me/22376000000?text=Bonjour%20%21")
+
+    def test_retire_espaces_tirets_et_parentheses(self):
+        from comptes.utils import lien_whatsapp
+        lien = lien_whatsapp("(223) 76-00-00-00", "Test")
+        self.assertEqual(lien, "https://wa.me/22376000000?text=Test")
+
+    def test_telephone_vide_retourne_chaine_vide(self):
+        from comptes.utils import lien_whatsapp
+        self.assertEqual(lien_whatsapp("", "Message"), "")
+        self.assertEqual(lien_whatsapp(None, "Message"), "")
+
+    def test_ne_devine_jamais_dindicatif_pays(self):
+        from comptes.utils import lien_whatsapp
+        # Numéro local sans indicatif : parti tel quel, jamais complété au hasard.
+        lien = lien_whatsapp("76000000", "Test")
+        self.assertEqual(lien, "https://wa.me/76000000?text=Test")
+
+
 class SauvegarderDonneesTests(TestCase):
     """
     manage.py sauvegarder_donnees - lancée depuis un poste local, jamais par
