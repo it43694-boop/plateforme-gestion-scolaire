@@ -1,10 +1,14 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Créer une classe{% endblock %}
 {% block contenu %}
 <div class="page-header">
-    <div>
-        <h1>Créer une classe</h1>
-        <p>L'échéancier de frais (3 tranches) est créé en même temps que la classe.</p>
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "pedagogie" 24 %}</div>
+        <div>
+            <h1>Créer une classe</h1>
+            <p>L'échéancier de frais (3 tranches) est créé en même temps que la classe.</p>
+        </div>
     </div>
 </div>
 <div class="card" style="max-width: 480px;">

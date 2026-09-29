@@ -1,8 +1,12 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Emploi du temps{% endblock %}
 {% block contenu %}
 <div class="page-header">
-    <div><h1>Emploi du temps - {{ classe }}</h1></div>
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "pedagogie" 24 %}</div>
+        <div><h1>Emploi du temps - {{ classe }}</h1></div>
+    </div>
     <a href="{% url 'pedagogie:exporter_emploi_du_temps_pdf' classe.id %}" class="btn btn-outline-secondary btn-sm">Exporter en PDF</a>
 </div>
 <div class="row">

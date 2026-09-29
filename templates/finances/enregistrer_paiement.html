@@ -1,8 +1,12 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Enregistrer un paiement{% endblock %}
 {% block contenu %}
 <div class="page-header">
-    <div><h1>Enregistrer un paiement de scolarité</h1></div>
+    <div class="page-header-titre">
+        <div class="page-header-icone vert">{% icone "finances" 24 %}</div>
+        <div><h1>Enregistrer un paiement de scolarité</h1></div>
+    </div>
 </div>
 <div class="card" style="max-width: 480px;">
     <div class="card-body">

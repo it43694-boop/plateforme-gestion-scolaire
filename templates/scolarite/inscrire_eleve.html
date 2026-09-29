@@ -1,10 +1,14 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Inscrire un élève{% endblock %}
 {% block contenu %}
 <div class="page-header">
-    <div>
-        <h1>Inscrire un nouvel élève</h1>
-        <p>Le matricule et le compte élève sont créés automatiquement. Les parents doivent déjà posséder un compte actif - recherchez-les par leur email.</p>
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "eleves" 24 %}</div>
+        <div>
+            <h1>Inscrire un nouvel élève</h1>
+            <p>Le matricule et le compte élève sont créés automatiquement. Les parents doivent déjà posséder un compte actif - recherchez-les par leur email.</p>
+        </div>
     </div>
 </div>
 <div class="card" style="max-width: 560px;">

@@ -1,10 +1,14 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Tests de niveau{% endblock %}
 {% block contenu %}
 <div class="page-header">
-    <div>
-        <h1>Tests de niveau</h1>
-        <p>Suivi des candidats et décision d'admission, cloisonné par cycle.</p>
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "administration" 24 %}</div>
+        <div>
+            <h1>Tests de niveau</h1>
+            <p>Suivi des candidats et décision d'admission, cloisonné par cycle.</p>
+        </div>
     </div>
     <a href="{% url 'tests_niveau:ajouter_candidat' %}" class="btn btn-primary btn-sm">Ajouter un candidat</a>
 </div>

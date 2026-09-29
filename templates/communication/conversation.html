@@ -1,10 +1,14 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Conversation{% endblock %}
 {% block contenu %}
 <div class="page-header">
-    <div>
-        <h1>{{ autre.nom_complet }}</h1>
-        <p>À propos de {{ eleve.nom_complet }}</p>
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "ressources" 24 %}</div>
+        <div>
+            <h1>{{ autre.nom_complet }}</h1>
+            <p>À propos de {{ eleve.nom_complet }}</p>
+        </div>
     </div>
     <a href="{% url 'communication:liste_conversations' %}" class="btn btn-outline-secondary btn-sm">Retour</a>
 </div>

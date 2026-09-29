@@ -1,11 +1,14 @@
 {% extends "base.html" %}
-{% load contact %}
+{% load contact icones %}
 {% block titre %}Suivi des paiements{% endblock %}
 {% block contenu %}
 <div class="page-header">
-    <div>
-        <h1>Suivi des paiements</h1>
-        <p>Solde restant par élève, calculé sur l'échéancier de sa classe.</p>
+    <div class="page-header-titre">
+        <div class="page-header-icone vert">{% icone "finances" 24 %}</div>
+        <div>
+            <h1>Suivi des paiements</h1>
+            <p>Solde restant par élève, calculé sur l'échéancier de sa classe.</p>
+        </div>
     </div>
 </div>
 

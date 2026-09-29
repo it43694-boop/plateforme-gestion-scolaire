@@ -1,8 +1,12 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Messagerie{% endblock %}
 {% block contenu %}
 <div class="page-header">
-    <div><h1>Messagerie</h1><p>Échangez directement avec {% if request.user.role == "parent" %}les enseignants de vos enfants{% else %}les parents de vos élèves{% endif %}.</p></div>
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "ressources" 24 %}</div>
+        <div><h1>Messagerie</h1><p>Échangez directement avec {% if request.user.role == "parent" %}les enseignants de vos enfants{% else %}les parents de vos élèves{% endif %}.</p></div>
+    </div>
 </div>
 
 <div class="card mb-3">

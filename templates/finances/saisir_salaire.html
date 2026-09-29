@@ -1,7 +1,13 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Saisir un salaire{% endblock %}
 {% block contenu %}
-<div class="page-header"><div><h1>Saisir un salaire</h1></div></div>
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "finances" 24 %}</div>
+        <div><h1>Saisir un salaire</h1></div>
+    </div>
+</div>
 <div class="card" style="max-width: 480px;">
     <div class="card-body">
         {% if employe_apercu %}

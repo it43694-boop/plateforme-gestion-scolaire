@@ -1,10 +1,14 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Dossier de {{ eleve.nom_complet }}{% endblock %}
 {% block contenu %}
 <div class="page-header">
-    <div>
-        <h1>{{ eleve.nom_complet }}</h1>
-        <p>Matricule {{ eleve.matricule }} - {{ eleve.get_sexe_display|default:"Sexe non renseigné" }}</p>
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "eleves" 24 %}</div>
+        <div>
+            <h1>{{ eleve.nom_complet }}</h1>
+            <p>Matricule {{ eleve.matricule }} - {{ eleve.get_sexe_display|default:"Sexe non renseigné" }}</p>
+        </div>
     </div>
     <span class="badge {% if dossier_complet %}bg-success{% else %}bg-warning{% endif %}">
         Dossier {% if dossier_complet %}complet{% else %}incomplet{% endif %}
