@@ -284,6 +284,55 @@ class DeuxFacteursTests(TestCase):
         self.assertEqual(self.utilisateur.totp_secret, "")
 
 
+@override_settings(TESTING=False)
+class ForcerActivation2FAMiddlewareTests(TestCase):
+    """
+    settings.TESTING vaut True pendant `manage.py test` (pour ne pas exiger
+    la 2FA sur chaque compte de test créé ailleurs dans la suite - voir
+    comptes/middleware.py) : cette classe le désactive explicitement pour
+    vérifier le comportement réel du middleware.
+    """
+
+    def test_role_2fa_obligatoire_sans_2fa_active_est_redirige(self):
+        developpeur = creer_utilisateur_actif("dev-force-2fa@example.com", Role.DEVELOPPEUR)
+        self.client.force_login(developpeur)
+        reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
+        self.assertRedirects(reponse, reverse("comptes:activer_2fa"))
+
+    def test_comptable_sans_2fa_active_est_redirige(self):
+        comptable = creer_utilisateur_actif("comptable-force-2fa@example.com", Role.COMPTABLE)
+        self.client.force_login(comptable)
+        reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
+        self.assertRedirects(reponse, reverse("comptes:activer_2fa"))
+
+    def test_role_2fa_obligatoire_avec_2fa_active_nest_pas_redirige(self):
+        comptable = creer_utilisateur_actif("comptable-2fa-ok@example.com", Role.COMPTABLE)
+        comptable.totp_secret = comptable.generer_secret_2fa()
+        comptable.deux_facteurs_actif = True
+        comptable.save(update_fields=["totp_secret", "deux_facteurs_actif"])
+        self.client.force_login(comptable)
+        reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
+        self.assertEqual(reponse.status_code, 200)
+
+    def test_role_non_concerne_nest_jamais_redirige(self):
+        enseignant = creer_utilisateur_actif("prof-force-2fa@example.com", Role.ENSEIGNANT)
+        self.client.force_login(enseignant)
+        reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
+        self.assertEqual(reponse.status_code, 200)
+
+    def test_page_activation_reste_joignable_sans_2fa(self):
+        fondateur = creer_utilisateur_actif("fondateur-force-2fa@example.com", Role.FONDATEUR)
+        self.client.force_login(fondateur)
+        reponse = self.client.get(reverse("comptes:activer_2fa"))
+        self.assertEqual(reponse.status_code, 200)
+
+    def test_deconnexion_reste_joignable_sans_2fa(self):
+        fondateur = creer_utilisateur_actif("fondateur-deco-2fa@example.com", Role.FONDATEUR)
+        self.client.force_login(fondateur)
+        reponse = self.client.post(reverse("comptes:deconnexion"))
+        self.assertRedirects(reponse, reverse("comptes:connexion"))
+
+
 class PermissionMatrixTests(TestCase):
     def test_developpeur_a_acces_a_tout_meme_sans_ligne_matrice(self):
         self.assertTrue(PermissionMatrix.a_acces(Role.DEVELOPPEUR, Module.ESPACE_DEVELOPPEUR))
@@ -559,7 +608,7 @@ class FileAttenteEmailsTests(TestCase):
             sujet="Va échouer", contenu="Contenu",
             expediteur="test@example.com", destinataires=["dest@invalide"],
         )
-        with patch("comptes.management.commands.envoyer_emails.send_mail", side_effect=Exception("SMTP indisponible")):
+        with patch("django.core.mail.EmailMultiAlternatives.send", side_effect=Exception("SMTP indisponible")):
             call_command("envoyer_emails")
         message.refresh_from_db()
         self.assertEqual(message.tentatives, 1)

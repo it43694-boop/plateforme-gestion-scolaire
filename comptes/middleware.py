@@ -1,5 +1,6 @@
 import secrets
 
+from django.conf import settings
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -28,6 +29,46 @@ class AxesLikeLockoutMiddleware:
                     "tentatives de connexion échouées. Réessayez plus tard.",
                 )
                 return redirect(reverse("comptes:connexion"))
+        return self.get_response(request)
+
+
+class ForcerActivation2FAMiddleware:
+    """
+    Rend l'authentification à deux facteurs obligatoire (pas seulement
+    recommandée) pour les rôles de ROLES_2FA_OBLIGATOIRE (comptes.roles) :
+    un mot de passe seul ne doit plus suffire à agir sur ces comptes-là.
+
+    Ne bloque jamais complètement l'accès - seule la page d'activation, la
+    déconnexion et la supervision technique restent joignables tant que la
+    2FA n'est pas activée, pour qu'il n'y ait aucun risque de verrouillage
+    définitif : la personne peut toujours se déconnecter ou terminer
+    l'activation, jamais rester coincée sans issue.
+    """
+
+    CHEMINS_EXEMPTES = {"/comptes/2fa/activer/", "/comptes/deconnexion/", "/healthz"}
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if settings.TESTING:
+            return self.get_response(request)
+
+        from comptes.roles import ROLES_2FA_OBLIGATOIRE
+
+        user = getattr(request, "user", None)
+        if (
+            user is not None
+            and getattr(user, "is_authenticated", False)
+            and user.role in {r.value for r in ROLES_2FA_OBLIGATOIRE}
+            and not user.deux_facteurs_actif
+            and request.path not in self.CHEMINS_EXEMPTES
+        ):
+            messages.warning(
+                request,
+                "Votre rôle exige l'activation de l'authentification à deux facteurs avant de continuer.",
+            )
+            return redirect(reverse("comptes:activer_2fa"))
         return self.get_response(request)
 
 

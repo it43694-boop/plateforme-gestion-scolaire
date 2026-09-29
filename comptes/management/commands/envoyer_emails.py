@@ -1,11 +1,12 @@
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from comptes.mail import construire_corps_html
 from comptes.models import EmailOutbox
 
 
@@ -35,10 +36,11 @@ class Command(BaseCommand):
                 message.verrouille_le = maintenant
                 message.save(update_fields=["verrouille_le"])
             try:
-                send_mail(
-                    message.sujet, message.contenu, message.expediteur,
-                    message.destinataires, fail_silently=False,
+                email = EmailMultiAlternatives(
+                    message.sujet, message.contenu, message.expediteur, message.destinataires,
                 )
+                email.attach_alternative(construire_corps_html(message.sujet, message.contenu), "text/html")
+                email.send(fail_silently=False)
             except Exception as erreur:
                 message.tentatives += 1
                 message.derniere_erreur = str(erreur)[:2000]

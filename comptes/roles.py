@@ -55,6 +55,15 @@ ROLES_ACCES_TOTAL_INCONDITIONNEL = {
     Role.ADMINISTRATEUR_GENERAL,
 }
 
+# Rôles pour lesquels la 2FA n'est plus optionnelle (comptes.middleware.
+# ForcerActivation2FAMiddleware) : accès total inconditionnel, plus les deux
+# rôles techniques/financiers les plus exposés en cas de mot de passe seul
+# compromis. Un mot de passe volé ne suffit plus à agir sur ces comptes-là.
+ROLES_2FA_OBLIGATOIRE = ROLES_ACCES_TOTAL_INCONDITIONNEL | {
+    Role.SUPER_ADMINISTRATEUR,
+    Role.COMPTABLE,
+}
+
 # Statuts de compte
 class StatutCompte(models.TextChoices):
     EN_ATTENTE_VERIFICATION_EMAIL = "en_attente_verification_email", "En attente de vérification de l'email"

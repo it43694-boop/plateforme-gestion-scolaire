@@ -13,10 +13,17 @@ par variable d'environnement, conformément au cahier des charges
 
 from pathlib import Path
 import importlib.util
+import sys
 import environ
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Détecté une seule fois au démarrage : évite qu'un test doive créer un
+# compte avec la 2FA déjà activée juste pour accéder à une page protégée
+# par ForcerActivation2FAMiddleware - la matrice de permissions, elle, reste
+# entièrement exercée par les tests (rien n'est ignoré côté autorisations).
+TESTING = "test" in sys.argv
 
 env = environ.Env(
     DEBUG=(bool, False),
@@ -79,6 +86,8 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Verrouillage de compte après tentatives de connexion échouées
     "comptes.middleware.AxesLikeLockoutMiddleware",
+    # 2FA obligatoire pour les rôles à privilège élevé (comptes.roles.ROLES_2FA_OBLIGATOIRE)
+    "comptes.middleware.ForcerActivation2FAMiddleware",
     # Content-Security-Policy (défense en profondeur contre l'injection de script)
     "comptes.middleware.ContentSecurityPolicyMiddleware",
 ]

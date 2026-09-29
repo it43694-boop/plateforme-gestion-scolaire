@@ -297,6 +297,54 @@ dans les fichiers de déploiement.
 - CSP : `style-src` reste en `'unsafe-inline'` (de nombreux gabarits utilisent
   des attributs `style=""` ; les retirer un par un est un chantier séparé)
 
+## État du projet : Phase 11 — 2FA obligatoire, emails habillés, audit de la matrice de permissions
+
+- **2FA désormais obligatoire** pour les rôles à privilège élevé
+  (`comptes.roles.ROLES_2FA_OBLIGATOIRE` : développeur, fondateur,
+  administrateur général, super administrateur, comptable) via
+  `comptes.middleware.ForcerActivation2FAMiddleware` : tant que la 2FA
+  n'est pas activée, seules la page d'activation, la déconnexion et
+  `/healthz` restent joignables - jamais de verrouillage définitif, la
+  personne peut toujours terminer l'activation ou se déconnecter. Un
+  drapeau `settings.TESTING` (détecté depuis `sys.argv`) désactive ce
+  middleware pendant `manage.py test`, pour ne pas exiger la 2FA sur
+  chaque compte de test créé ailleurs dans la suite ; le comportement réel
+  du middleware, lui, est vérifié explicitement avec
+  `@override_settings(TESTING=False)`.
+- **`permissions_matrix` (le moteur de permissions fail-closed) a maintenant
+  sa propre suite de tests directs** (accès total inconditionnel, refus par
+  défaut en l'absence de règle, cloisonnement strict entre établissements,
+  fidélité et idempotence de `seed_pour`, contrainte d'unicité) - jusqu'ici
+  il n'était exercé qu'indirectement par les tests des autres apps.
+- **Emails habillés en HTML** (`templates/emails/base_email.html`, couleurs
+  de la plateforme) avec repli en texte brut, sur les deux chemins d'envoi
+  (synchrone et file différée `EmailOutbox`) via un unique point de
+  construction (`comptes/mail.py::construire_corps_html`) pour qu'ils
+  restent identiques.
+- **Assistant IA** : le modèle Groq par défaut (`llama-3.3-70b-versatile`,
+  décommissionné par Groq mi-2026) est remplacé par `openai/gpt-oss-120b` ;
+  ajout d'un mode « vue d'ensemble » sans matricule, qui répond sur
+  l'établissement à partir d'agrégats scopés aux modules du rôle
+  (`assistant/views.py::construire_donnees_generales`), en plus du mode
+  existant centré sur un élève précis.
+- **Badges d'icônes colorés et micro-animations** étendus du tableau de
+  bord à l'ensemble des listes principales (élèves, paiements, classes,
+  absences, salaires, caisse, annonces, bibliothèque).
+- 282 tests au total, tous passent (hors erreurs propres à Windows sans
+  rapport avec cette phase, absentes sous Linux/macOS et en CI).
+
+### Ce qui reste ouvert après cette phase
+
+- SMS, WhatsApp et Mobile Money restent des connecteurs à configurer selon
+  le prestataire choisi - aucun n'est câblé dans le code
+- CSP : `style-src` reste en `'unsafe-inline'` (chantier séparé, inchangé)
+- Sauvegardes Postgres/médias : toujours aucune automatisation ni
+  restauration testée documentée dans ce dépôt
+- `SENTRY_DSN` est déclaré dans `render.yaml` mais sa valeur réelle sur le
+  déploiement n'est pas vérifiable depuis ce dépôt - à confirmer côté Render
+- Les tests de charge et la recette utilisateur formelle restent à faire
+- Rattrapage/repêchage toujours volontairement non couvert
+
 ## À faire
 
 ### Exploitation production

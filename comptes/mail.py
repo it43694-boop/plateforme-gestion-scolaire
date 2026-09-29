@@ -1,7 +1,20 @@
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
 
 from comptes.models import EmailOutbox
+
+
+def construire_corps_html(sujet, contenu):
+    """
+    Habille un email en texte brut dans le gabarit de marque de la
+    plateforme - utilisé à la fois par l'envoi synchrone (ci-dessous) et
+    par la file différée (comptes/management/commands/envoyer_emails.py),
+    pour que les deux chemins produisent le même rendu.
+    """
+    return render_to_string("emails/base_email.html", {
+        "sujet": sujet, "contenu": contenu, "nom_plateforme": getattr(settings, "NOM_PLATEFORME", ""),
+    })
 
 
 def envoyer_email(*, sujet, contenu, expediteur, destinataires):
@@ -13,4 +26,6 @@ def envoyer_email(*, sujet, contenu, expediteur, destinataires):
             expediteur=expediteur,
             destinataires=list(destinataires),
         )
-    return send_mail(sujet, contenu, expediteur, list(destinataires))
+    email = EmailMultiAlternatives(sujet, contenu, expediteur, list(destinataires))
+    email.attach_alternative(construire_corps_html(sujet, contenu), "text/html")
+    return email.send()
