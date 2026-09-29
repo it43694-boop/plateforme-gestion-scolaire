@@ -4,10 +4,10 @@
 <div class="row">
     <div class="col-md-3">
         <div class="card mb-3">
-            <div class="card-body" style="padding: 1rem !important;">
+            <div class="card-body mini-stat">
                 <form method="get" class="mb-3">
-                    <label class="form-label" style="font-size: 0.78rem;">Année scolaire</label>
-                    <select name="annee" class="form-control" style="font-size: 0.85rem; padding: 0.4rem 0.6rem;" data-auto-submit>
+                    <label class="form-label filtre-annee-label">Année scolaire</label>
+                    <select name="annee" class="form-control filtre-annee-select" data-auto-submit>
                         {% for a in toutes_annees %}
                         <option value="{{ a.id }}" {% if annee.id == a.id %}selected{% endif %}>{{ a.libelle }}</option>
                         {% endfor %}
@@ -15,17 +15,17 @@
                 </form>
                 <div class="list-group list-group-flush">
                     <a href="{% url 'statistiques:vue_ensemble' %}?annee={{ annee.id }}"
-                       class="nav-lien" style="color: var(--ink-800); display: block; {% if actif == 'ensemble' %}background: var(--gold-050); color: var(--gold-600);{% endif %}">
+                       class="nav-lien-stats{% if actif == 'ensemble' %} actif{% endif %}">
                         Statistique globale
                     </a>
                     {% for c in classes %}
                     <a href="{% url 'statistiques:statistiques_classe' c.id %}"
-                       class="nav-lien" style="color: var(--ink-800); display: block; {% if classe.id == c.id %}background: var(--gold-050); color: var(--gold-600);{% endif %}">
+                       class="nav-lien-stats{% if classe.id == c.id %} actif{% endif %}">
                         {{ c.nom }}
                     </a>
                     {% endfor %}
                     <a href="{% url 'statistiques:statistiques_finances' %}?annee={{ annee.id }}"
-                       class="nav-lien" style="color: var(--ink-800); display: block; {% if actif == 'finances' %}background: var(--gold-050); color: var(--gold-600);{% endif %}">
+                       class="nav-lien-stats{% if actif == 'finances' %} actif{% endif %}">
                         Finances
                     </a>
                 </div>

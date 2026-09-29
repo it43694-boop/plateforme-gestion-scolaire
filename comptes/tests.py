@@ -811,3 +811,20 @@ class SauvegarderDonneesTests(TestCase):
 
             self.assertFalse(ancienne.exists())
             self.assertEqual(len(list(Path(destination).glob("sauvegarde_*"))), 1)
+
+
+class ContentSecurityPolicyTests(TestCase):
+    def test_style_src_sans_unsafe_inline(self):
+        utilisateur = creer_utilisateur_actif("csp-style@example.com", Role.ENSEIGNANT)
+        self.client.force_login(utilisateur)
+        reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
+        entete = reponse["Content-Security-Policy"]
+        style_src = next(d for d in entete.split(";") if d.strip().startswith("style-src"))
+        self.assertNotIn("unsafe-inline", style_src)
+
+    def test_script_src_toujours_verrouille_par_nonce(self):
+        utilisateur = creer_utilisateur_actif("csp-script@example.com", Role.ENSEIGNANT)
+        self.client.force_login(utilisateur)
+        reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
+        entete = reponse["Content-Security-Policy"]
+        self.assertIn("script-src 'self' 'nonce-", entete)

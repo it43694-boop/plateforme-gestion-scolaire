@@ -2,7 +2,7 @@
 {% block titre %}Modifier {{ etablissement.nom }}{% endblock %}
 {% block contenu %}
 <div class="page-header"><div><h1>Modifier {{ etablissement.nom }}</h1></div></div>
-<div class="card" style="max-width: 480px;">
+<div class="card mw-480">
     <div class="card-body">
         <form method="post" enctype="multipart/form-data" novalidate>
             {% csrf_token %}

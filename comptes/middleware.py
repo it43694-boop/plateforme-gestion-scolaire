@@ -84,10 +84,11 @@ class ContentSecurityPolicyMiddleware:
     réservé aux comptes autorisés) - le restreindre sans vérification
     reviendrait à risquer de casser des fonctionnalités du framework.
 
-    style-src reste en 'unsafe-inline' : de nombreux gabarits utilisent des
-    attributs style="" ; les retirer un par un est un chantier séparé, sans
-    lien avec la protection contre l'injection de script (le vecteur XSS le
-    plus dangereux, seul visé ici).
+    style-src ne porte plus 'unsafe-inline' : tous les attributs style=""
+    ont été déplacés vers des classes CSS (static/css/toumai.css). Les
+    templates PDF (xhtml2pdf) et l'email HTML restent hors de portée de
+    cette CSP - ils sont rendus par des moteurs distincts, jamais servis
+    au navigateur avec cet en-tête.
     """
 
     def __init__(self, get_response):
@@ -102,7 +103,7 @@ class ContentSecurityPolicyMiddleware:
         reponse["Content-Security-Policy"] = (
             "default-src 'self'; "
             f"script-src 'self' 'nonce-{request.csp_nonce}'; "
-            "style-src 'self' 'unsafe-inline'; "
+            "style-src 'self'; "
             "img-src 'self' https: data:; "
             "font-src 'self'; "
             "object-src 'none'; "

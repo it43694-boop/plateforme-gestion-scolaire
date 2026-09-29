@@ -14,7 +14,7 @@
     <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
     <link href="{% static 'css/toumai.css' %}" rel="stylesheet">
 </head>
-<body style="background: var(--paper-050);">
+<body class="corps-vitrine">
 
 <div class="vitrine-hero">
     <div class="vitrine-hero-fond"></div>
@@ -59,15 +59,14 @@
             </p>
 
             {% if mode_multi %}
-            <div class="vitrine-hero-ctas" id="choisir-etablissement" style="flex-direction: column; align-items: stretch; gap: 0.6rem; max-width: 340px;">
-                <p style="color: #B7C0D6; font-size: 0.85rem; margin-bottom: 0.2rem;">Choisissez votre établissement pour continuer :</p>
+            <div class="vitrine-hero-ctas vitrine-etablissements" id="choisir-etablissement">
+                <p class="vitrine-etablissements-intro">Choisissez votre établissement pour continuer :</p>
                 {% for etab in etablissements %}
-                <a href="{% url 'vitrine:choisir_etablissement' etab.slug %}" class="btn-hero-secondaire"
-                   style="display: flex; align-items: center; gap: 0.6rem; justify-content: flex-start;">
+                <a href="{% url 'vitrine:choisir_etablissement' etab.slug %}" class="btn-hero-secondaire vitrine-etablissement-lien">
                     {% if etab.logo %}
-                    <img src="{{ etab.logo.url }}" alt="" style="width: 22px; height: 22px; border-radius: 5px; object-fit: contain; background: #fff;">
+                    <img src="{{ etab.logo.url }}" alt="" class="vitrine-etablissement-logo">
                     {% else %}
-                    <span style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid currentColor; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0;">{{ etab.initiale }}</span>
+                    <span class="vitrine-etablissement-initiale">{{ etab.initiale }}</span>
                     {% endif %}
                     {{ etab.nom }}
                 </a>
@@ -198,12 +197,12 @@
     </div>
 </section>
 
-<section class="vitrine-section" id="securite" style="padding-top: 0;">
+<section class="vitrine-section sans-haut" id="securite">
     <div class="card">
-        <div class="card-body" style="display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between;">
+        <div class="card-body vitrine-securite-corps">
             <div>
-                <h3 style="margin-bottom: 0.3rem;">Sécurité intégrée, pas ajoutée après coup</h3>
-                <p style="color: var(--ink-500); margin: 0; max-width: 60ch;">
+                <h3 class="vitrine-securite-titre">Sécurité intégrée, pas ajoutée après coup</h3>
+                <p class="vitrine-securite-texte">
                     Mots de passe robustes, verrouillage après tentatives échouées, sessions
                     limitées dans le temps, journal d'audit en ajout seul, et une matrice de
                     permissions modifiable sans redéploiement.

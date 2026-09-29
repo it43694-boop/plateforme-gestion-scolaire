@@ -14,21 +14,21 @@
 
 <div class="row g-3 mb-1">
     <div class="col-4">
-        <div class="card"><div class="card-body" style="padding: 1rem 1.2rem !important;">
-            <div style="font-size: 0.76rem; color: var(--ink-500);">Total</div>
-            <div style="font-family: var(--police-affichage); font-size: 1.5rem; font-weight: 600;">{{ total_absences }}</div>
+        <div class="card"><div class="card-body mini-stat">
+            <div class="mini-stat-label">Total</div>
+            <div class="mini-stat-valeur">{{ total_absences }}</div>
         </div></div>
     </div>
     <div class="col-4">
-        <div class="card"><div class="card-body" style="padding: 1rem 1.2rem !important;">
-            <div style="font-size: 0.76rem; color: var(--ink-500);">Justifiées</div>
-            <div style="font-family: var(--police-affichage); font-size: 1.5rem; font-weight: 600; color: var(--success-600);">{{ total_justifiees }}</div>
+        <div class="card"><div class="card-body mini-stat">
+            <div class="mini-stat-label">Justifiées</div>
+            <div class="mini-stat-valeur succes">{{ total_justifiees }}</div>
         </div></div>
     </div>
     <div class="col-4">
-        <div class="card"><div class="card-body" style="padding: 1rem 1.2rem !important;">
-            <div style="font-size: 0.76rem; color: var(--ink-500);">Non justifiées</div>
-            <div style="font-family: var(--police-affichage); font-size: 1.5rem; font-weight: 600; color: var(--danger-600);">{{ total_non_justifiees }}</div>
+        <div class="card"><div class="card-body mini-stat">
+            <div class="mini-stat-label">Non justifiées</div>
+            <div class="mini-stat-valeur danger">{{ total_non_justifiees }}</div>
         </div></div>
     </div>
 </div>

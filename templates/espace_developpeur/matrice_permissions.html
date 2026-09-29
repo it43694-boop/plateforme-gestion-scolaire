@@ -5,22 +5,22 @@
 <p>Cochez ou décochez puis enregistrez : le changement s'applique immédiatement, sans redéploiement. Les rôles à accès total (développeur, fondateur, administrateur général) n'apparaissent pas ici.</p>
 </div></div>
 <div class="card">
-    <div class="card-body" style="overflow-x: auto;">
+    <div class="card-body tableau-large">
         <form method="post">
             {% csrf_token %}
-            <table class="table" style="text-align: center;">
+            <table class="table tableau-centre">
                 <thead>
                     <tr>
                         <th class="text-start">Rôle</th>
                         {% for module in modules %}
-                        <th style="white-space: nowrap; font-size: 0.72rem;">{{ module.label }}</th>
+                        <th class="tableau-entete-etroite">{{ module.label }}</th>
                         {% endfor %}
                     </tr>
                 </thead>
                 <tbody>
                     {% for ligne in lignes %}
                     <tr>
-                        <td class="text-start" style="font-weight: 600;">{{ ligne.role.label }}</td>
+                        <td class="text-start tableau-ligne-titre">{{ ligne.role.label }}</td>
                         {% for cellule in ligne.cellules %}
                         <td>
                             <input type="checkbox" class="form-check-input" name="{{ cellule.cle }}"

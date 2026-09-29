@@ -10,13 +10,13 @@
     <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
     <link href="{% static 'css/toumai.css' %}" rel="stylesheet">
 </head>
-<body style="background: var(--ink-900); min-height: 100vh; display: flex; align-items: center; justify-content: center;">
-<div style="max-width: 480px; text-align: center; padding: 2rem;">
-    <h1 style="color: #fff; font-size: 1.6rem;">{{ nom_plateforme }}</h1>
-    <p style="color: #B7C0D6; margin-bottom: 1.5rem;">
+<body class="corps-page-centree">
+<div class="aucun-etablissement-cadre">
+    <h1 class="aucun-etablissement-titre">{{ nom_plateforme }}</h1>
+    <p class="aucun-etablissement-texte">
         Aucun établissement n'est encore configuré sur cette installation.
     </p>
-    <a href="{% url 'comptes:connexion' %}" class="btn-hero-secondaire" style="display: inline-block;">
+    <a href="{% url 'comptes:connexion' %}" class="btn-hero-secondaire d-inline-block">
         Se connecter avec un compte propriétaire de la plateforme
     </a>
 </div>

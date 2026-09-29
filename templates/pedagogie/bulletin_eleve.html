@@ -7,16 +7,16 @@
         <div class="page-header-icone or">{% icone "pedagogie" 24 %}</div>
         <div><h1>{{ eleve.nom_complet }}</h1><p>Matricule : {{ eleve.matricule }}</p></div>
     </div>
-    <div style="display: flex; align-items: center; gap: 1.2rem;">
+    <div class="entete-actions">
         <a href="{% url 'pedagogie:exporter_bulletin_pdf' eleve.matricule %}" class="btn btn-outline-secondary btn-sm">Exporter en PDF</a>
         {% if moyenne_generale %}
-        <div style="text-align: right;">
-            <div style="font-size: 0.78rem; color: var(--ink-500);">Moyenne générale</div>
-            <div style="font-family: var(--police-affichage); font-size: 1.7rem; font-weight: 600; color: var(--ink-900);">
+        <div class="text-end">
+            <div class="mini-stat-label">Moyenne générale</div>
+            <div class="mini-stat-valeur grand">
                 {{ moyenne_generale }}/20
             </div>
             {% if rang %}
-            <div style="font-size: 0.82rem; color: var(--ink-500);">{{ rang }}{% if rang == 1 %}er{% else %}ème{% endif %} sur {{ effectif_classe }}</div>
+            <div class="mini-stat-label">{{ rang }}{% if rang == 1 %}er{% else %}ème{% endif %} sur {{ effectif_classe }}</div>
             {% endif %}
         </div>
         {% endif %}
@@ -27,9 +27,9 @@
 <div class="row g-3 mb-1">
     {% for ligne in moyennes_par_trimestre %}
     <div class="col-6 col-md-4">
-        <div class="card"><div class="card-body" style="padding: 1rem 1.2rem !important;">
-            <div style="font-size: 0.76rem; color: var(--ink-500);">{{ ligne.trimestre }}</div>
-            <div style="font-family: var(--police-affichage); font-size: 1.4rem; font-weight: 600;">{{ ligne.moyenne }}/20</div>
+        <div class="card"><div class="card-body mini-stat">
+            <div class="mini-stat-label">{{ ligne.trimestre }}</div>
+            <div class="mini-stat-valeur">{{ ligne.moyenne }}/20</div>
         </div></div>
     </div>
     {% endfor %}

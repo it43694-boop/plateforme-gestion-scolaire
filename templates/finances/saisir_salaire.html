@@ -8,7 +8,7 @@
         <div><h1>Saisir un salaire</h1></div>
     </div>
 </div>
-<div class="card" style="max-width: 480px;">
+<div class="card mw-480">
     <div class="card-body">
         {% if employe_apercu %}
         <div class="alert alert-success" id="apercu-employe">
@@ -17,7 +17,7 @@
         {% elif email_recherche %}
         <div class="alert alert-warning" id="apercu-employe">Aucun compte trouvé avec cet email.</div>
         {% else %}
-        <div class="alert alert-secondary" id="apercu-employe" style="display: none;"></div>
+        <div class="alert alert-secondary masque-initial" id="apercu-employe"></div>
         {% endif %}
 
         <noscript>

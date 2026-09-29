@@ -14,7 +14,7 @@
 <div class="annuaire-layout">
     <aside class="annuaire-sidebar">
         <div class="annuaire-marque">
-            <span style="color: var(--gold-400);">Ω</span> {{ nom_plateforme }}
+            <span class="symbole-omega">Ω</span> {{ nom_plateforme }}
         </div>
         <nav>
             {% for etablissement in etablissements %}
@@ -33,7 +33,7 @@
 
     <main class="annuaire-contenu">
         {% for etablissement in etablissements %}
-        <div class="annuaire-panneau" id="etab-{{ etablissement.id }}" {% if not forloop.first %}style="display: none;"{% endif %}>
+        <div class="annuaire-panneau{% if not forloop.first %} masque-initial{% endif %}" id="etab-{{ etablissement.id }}">
             <div class="annuaire-panneau-texte">
                 <h1>{{ etablissement.nom }}</h1>
                 <p>

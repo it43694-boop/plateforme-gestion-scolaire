@@ -13,12 +13,12 @@
 <div class="card mb-3">
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-start">
-            <h2 style="font-size: 1.05rem;">{{ annonce.titre }}</h2>
+            <h2 class="titre-sous-section">{{ annonce.titre }}</h2>
             <span class="badge bg-secondary">
                 {% if annonce.portee == 'toute_ecole' %}Toute l'école{% else %}{{ annonce.classe_ciblee }}{% endif %}
             </span>
         </div>
-        <p style="color: var(--ink-500); font-size: 0.85rem; margin-bottom: 0.8rem;">
+        <p class="texte-secondaire-espace">
             {{ annonce.auteur.nom_complet }} - {{ annonce.date_publication|date:"d/m/Y H:i" }}
         </p>
         <p>{{ annonce.contenu|linebreaks }}</p>

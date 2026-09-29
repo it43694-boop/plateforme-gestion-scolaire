@@ -582,6 +582,7 @@ a:hover { color: var(--gold-600); }
 
 .montant, td.montant, .table td:has(> .montant-val) { font-variant-numeric: tabular-nums; }
 .montant-val { font-variant-numeric: tabular-nums; font-weight: 600; }
+.montant-val.negatif { color: var(--danger-600); }
 
 /* -------------------------------------------------------------------- */
 /* Pastilles de statut                                                   */
@@ -772,6 +773,14 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
   color: #B7C0D6; font-size: 1.02rem; max-width: 46ch; margin-bottom: 1.8rem;
 }
 .vitrine-hero-ctas { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+.vitrine-hero-ctas.vitrine-etablissements { flex-direction: column; align-items: stretch; gap: 0.6rem; max-width: 340px; }
+.vitrine-etablissements-intro { color: #B7C0D6; font-size: 0.85rem; margin-bottom: 0.2rem; }
+.vitrine-etablissement-lien { display: flex; align-items: center; gap: 0.6rem; justify-content: flex-start; }
+.vitrine-etablissement-logo { width: 22px; height: 22px; border-radius: 5px; object-fit: contain; background: #fff; }
+.vitrine-etablissement-initiale {
+  width: 22px; height: 22px; border-radius: 50%; border: 1px solid currentColor;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0;
+}
 .btn-hero-primaire {
   background: var(--gold-500); color: var(--ink-900); font-weight: 700;
   padding: 0.75rem 1.5rem; border-radius: var(--rayon-controle); font-size: 0.93rem;
@@ -845,6 +854,10 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 }
 
 .vitrine-section { max-width: 1180px; margin: 0 auto; padding: 3.5rem 4vw; }
+.vitrine-section.sans-haut { padding-top: 0; }
+.vitrine-securite-corps { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between; }
+.vitrine-securite-titre { margin-bottom: 0.3rem; }
+.vitrine-securite-texte { color: var(--ink-500); margin: 0; max-width: 60ch; }
 .vitrine-section h2 { font-size: 1.7rem; margin-bottom: 0.6rem; }
 .vitrine-section p.intro { color: var(--ink-500); max-width: 60ch; margin-bottom: 2.2rem; }
 .vitrine-grille { display: flex; flex-wrap: wrap; gap: 1.1rem; }
@@ -964,6 +977,11 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
   box-shadow: var(--ombre-flottante);
   padding: 2.1rem 2rem;
 }
+.auth-conteneur { width: 100%; max-width: 420px; }
+.auth-conteneur.centre { text-align: center; }
+.auth-lien-logo { text-decoration: none; display: block; }
+.auth-lien-retour { text-align: center; margin-top: 1.2rem; }
+.auth-lien-retour a { color: rgba(255,255,255,0.65); font-size: 0.85rem; }
 .auth-emblème {
   width: 52px; height: 52px; border-radius: 50%;
   border: 1.5px solid var(--gold-500); color: var(--gold-600);
@@ -978,3 +996,93 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 .auth-titre { text-align: center; margin-bottom: 0.15rem; font-size: 1.5rem; }
 .auth-sous-titre { text-align: center; color: var(--ink-500); font-size: 0.86rem; margin-bottom: 1.6rem; min-height: 1px; }
 .auth-pied { text-align: center; margin-top: 3rem; color: rgba(255,255,255,0.55); font-size: 0.78rem; }
+
+/* -------------------------------------------------------------------- */
+/* Utilitaires - remplacent les styles en ligne dans les gabarits, pour  */
+/* pouvoir un jour retirer 'unsafe-inline' de style-src dans la CSP      */
+/* (comptes/middleware.py::ContentSecurityPolicyMiddleware).             */
+/* -------------------------------------------------------------------- */
+
+.mw-200 { max-width: 200px; }
+.mw-320 { max-width: 320px; }
+.mw-360 { max-width: 360px; }
+.mw-400 { max-width: 400px; }
+.mw-420 { max-width: 420px; }
+.mw-440 { max-width: 440px; }
+.mw-460 { max-width: 460px; }
+.mw-480 { max-width: 480px; }
+.mw-520 { max-width: 520px; }
+.mw-560 { max-width: 560px; }
+
+.mini-stat { padding: 1.1rem 1.2rem !important; }
+.mini-stat-label { font-size: 0.76rem; color: var(--ink-500); }
+.mini-stat-valeur {
+  font-family: var(--police-affichage); font-size: 1.4rem; font-weight: 600; color: var(--texte-principal);
+}
+.mini-stat-valeur.danger { color: var(--danger-600); }
+.mini-stat-valeur.succes { color: var(--success-600); }
+.mini-stat-valeur.petit { font-size: 1.15rem; }
+.mini-stat-valeur.grand { font-size: 1.7rem; }
+
+.titre-section { font-weight: 600; margin-bottom: 0.8rem; font-size: 1rem; }
+.titre-section-large { font-weight: 600; margin-bottom: 1rem; }
+.titre-section-espace { font-weight: 600; margin-top: 1.3rem; margin-bottom: 0.5rem; }
+.titre-resultat { font-size: 1.2rem; margin-bottom: 0.1rem; }
+
+.badge-mini { font-size: 0.65rem; }
+.card-accent-or { border-color: var(--gold-400) !important; }
+.texte-discret { color: var(--ink-500); }
+.texte-secondaire { color: var(--ink-500); font-size: 0.85rem; }
+.titre-sous-section { font-size: 1.1rem; }
+.texte-secondaire-espace { color: var(--ink-500); font-size: 0.85rem; margin-bottom: 0.8rem; }
+.texte-auth-note { color: var(--ink-500); font-size: 0.86rem; }
+.liste-instructions { padding-left: 1.1rem; color: var(--ink-800); font-size: 0.92rem; }
+.qr-code-image { width: 180px; height: 180px; }
+.cle-secrete-affichage {
+  font-family: monospace; font-size: 0.85rem; background: var(--paper-050);
+  padding: 0.5rem; border-radius: var(--rayon-controle); margin-top: 0.6rem; word-break: break-all;
+}
+.pagination-info { color: var(--ink-500); font-size: 0.82rem; }
+.texte-matricule { color: var(--ink-300); }
+.ligne-annulee { color: var(--ink-300); text-decoration: line-through; }
+.ligne-totale { font-weight: 700; }
+.solde-affichage { text-align: right; }
+.solde-affichage .mini-stat-valeur.positif { color: var(--success-600); }
+.solde-affichage .mini-stat-valeur.negatif { color: var(--danger-600); }
+.tableau-large { overflow-x: auto; }
+.tableau-centre { text-align: center; }
+.tableau-entete-etroite { white-space: nowrap; font-size: 0.72rem; }
+.tableau-ligne-titre { font-weight: 600; }
+.logo-apercu-cadre { border: none; padding: 0; }
+.logo-apercu-image { width: 34px; height: 34px; object-fit: contain; border-radius: 50%; }
+.logo-apercu-cadre .marque-nom { color: var(--ink-900); }
+.logo-apercu-cadre .marque-sous-titre { color: var(--gold-600); }
+.filtre-annee-label { font-size: 0.78rem; }
+.filtre-annee-select { font-size: 0.85rem; padding: 0.4rem 0.6rem; }
+.nav-lien-stats { color: var(--ink-800); display: block; }
+.nav-lien-stats.actif { background: var(--gold-050); color: var(--gold-600); }
+.symbole-omega { color: var(--gold-400); }
+/* Sans !important (contrairement à d-none de Bootstrap) : ces éléments sont
+   ensuite révélés par une simple affectation JS (element.style.display =
+   "..."), voir static/js/app.js - un display:none !important au chargement
+   empêcherait cette affectation, non prioritaire, de jamais reprendre la main. */
+.masque-initial { display: none; }
+
+.aucun-etablissement-cadre { max-width: 480px; text-align: center; padding: 2rem; }
+.aucun-etablissement-titre { color: #fff; font-size: 1.6rem; }
+.aucun-etablissement-texte { color: #B7C0D6; margin-bottom: 1.5rem; }
+.conversation-lien { border: none; border-bottom: 1px solid var(--line-200); padding: 0.85rem 0.3rem; color: inherit; }
+.texte-note { color: var(--ink-500); font-size: 0.84rem; }
+.entete-actions { display: flex; align-items: center; gap: 1.2rem; }
+
+.message-ligne { margin-bottom: 1rem; }
+.message-ligne.propre { text-align: right; }
+.message-bulle {
+  display: inline-block; max-width: 70%; padding: 0.6rem 0.9rem;
+  border-radius: var(--rayon-panneau); text-align: left; background: var(--paper-050);
+}
+.message-bulle.propre { background: var(--gold-050); }
+.message-heure { font-size: 0.72rem; color: var(--ink-500); }
+.corps-vitrine { background: var(--paper-050); }
+.corps-page-centree { background: var(--ink-900); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.texte-encart { font-size: 0.72rem; color: var(--gold-600); font-weight: 600; margin-bottom: 0.4rem; }

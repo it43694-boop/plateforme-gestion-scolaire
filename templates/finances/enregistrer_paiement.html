@@ -8,14 +8,14 @@
         <div><h1>Enregistrer un paiement de scolarité</h1></div>
     </div>
 </div>
-<div class="card" style="max-width: 480px;">
+<div class="card mw-480">
     <div class="card-body">
         {% if eleve_apercu %}
         <div class="alert alert-success" id="apercu-eleve">Élève trouvé : <strong>{{ eleve_apercu.nom_complet }}</strong></div>
         {% elif matricule_recherche %}
         <div class="alert alert-warning" id="apercu-eleve">Aucun élève trouvé avec ce matricule.</div>
         {% else %}
-        <div class="alert alert-secondary" id="apercu-eleve" style="display: none;"></div>
+        <div class="alert alert-secondary masque-initial" id="apercu-eleve"></div>
         {% endif %}
 
         <noscript>

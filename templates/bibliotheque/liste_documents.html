@@ -13,7 +13,7 @@
     <div class="col-md-4">
         <div class="card mb-3">
             <div class="card-body">
-                <p style="font-weight: 600; margin-bottom: 0.8rem;">Ajouter un document</p>
+                <p class="titre-section">Ajouter un document</p>
                 <form method="post" action="{% url 'bibliotheque:ajouter_document' %}" enctype="multipart/form-data">
                     {% csrf_token %}
                     {% for champ in formulaire_ajout %}
@@ -28,7 +28,7 @@
         </div>
         <div class="card">
             <div class="card-body">
-                <p style="font-weight: 600; margin-bottom: 0.8rem;">Importer une archive (.zip)</p>
+                <p class="titre-section">Importer une archive (.zip)</p>
                 <form method="post" action="{% url 'bibliotheque:importer_zip' %}" enctype="multipart/form-data">
                     {% csrf_token %}
                     {% for champ in formulaire_import %}

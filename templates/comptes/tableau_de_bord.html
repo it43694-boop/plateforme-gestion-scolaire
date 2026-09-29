@@ -48,9 +48,9 @@
 
 <div class="card">
     <div class="card-body">
-        <p style="font-weight: 600; margin-bottom: 0.8rem;">Modules auxquels vous avez accès</p>
+        <p class="titre-section">Modules auxquels vous avez accès</p>
         {% if modules %}
-        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+        <div class="d-flex flex-wrap gap-2">
             {% for module in modules %}
             <span class="badge bg-secondary">{{ module }}</span>
             {% endfor %}
@@ -66,7 +66,7 @@
 {% if user.role == "developpeur" and user.etablissement_id %}
 <div class="card mt-3">
     <div class="card-body">
-        <p style="font-weight: 600; margin-bottom: 0.8rem;">Espace développeur</p>
+        <p class="titre-section">Espace développeur</p>
         <a href="{% url 'espace_developpeur:parametres_etablissement' %}" class="btn btn-outline-secondary btn-sm">Établissement</a>
         <a href="{% url 'espace_developpeur:liste_comptes' %}" class="btn btn-outline-secondary btn-sm">Comptes</a>
         <a href="{% url 'espace_developpeur:matrice_permissions' %}" class="btn btn-outline-secondary btn-sm">Matrice de permissions</a>
@@ -78,7 +78,7 @@
 {% if user.is_superuser %}
 <div class="card mt-3">
     <div class="card-body">
-        <p style="font-weight: 600; margin-bottom: 0.8rem;">Plateforme</p>
+        <p class="titre-section">Plateforme</p>
         <a href="{% url 'espace_plateforme:liste_etablissements' %}" class="btn btn-outline-secondary btn-sm">Établissements</a>
     </div>
 </div>

@@ -1,6 +1,6 @@
 {% if page_obj.has_other_pages %}
 <nav class="d-flex justify-content-between align-items-center mt-3">
-    <span style="color: var(--ink-500); font-size: 0.82rem;">
+    <span class="pagination-info">
         Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
         ({{ page_obj.paginator.count }} au total)
     </span>

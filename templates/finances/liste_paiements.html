@@ -23,7 +23,7 @@
                 {% for paiement in paiements %}
                 <tr>
                     <td>{{ paiement.reference }}</td>
-                    <td>{{ paiement.eleve.nom_complet }} <span style="color: var(--ink-300);">({{ paiement.eleve.matricule }})</span></td>
+                    <td>{{ paiement.eleve.nom_complet }} <span class="texte-matricule">({{ paiement.eleve.matricule }})</span></td>
                     <td>{{ paiement.get_tranche_display }}</td>
                     <td class="text-end montant-val">{{ paiement.montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
                     <td>{{ paiement.get_mode_paiement_display }}</td>

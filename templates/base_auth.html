@@ -12,9 +12,9 @@
 </head>
 <body>
 <div class="auth-scene">
-    <div style="width: 100%; max-width: 420px;">
+    <div class="auth-conteneur">
         <div class="auth-carte">
-            <a href="{% url 'vitrine:accueil' %}" style="text-decoration: none; display: block;">
+            <a href="{% url 'vitrine:accueil' %}" class="auth-lien-logo">
             {% if etablissement.logo %}
             <img src="{{ etablissement.logo.url }}" alt="{{ etablissement.nom }}" class="auth-logo">
             {% else %}
@@ -32,8 +32,8 @@
 
             {% block contenu %}{% endblock %}
         </div>
-        <p style="text-align: center; margin-top: 1.2rem;">
-            <a href="{% url 'vitrine:accueil' %}" style="color: rgba(255,255,255,0.65); font-size: 0.85rem;">← Retour à l'accueil</a>
+        <p class="auth-lien-retour">
+            <a href="{% url 'vitrine:accueil' %}">← Retour à l'accueil</a>
         </p>
     </div>
 </div>

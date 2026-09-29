@@ -29,16 +29,16 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-body">
-                <p style="font-weight: 600; margin-bottom: 0.8rem;">Aperçu actuel</p>
-                <div class="marque" style="border: none; padding: 0;">
+                <p class="titre-section">Aperçu actuel</p>
+                <div class="marque logo-apercu-cadre">
                     {% if etablissement.logo %}
-                    <img src="{{ etablissement.logo.url }}" alt="{{ etablissement.nom }}" style="width: 34px; height: 34px; object-fit: contain; border-radius: 50%;">
+                    <img src="{{ etablissement.logo.url }}" alt="{{ etablissement.nom }}" class="logo-apercu-image">
                     {% else %}
                     <div class="marque-emblème">{{ etablissement.initiale }}</div>
                     {% endif %}
                     <div class="marque-texte">
-                        <div class="marque-nom" style="color: var(--ink-900);">{{ etablissement.nom }}</div>
-                        {% if etablissement.devise %}<div class="marque-sous-titre" style="color: var(--gold-600);">{{ etablissement.devise }}</div>{% endif %}
+                        <div class="marque-nom">{{ etablissement.nom }}</div>
+                        {% if etablissement.devise %}<div class="marque-sous-titre">{{ etablissement.devise }}</div>{% endif %}
                     </div>
                 </div>
             </div>

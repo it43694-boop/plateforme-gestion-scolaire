@@ -13,14 +13,14 @@
     <div class="card-body">
         {% if fils %}
         {% for fil in fils %}
-        <a href="{% url 'communication:conversation' fil.eleve.id fil.autre.id %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" style="border: none; border-bottom: 1px solid var(--line-200); padding: 0.85rem 0.3rem; color: inherit;">
+        <a href="{% url 'communication:conversation' fil.eleve.id fil.autre.id %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center conversation-lien">
             <div>
                 <strong>{{ fil.autre.nom_complet }}</strong>
-                <span style="color: var(--ink-500); font-size: 0.85rem;"> - à propos de {{ fil.eleve.nom_complet }}</span>
-                <div style="color: var(--ink-500); font-size: 0.85rem;">{{ fil.dernier_message.contenu|truncatechars:80 }}</div>
+                <span class="texte-secondaire"> - à propos de {{ fil.eleve.nom_complet }}</span>
+                <div class="texte-secondaire">{{ fil.dernier_message.contenu|truncatechars:80 }}</div>
             </div>
-            <div style="text-align: right;">
-                <div style="font-size: 0.76rem; color: var(--ink-500);">{{ fil.dernier_message.envoye_le|date:"d/m H:i" }}</div>
+            <div class="text-end">
+                <div class="mini-stat-label">{{ fil.dernier_message.envoye_le|date:"d/m H:i" }}</div>
                 {% if fil.non_lus %}<span class="badge bg-danger">{{ fil.non_lus }}</span>{% endif %}
             </div>
         </a>
@@ -31,7 +31,7 @@
     </div>
 </div>
 
-<div class="page-header"><div><h2 style="font-size: 1.1rem;">Démarrer une nouvelle conversation</h2></div></div>
+<div class="page-header"><div><h2 class="titre-sous-section">Démarrer une nouvelle conversation</h2></div></div>
 <div class="card">
     <div class="card-body">
         {% if contacts_disponibles %}
@@ -39,7 +39,7 @@
             {% for eleve, autre in contacts_disponibles %}
             <div class="col-md-6">
                 <a href="{% url 'communication:conversation' eleve.id autre.id %}" class="btn btn-outline-secondary w-100 text-start">
-                    {{ autre.nom_complet }} <span style="color: var(--ink-500); font-size: 0.85rem;">({{ eleve.nom_complet }})</span>
+                    {{ autre.nom_complet }} <span class="texte-secondaire">({{ eleve.nom_complet }})</span>
                 </a>
             </div>
             {% endfor %}

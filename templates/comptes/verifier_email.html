@@ -2,8 +2,8 @@
 {% block titre %}Vérification de l'email{% endblock %}
 {% block auth_sous_titre %}Vérifiez votre email{% endblock %}
 {% block contenu %}
-<p class="text-center mb-3" style="font-size: 0.89rem; color: var(--ink-500);">
-    Un code à 6 chiffres a été envoyé à <strong style="color: var(--ink-900);">{{ email }}</strong>.
+<p class="text-center mb-3" class="texte-auth-note">
+    Un code à 6 chiffres a été envoyé à <strong>{{ email }}</strong>.
     Il est valable 10 minutes.
 </p>
 <form method="post" novalidate>

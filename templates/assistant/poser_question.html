@@ -12,7 +12,7 @@
     </div>
 </div>
 
-<div class="card mb-3" style="max-width: 560px;">
+<div class="card mb-3 mw-560">
     <div class="card-body">
         <form method="get">
             <label class="form-label">Matricule de l'élève {% if ia_disponible %}(optionnel){% endif %}</label>
@@ -22,7 +22,7 @@
             {% if ia_disponible %}
             <label class="form-label">
                 Question
-                <span class="badge bg-success" style="font-size: 0.65rem;">IA activée</span>
+                <span class="badge bg-success badge-mini">IA activée</span>
             </label>
             <input type="text" name="question" value="{{ question }}" class="form-control mb-3" placeholder="Ex. Combien d'élèves sont inscrits ? / Cet élève a-t-il des absences ?">
             {% endif %}
@@ -36,12 +36,12 @@
 {% endif %}
 
 {% if reponse_ia %}
-<div class="card mb-3" style="border-color: var(--gold-400);">
+<div class="card mb-3 card-accent-or">
     <div class="card-body">
-        <p style="font-size: 0.72rem; color: var(--gold-600); font-weight: 600; margin-bottom: 0.4rem;">
+        <p class="texte-encart">
             Réponse de l'assistant - à partir des données ci-dessous uniquement
         </p>
-        <p style="margin: 0;">{{ reponse_ia }}</p>
+        <p class="mb-0">{{ reponse_ia }}</p>
     </div>
 </div>
 {% elif erreur_ia %}
@@ -51,10 +51,10 @@
 {% if resultat %}
 <div class="card">
     <div class="card-body">
-        <div class="page-header" style="margin-bottom: 1rem;">
+        <div class="page-header mb-3">
             <div>
-                <h2 style="font-size: 1.2rem; margin-bottom: 0.1rem;">{{ resultat.eleve.nom_complet }}</h2>
-                <p style="margin: 0;">Matricule {{ resultat.eleve.matricule }}
+                <h2 class="titre-resultat">{{ resultat.eleve.nom_complet }}</h2>
+                <p class="mb-0">Matricule {{ resultat.eleve.matricule }}
                     {% if resultat.inscription %} - {{ resultat.inscription.classe }}{% endif %}
                 </p>
             </div>
@@ -66,14 +66,14 @@
         <div class="row g-3">
             {% if resultat.total_absences is not None %}
             <div class="col-6 col-md-3">
-                <div style="font-size: 0.76rem; color: var(--ink-500);">Absences totales</div>
-                <div style="font-family: var(--police-affichage); font-size: 1.4rem; font-weight: 600;">{{ resultat.total_absences }}</div>
+                <div class="mini-stat-label">Absences totales</div>
+                <div class="mini-stat-valeur">{{ resultat.total_absences }}</div>
             </div>
             {% endif %}
         </div>
 
         {% if resultat.dernieres_notes %}
-        <p style="font-weight: 600; margin-top: 1.3rem; margin-bottom: 0.5rem;">Dernières notes</p>
+        <p class="titre-section-espace">Dernières notes</p>
         <table class="table table-sm">
             <thead><tr><th>Matière</th><th>Trimestre</th><th class="text-end">Note</th></tr></thead>
             <tbody>
@@ -85,7 +85,7 @@
         {% endif %}
 
         {% if resultat.derniers_paiements %}
-        <p style="font-weight: 600; margin-top: 1.3rem; margin-bottom: 0.5rem;">Derniers paiements</p>
+        <p class="titre-section-espace">Derniers paiements</p>
         <table class="table table-sm">
             <thead><tr><th>Référence</th><th>Tranche</th><th class="text-end">Montant</th></tr></thead>
             <tbody>
@@ -100,12 +100,12 @@
 {% elif resultat_general %}
 <div class="card">
     <div class="card-body">
-        <p style="font-weight: 600; margin-bottom: 1rem;">Vue d'ensemble de l'établissement</p>
+        <p class="titre-section-large">Vue d'ensemble de l'établissement</p>
         <div class="row g-3">
             {% for item in resultat_general %}
             <div class="col-6 col-md-4">
-                <div style="font-size: 0.76rem; color: var(--ink-500);">{{ item.label }}</div>
-                <div style="font-family: var(--police-affichage); font-size: 1.3rem; font-weight: 600;">{{ item.valeur }}</div>
+                <div class="mini-stat-label">{{ item.label }}</div>
+                <div class="mini-stat-valeur">{{ item.valeur }}</div>
             </div>
             {% endfor %}
         </div>

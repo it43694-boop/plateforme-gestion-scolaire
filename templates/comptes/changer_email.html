@@ -7,9 +7,9 @@
         <p>Une notification sera envoyée à votre ancienne adresse par sécurité.</p>
     </div>
 </div>
-<div class="card" style="max-width: 440px;">
+<div class="card mw-440">
     <div class="card-body">
-        <p style="color: var(--ink-500); font-size: 0.86rem;">Adresse actuelle : {{ user.email }}</p>
+        <p class="texte-auth-note">Adresse actuelle : {{ user.email }}</p>
         <form method="post" novalidate>
             {% csrf_token %}
             {% for champ in formulaire %}
