@@ -1,8 +1,15 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Caisse{% endblock %}
 {% block contenu %}
 <div class="page-header">
-    <div><h1>Registre de Caisse</h1><p>Alimenté exclusivement par les paiements et les salaires payés.</p></div>
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "finances" 24 %}</div>
+        <div>
+            <h1>Registre de Caisse</h1>
+            <p>Alimenté exclusivement par les paiements et les salaires payés.</p>
+        </div>
+    </div>
     <div style="text-align: right;">
         <div style="font-size: 0.78rem; color: var(--ink-500);">Solde</div>
         <div style="font-family: var(--police-affichage); font-size: 1.5rem; font-weight: 600; color: {% if solde >= 0 %}var(--success-600){% else %}var(--danger-600){% endif %};">

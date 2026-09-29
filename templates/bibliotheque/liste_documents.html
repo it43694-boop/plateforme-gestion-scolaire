@@ -1,8 +1,12 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Bibliothèque{% endblock %}
 {% block contenu %}
 <div class="page-header">
-    <div><h1>Bibliothèque numérique</h1></div>
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "ressources" 24 %}</div>
+        <div><h1>Bibliothèque numérique</h1></div>
+    </div>
     <a href="{% url 'bibliotheque:exporter_zip' %}" class="btn btn-outline-secondary btn-sm">Exporter toute la bibliothèque (.zip)</a>
 </div>
 <div class="row">

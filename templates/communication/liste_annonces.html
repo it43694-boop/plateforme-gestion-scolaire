@@ -1,8 +1,12 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Annonces{% endblock %}
 {% block contenu %}
 <div class="page-header">
-    <div><h1>Annonces</h1></div>
+    <div class="page-header-titre">
+        <div class="page-header-icone vert">{% icone "cloche" 24 %}</div>
+        <div><h1>Annonces</h1></div>
+    </div>
     <a href="{% url 'communication:publier_annonce' %}" class="btn btn-primary btn-sm">Publier une annonce</a>
 </div>
 {% for annonce in annonces %}

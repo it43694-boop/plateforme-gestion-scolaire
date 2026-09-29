@@ -1,8 +1,15 @@
 {% extends "base.html" %}
+{% load icones %}
 {% block titre %}Salaires{% endblock %}
 {% block contenu %}
 <div class="page-header">
-    <div><h1>Salaires</h1><p>Marquer un salaire payé crée automatiquement la dépense en Caisse.</p></div>
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "finances" 24 %}</div>
+        <div>
+            <h1>Salaires</h1>
+            <p>Marquer un salaire payé crée automatiquement la dépense en Caisse.</p>
+        </div>
+    </div>
     <a href="{% url 'finances:saisir_salaire' %}" class="btn btn-primary btn-sm">Saisir un salaire</a>
 </div>
 <div class="card">
