@@ -961,6 +961,11 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 .guide-role-tagline { font-weight: 400; color: var(--ink-500); font-size: 0.85rem; display: block; margin-top: 0.15rem; }
 .guide-role-corps { padding: 0 0 1.3rem; color: var(--ink-500); }
 .guide-role-modules { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.8rem; }
+.guide-role-comment-titre { font-weight: 600; color: var(--ink-800); font-size: 0.85rem; margin: 1.1rem 0 0.4rem; }
+.guide-role-etapes { margin: 0; padding-left: 1.1rem; font-size: 0.88rem; }
+.guide-role-etapes li { margin-bottom: 0.35rem; }
+.guide-role-etapes li:last-child { margin-bottom: 0; }
+.guide-role-etapes em { color: var(--ink-800); font-style: normal; font-weight: 600; }
 
 .vitrine-pied {
   background: var(--ink-900); color: #8B96B5; padding: 2rem 4vw; text-align: center; font-size: 0.85rem;
