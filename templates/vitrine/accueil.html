@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-{% load static %}
+{% load static icones %}
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -31,7 +31,7 @@
                     {% if etablissement.devise %}<div class="marque-sous-titre">{{ etablissement.devise }}</div>{% endif %}
                 </div>
             {% else %}
-                <div class="marque-emblème">Ω</div>
+                <div class="marque-emblème">{% icone "pedagogie" 18 %}</div>
                 <div class="marque-texte">
                     <div class="marque-nom">{{ nom_plateforme }}</div>
                 </div>
@@ -39,6 +39,7 @@
         </div>
         <div class="vitrine-nav-liens">
             <a href="#fonctionnalites">Fonctionnalités</a>
+            <a href="#guide-roles">Guide par rôle</a>
             <a href="#securite">Sécurité</a>
         </div>
         {% if mode_multi %}
@@ -195,6 +196,182 @@
             <p>Effectifs par sexe, taux de réussite, finances par échéance - filtrés par année scolaire et par cycle.</p>
         </div>
     </div>
+</section>
+
+<section class="vitrine-section" id="guide-roles">
+    <h2>Un guide clair pour chaque rôle</h2>
+    <p class="intro">
+        Chaque compte ne voit que ce qui le concerne. Dépliez votre rôle pour
+        savoir précisément à quoi vous aurez accès dès votre connexion.
+    </p>
+    <div class="guide-roles">
+        <details class="guide-role">
+            <summary>
+                <span>
+                    <span class="guide-role-nom">Fondateur / Administrateur général</span>
+                    <span class="guide-role-tagline">La direction de l'établissement</span>
+                </span>
+            </summary>
+            <div class="guide-role-corps">
+                <p>Accès total et permanent à toutes les fonctionnalités : élèves, finances,
+                personnel, statistiques, sécurité. Seul niveau habilité à changer le rôle
+                d'un compte et à ajuster la matrice de permissions.</p>
+                <div class="guide-role-modules"><span class="badge bg-secondary badge-mini">Accès total</span></div>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary>
+                <span>
+                    <span class="guide-role-nom">Directeur de cycle</span>
+                    <span class="guide-role-tagline">Le pilotage pédagogique d'un cycle</span>
+                </span>
+            </summary>
+            <div class="guide-role-corps">
+                <p>Suit les classes, les enseignants et les résultats du cycle dont il a la
+                charge : notes, absences, emploi du temps, tests de niveau et statistiques -
+                sans accès aux finances ni aux salaires.</p>
+                <div class="guide-role-modules">
+                    <span class="badge bg-secondary badge-mini">Classes</span>
+                    <span class="badge bg-secondary badge-mini">Élèves</span>
+                    <span class="badge bg-secondary badge-mini">Enseignants</span>
+                    <span class="badge bg-secondary badge-mini">Emploi du temps</span>
+                    <span class="badge bg-secondary badge-mini">Notes &amp; bulletins</span>
+                    <span class="badge bg-secondary badge-mini">Absences</span>
+                    <span class="badge bg-secondary badge-mini">Statistiques</span>
+                </div>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary>
+                <span>
+                    <span class="guide-role-nom">Secrétaire</span>
+                    <span class="guide-role-tagline">L'inscription et le suivi administratif</span>
+                </span>
+            </summary>
+            <div class="guide-role-corps">
+                <p>Inscrit les élèves, crée les classes, gère les candidatures aux tests de
+                niveau et communique avec les familles.</p>
+                <div class="guide-role-modules">
+                    <span class="badge bg-secondary badge-mini">Classes</span>
+                    <span class="badge bg-secondary badge-mini">Élèves</span>
+                    <span class="badge bg-secondary badge-mini">Tests de niveau</span>
+                    <span class="badge bg-secondary badge-mini">Communication</span>
+                </div>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary>
+                <span>
+                    <span class="guide-role-nom">Comptable</span>
+                    <span class="guide-role-tagline">Les finances, sans accès aux données pédagogiques</span>
+                </span>
+            </summary>
+            <div class="guide-role-corps">
+                <p>Enregistre les paiements, suit la caisse et les salaires, consulte les
+                statistiques financières - jamais les notes ni les dossiers scolaires.</p>
+                <div class="guide-role-modules">
+                    <span class="badge bg-secondary badge-mini">Finances</span>
+                    <span class="badge bg-secondary badge-mini">Caisse</span>
+                    <span class="badge bg-secondary badge-mini">Salaires</span>
+                    <span class="badge bg-secondary badge-mini">Statistiques</span>
+                </div>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary>
+                <span>
+                    <span class="guide-role-nom">Responsable pédagogique</span>
+                    <span class="guide-role-tagline">Le suivi des enseignants et des résultats</span>
+                </span>
+            </summary>
+            <div class="guide-role-corps">
+                <p>Suit les enseignants, leurs cours et les résultats de notes, avec une vue
+                statistique globale - sans gérer ni les finances ni les inscriptions.</p>
+                <div class="guide-role-modules">
+                    <span class="badge bg-secondary badge-mini">Enseignants</span>
+                    <span class="badge bg-secondary badge-mini">Suivi des cours</span>
+                    <span class="badge bg-secondary badge-mini">Notes &amp; bulletins</span>
+                    <span class="badge bg-secondary badge-mini">Statistiques</span>
+                </div>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary>
+                <span>
+                    <span class="guide-role-nom">Enseignant</span>
+                    <span class="guide-role-tagline">La classe au quotidien</span>
+                </span>
+            </summary>
+            <div class="guide-role-corps">
+                <p>Consulte ses classes affectées, saisit notes et absences, suit son emploi
+                du temps, publie des annonces à ses seules classes et emprunte des
+                ressources à la bibliothèque.</p>
+                <div class="guide-role-modules">
+                    <span class="badge bg-secondary badge-mini">Classes</span>
+                    <span class="badge bg-secondary badge-mini">Emploi du temps</span>
+                    <span class="badge bg-secondary badge-mini">Notes &amp; bulletins</span>
+                    <span class="badge bg-secondary badge-mini">Absences</span>
+                    <span class="badge bg-secondary badge-mini">Bibliothèque</span>
+                    <span class="badge bg-secondary badge-mini">Communication</span>
+                </div>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary>
+                <span>
+                    <span class="guide-role-nom">Bibliothécaire</span>
+                    <span class="guide-role-tagline">La gestion de la bibliothèque numérique</span>
+                </span>
+            </summary>
+            <div class="guide-role-corps">
+                <p>Ajoute, importe et exporte les documents de la bibliothèque de
+                l'établissement.</p>
+                <div class="guide-role-modules"><span class="badge bg-secondary badge-mini">Bibliothèque</span></div>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary>
+                <span>
+                    <span class="guide-role-nom">Parent</span>
+                    <span class="guide-role-tagline">Le suivi de la scolarité de son enfant</span>
+                </span>
+            </summary>
+            <div class="guide-role-corps">
+                <p>Consulte les notes, absences et bulletins de son enfant, suit les
+                échéances de paiement et reçoit les communications de l'école.</p>
+                <div class="guide-role-modules">
+                    <span class="badge bg-secondary badge-mini">Élèves</span>
+                    <span class="badge bg-secondary badge-mini">Finances</span>
+                    <span class="badge bg-secondary badge-mini">Notes &amp; bulletins</span>
+                    <span class="badge bg-secondary badge-mini">Absences</span>
+                    <span class="badge bg-secondary badge-mini">Communication</span>
+                </div>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary>
+                <span>
+                    <span class="guide-role-nom">Élève</span>
+                    <span class="guide-role-tagline">Son propre parcours, en lecture</span>
+                </span>
+            </summary>
+            <div class="guide-role-corps">
+                <p>Consulte ses propres notes, absences, bulletins et emploi du temps, et
+                accède à la bibliothèque numérique.</p>
+                <div class="guide-role-modules">
+                    <span class="badge bg-secondary badge-mini">Notes &amp; bulletins</span>
+                    <span class="badge bg-secondary badge-mini">Absences</span>
+                    <span class="badge bg-secondary badge-mini">Emploi du temps</span>
+                    <span class="badge bg-secondary badge-mini">Bibliothèque</span>
+                    <span class="badge bg-secondary badge-mini">Communication</span>
+                </div>
+            </div>
+        </details>
+    </div>
+    <p class="texte-secondaire-espace mt-3">
+        Périmètre par défaut - chaque établissement peut l'ajuster finement depuis sa
+        propre matrice de permissions, sans intervention technique.
+    </p>
 </section>
 
 <section class="vitrine-section sans-haut" id="securite">

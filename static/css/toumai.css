@@ -945,6 +945,23 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 .vitrine-carte h3 { font-size: 1.02rem; margin-bottom: 0.35rem; }
 .vitrine-carte p { color: var(--ink-500); font-size: 0.88rem; margin: 0; }
 
+.guide-roles { display: flex; flex-direction: column; gap: 0.8rem; }
+.guide-role {
+  background: var(--paper-000); border: 1px solid var(--line-200);
+  border-radius: var(--rayon-panneau); padding: 0 1.4rem;
+}
+.guide-role summary {
+  padding: 1.1rem 0; cursor: pointer; list-style: none;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+}
+.guide-role summary::-webkit-details-marker { display: none; }
+.guide-role summary::after { content: "+"; color: var(--gold-500); font-size: 1.4rem; flex-shrink: 0; }
+.guide-role[open] summary::after { content: "\2212"; }
+.guide-role-nom { font-weight: 600; color: var(--ink-800); display: block; }
+.guide-role-tagline { font-weight: 400; color: var(--ink-500); font-size: 0.85rem; display: block; margin-top: 0.15rem; }
+.guide-role-corps { padding: 0 0 1.3rem; color: var(--ink-500); }
+.guide-role-modules { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.8rem; }
+
 .vitrine-pied {
   background: var(--ink-900); color: #8B96B5; padding: 2rem 4vw; text-align: center; font-size: 0.85rem;
 }
@@ -1143,7 +1160,7 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 .filtre-annee-select { font-size: 0.85rem; padding: 0.4rem 0.6rem; }
 .nav-lien-stats { color: var(--ink-800); display: block; }
 .nav-lien-stats.actif { background: var(--gold-050); color: var(--gold-600); }
-.symbole-omega { color: var(--gold-400); }
+.icone-accent-or { color: var(--gold-400); }
 /* Sans !important (contrairement à d-none de Bootstrap) : ces éléments sont
    ensuite révélés par une simple affectation JS (element.style.display =
    "..."), voir static/js/app.js - un display:none !important au chargement

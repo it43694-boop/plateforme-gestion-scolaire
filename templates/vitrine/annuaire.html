@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-{% load static %}
+{% load static icones %}
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -14,7 +14,7 @@
 <div class="annuaire-layout">
     <aside class="annuaire-sidebar">
         <div class="annuaire-marque">
-            <span class="symbole-omega">Ω</span> {{ nom_plateforme }}
+            <span class="icone-accent-or">{% icone "pedagogie" 18 %}</span> {{ nom_plateforme }}
         </div>
         <nav>
             {% for etablissement in etablissements %}
