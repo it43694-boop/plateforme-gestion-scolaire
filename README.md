@@ -584,6 +584,21 @@ dans les fichiers de déploiement.
   assumé : permettre à un rôle de réinitialiser sa propre 2FA sans
   aucune preuve de possession ouvrirait une faille bien plus grave.
 
+## État du projet : Phase 17 — Identité visuelle générique, guide par rôle sur l'accueil
+
+- **Symbole Ω remplacé** : le logo générique de la plateforme (favicon,
+  icônes PWA, emblèmes de l'accueil et de l'annuaire) utilisait le
+  symbole grec Ω, hérité du cahier des charges de référence (Omega
+  Académie) mais sans rapport avec un logiciel volontairement générique.
+  Remplacé par l'icône livre ouvert déjà utilisée ailleurs dans
+  l'application pour la pédagogie - cohérent et immédiatement lisible.
+- **Guide par rôle sur la page d'accueil publique** : une section
+  dépliable (`<details>`/`<summary>`, sans JavaScript) présente, pour
+  chacun des 9 rôles côté école, une description concrète de ce à quoi
+  il donne accès - dérivée de la matrice de permissions par défaut
+  réelle plutôt que d'un texte marketing générique, avec une mention
+  claire que chaque établissement peut ajuster ce périmètre.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque
