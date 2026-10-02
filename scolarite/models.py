@@ -1,8 +1,10 @@
+import uuid
+
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
-from comptes.roles import Role
+from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
 
 
 class Cycle(models.TextChoices):
@@ -309,6 +311,36 @@ class TransfertEleve(models.Model):
     cree_le = models.DateTimeField(auto_now_add=True)
 
 
+class TypeDocumentVerifiable(models.TextChoices):
+    ATTESTATION_SCOLARITE = "attestation_scolarite", "Attestation de scolarité"
+
+
+class VerificationDocument(models.Model):
+    """
+    Jeton de vérification publique pour un document officiel généré par la
+    plateforme, hors bulletin (qui a son propre modèle historique,
+    pedagogie.models.VerificationBulletin) - même principe : un QR code sur
+    le PDF renvoie vers une page qui confirme l'authenticité du document
+    sans en exposer le contenu complet. Un seul modèle générique ici plutôt
+    qu'un nouveau modèle par type de document, puisque le besoin (jeton
+    unique, élève, inscription, date d'émission) est identique pour tous.
+    """
+
+    type_document = models.CharField(max_length=30, choices=TypeDocumentVerifiable.choices)
+    eleve = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.CASCADE, related_name="documents_verifiables",
+    )
+    inscription = models.ForeignKey(Inscription, on_delete=models.PROTECT, related_name="verifications_document")
+    jeton = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    cree_le = models.DateTimeField(auto_now_add=True)
+    actif = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "document vérifiable"
+        verbose_name_plural = "documents vérifiables"
+        ordering = ["-cree_le"]
+
+
 # ---------------------------------------------------------------------------
 # Fonctions utilitaires - cloisonnement par cycle et dossier élève
 # ---------------------------------------------------------------------------
@@ -384,12 +416,28 @@ def dossier_complet(eleve) -> bool:
     )
 
 
+# Rôles pour lesquels « voir n'importe quel élève de son établissement »
+# (sous réserve du cloisonnement par cycle de classes_visibles_pour) est
+# légitime : direction, secrétariat (gestion des dossiers), comptabilité
+# (suivi des paiements par élève), pédagogie. Liste explicite plutôt qu'un
+# repli implicite - un rôle non listé ici (bibliothécaire, personnel
+# générique, ou un autre élève) n'a aucune raison de consulter le dossier
+# d'un élève auquel il n'est pas directement lié.
+ROLES_VOIENT_TOUT_ELEVE_DE_LETABLISSEMENT = {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL} | {
+    Role.DIRECTEUR_1ER_CYCLE.value, Role.DIRECTEUR_2EME_CYCLE.value,
+    Role.SUPER_ADMINISTRATEUR.value, Role.SECRETAIRE.value,
+    Role.COMPTABLE.value, Role.RESPONSABLE_PEDAGOGIQUE.value,
+}
+
+
 def eleve_visible_pour(utilisateur, eleve) -> bool:
     """
     Règle de visibilité centrale d'un élève, utilisée par les notes, les
-    absences et l'Assistant : l'élève lui-même, son ou ses parents, un
-    enseignant qui lui enseigne, ou la direction (avec cloisonnement par
-    cycle pour les directeurs).
+    absences, les documents officiels et l'Assistant : l'élève lui-même,
+    son ou ses parents, un enseignant qui lui enseigne, ou un rôle de
+    direction/gestion (avec cloisonnement par cycle pour les directeurs) -
+    jamais un autre élève, ni un rôle sans lien direct avec les dossiers
+    élèves (bibliothécaire, personnel générique).
     """
     if utilisateur.pk == eleve.pk:
         return True
@@ -399,5 +447,7 @@ def eleve_visible_pour(utilisateur, eleve) -> bool:
         return Affectation.objects.filter(
             enseignant=utilisateur, classe__inscriptions__eleve=eleve,
         ).exists()
+    if utilisateur.role not in ROLES_VOIENT_TOUT_ELEVE_DE_LETABLISSEMENT:
+        return False
     classes_ok = classes_visibles_pour(utilisateur)
     return eleve.inscriptions.filter(classe__in=classes_ok).exists()

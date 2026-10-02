@@ -285,6 +285,162 @@ class AssistantVueGeneraleTests(TestCase):
         self.assertIsNone(reponse.context["erreur"])
 
 
+class AlertesTableauDeBordTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        from finances.models import TypeTranche as TT
+        from finances.models import enregistrer_paiement as creer_paiement
+        from scolarite.models import EcheancierFrais
+
+        cache.clear()  # évite qu'une synthèse IA mise en cache fuite d'un test à l'autre
+        aujourdhui = datetime.date.today()
+        self.annee = AnneeScolaire.objects.create(
+            libelle="Alertes", date_debut=aujourdhui - datetime.timedelta(days=200),
+            date_fin=aujourdhui + datetime.timedelta(days=100), est_active=True,
+        )
+        self.classe = Classe.objects.create(nom="Classe Alertes", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
+        EcheancierFrais.objects.create(
+            classe=self.classe, montant_inscription=10000, montant_tranche_1=10000, montant_tranche_2=10000,
+        )
+
+        self.enseignant = creer_utilisateur_actif("prof-alertes@example.com", Role.ENSEIGNANT)
+        self.affectation = Affectation.objects.create(enseignant=self.enseignant, classe=self.classe, matiere="Maths")
+
+        self.eleve_risque = creer_utilisateur_actif("eleve-risque@example.com", Role.ELEVE)
+        self.inscription_risque = Inscription.objects.create(eleve=self.eleve_risque, classe=self.classe)
+        saisir_note(
+            eleve=self.eleve_risque, affectation=self.affectation, trimestre=Trimestre.T1,
+            valeur=8, enseignant=self.enseignant,
+        )
+
+        self.eleve_ok = creer_utilisateur_actif("eleve-ok@example.com", Role.ELEVE)
+        self.inscription_ok = Inscription.objects.create(eleve=self.eleve_ok, classe=self.classe)
+        saisir_note(
+            eleve=self.eleve_ok, affectation=self.affectation, trimestre=Trimestre.T1,
+            valeur=15, enseignant=self.enseignant,
+        )
+
+        self.comptable = creer_utilisateur_actif("comptable-alertes@example.com", Role.COMPTABLE)
+        creer_paiement(
+            eleve=self.eleve_ok, inscription=self.inscription_ok, tranche=TT.INSCRIPTION,
+            montant=30000, mode_paiement="especes", enregistre_par=self.comptable,
+        )  # eleve_ok paie tout (10000+10000+10000) -> aucun impayé
+        # eleve_risque ne paie rien -> impayé, et l'année est à 200/300e -> seuil 40% dépassé
+
+        self.fondateur = creer_utilisateur_actif("fondateur-alertes@example.com", Role.FONDATEUR)
+        self.parent = creer_utilisateur_actif("parent-alertes@example.com", Role.PARENT, telephone="+22370000055")
+        self.eleve_risque.parents_lies.add(self.parent)
+
+    def test_direction_voit_les_deux_types_dalerte(self):
+        from assistant.alertes import construire_alertes
+        alertes = construire_alertes(self.fondateur)
+        types = {a["type"] for a in alertes}
+        self.assertEqual(types, {"academique", "financier"})
+
+    def test_eleve_sous_le_seuil_est_dans_lalerte_academique(self):
+        from assistant.alertes import construire_alertes
+        alertes = construire_alertes(self.fondateur)
+        alerte_academique = next(a for a in alertes if a["type"] == "academique")
+        eleves_cites = [d["eleve"] for d in alerte_academique["details"]]
+        self.assertIn(self.eleve_risque, eleves_cites)
+        self.assertNotIn(self.eleve_ok, eleves_cites)
+
+    def test_eleve_entierement_paye_najoute_pas_dalerte_financiere(self):
+        from assistant.alertes import construire_alertes
+        alertes = construire_alertes(self.fondateur)
+        alerte_financiere = next(a for a in alertes if a["type"] == "financier")
+        eleves_cites = [d["eleve"] for d in alerte_financiere["details"]]
+        self.assertIn(self.eleve_risque, eleves_cites)
+        self.assertNotIn(self.eleve_ok, eleves_cites)
+
+    def test_annee_scolaire_peu_avancee_najoute_pas_dalerte_financiere(self):
+        from assistant.alertes import construire_alertes
+        aujourdhui = datetime.date.today()
+        self.annee.date_debut = aujourdhui - datetime.timedelta(days=5)
+        self.annee.date_fin = aujourdhui + datetime.timedelta(days=295)
+        self.annee.save(update_fields=["date_debut", "date_fin"])
+        alertes = construire_alertes(self.fondateur)
+        types = {a["type"] for a in alertes}
+        self.assertNotIn("financier", types)
+
+    def test_enseignant_ne_voit_que_ses_propres_classes(self):
+        from assistant.alertes import construire_alertes
+
+        autre_annee = AnneeScolaire.objects.create(
+            libelle="Autre", date_debut=datetime.date.today() - datetime.timedelta(days=200),
+            date_fin=datetime.date.today() + datetime.timedelta(days=100), est_active=True,
+        )
+        autre_classe = Classe.objects.create(nom="Autre classe", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=autre_annee)
+        autre_enseignant = creer_utilisateur_actif("autre-prof-alertes@example.com", Role.ENSEIGNANT)
+        autre_affectation = Affectation.objects.create(enseignant=autre_enseignant, classe=autre_classe, matiere="Histoire")
+        autre_eleve_risque = creer_utilisateur_actif("autre-eleve-risque@example.com", Role.ELEVE)
+        Inscription.objects.create(eleve=autre_eleve_risque, classe=autre_classe)
+        saisir_note(
+            eleve=autre_eleve_risque, affectation=autre_affectation, trimestre=Trimestre.T1,
+            valeur=5, enseignant=autre_enseignant,
+        )
+
+        alertes = construire_alertes(self.enseignant)
+        alerte_academique = next(a for a in alertes if a["type"] == "academique")
+        eleves_cites = [d["eleve"] for d in alerte_academique["details"]]
+        self.assertIn(self.eleve_risque, eleves_cites)
+        self.assertNotIn(autre_eleve_risque, eleves_cites)
+
+    def test_comptable_ne_voit_pas_lalerte_academique(self):
+        from assistant.alertes import construire_alertes
+        alertes = construire_alertes(self.comptable)
+        types = {a["type"] for a in alertes}
+        self.assertEqual(types, {"financier"})
+
+    def test_parent_ne_voit_aucune_alerte(self):
+        # Le parent a le module finances/notes_bulletins pour SON enfant
+        # uniquement (portail_parent) - jamais une vue agrégée sur d'autres
+        # élèves ou familles : c'est le coeur de la garantie de sécurité.
+        from assistant.alertes import construire_alertes
+        self.assertEqual(construire_alertes(self.parent), [])
+
+    def test_eleve_ne_voit_aucune_alerte(self):
+        from assistant.alertes import construire_alertes
+        self.assertEqual(construire_alertes(self.eleve_risque), [])
+
+    def test_tableau_de_bord_affiche_les_alertes_pour_la_direction(self):
+        self.client.force_login(self.fondateur)
+        reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
+        self.assertTrue(reponse.context["alertes"])
+
+    def test_tableau_de_bord_najoute_pas_dalerte_pour_un_parent(self):
+        self.client.force_login(self.parent)
+        self.client.get(reverse("comptes:redirection_tableau_de_bord"))  # redirige vers le portail parent, ne doit pas planter
+
+    @override_settings(GROQ_API_KEY="")
+    def test_synthese_absente_sans_cle_api(self):
+        self.client.force_login(self.fondateur)
+        reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
+        self.assertEqual(reponse.context["synthese_alertes"], "")
+
+    @override_settings(GROQ_API_KEY="cle-test")
+    def test_synthese_ia_affichee_et_mise_en_cache(self):
+        with patch("assistant.services.resumer_alertes_avec_ia", return_value="Synthèse factuelle.") as mock_ia:
+            self.client.force_login(self.fondateur)
+            reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
+            self.assertEqual(reponse.context["synthese_alertes"], "Synthèse factuelle.")
+            self.assertEqual(mock_ia.call_count, 1)
+
+            # Deuxième chargement : la synthèse vient du cache, pas d'un
+            # second appel à l'API (voir comptes.views._synthese_alertes_en_cache).
+            reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
+            self.assertEqual(reponse.context["synthese_alertes"], "Synthèse factuelle.")
+            self.assertEqual(mock_ia.call_count, 1)
+
+    @override_settings(GROQ_API_KEY="cle-test")
+    def test_synthese_degrade_silencieusement_si_lapi_echoue(self):
+        with patch("assistant.services.resumer_alertes_avec_ia", side_effect=AssistantIndisponible("panne")):
+            self.client.force_login(self.fondateur)
+            reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
+            self.assertEqual(reponse.context["synthese_alertes"], "")
+            self.assertTrue(reponse.context["alertes"])
+
+
 class AssistantSansCleApiTests(TestCase):
     @override_settings(GROQ_API_KEY="")
     def test_sans_cle_api_le_mode_generatif_est_desactive(self):

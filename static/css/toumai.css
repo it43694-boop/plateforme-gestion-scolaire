@@ -597,6 +597,16 @@ body, .topbar, table, th, td {
 }
 .stat-carte-label { font-size: 0.8rem; color: var(--ink-500); margin-top: 0.1rem; }
 
+.alertes-tableau-bord { border-left: 3px solid var(--gold-400); }
+.alertes-synthese { color: var(--ink-800); font-size: 0.92rem; margin-bottom: 1rem; }
+.alerte-carte { padding: 0.8rem 0; border-top: 1px solid var(--line-200); }
+.alerte-carte:first-of-type { border-top: none; padding-top: 0.3rem; }
+.alerte-titre { font-weight: 600; color: var(--ink-800); margin-bottom: 0.15rem; }
+.alerte-description { color: var(--ink-500); font-size: 0.85rem; margin-bottom: 0.6rem; }
+.alerte-details { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.alerte-details a.badge { text-decoration: none; }
+.alerte-details a.badge:hover { background: var(--gold-100) !important; color: var(--gold-600) !important; }
+
 /* -------------------------------------------------------------------- */
 /* Pagination                                                            */
 /* -------------------------------------------------------------------- */

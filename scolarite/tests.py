@@ -12,6 +12,7 @@ from comptes.models import Utilisateur
 from comptes.roles import Role, StatutCompte
 from scolarite.models import (
     Affectation, AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription,
+    TypeDocumentVerifiable, VerificationDocument,
     classes_visibles_pour, dossier_complet, lier_parent_a_eleve,
 )
 
@@ -388,6 +389,78 @@ class RechercheGlobaleTests(TestCase):
         self.client.force_login(comptable)
         reponse = self.client.get(reverse("scolarite:recherche_globale"), {"q": "Coulibaly"})
         self.assertEqual(reponse.status_code, 403)
+
+
+class AttestationScolariteTests(TestCase):
+    def setUp(self):
+        from etablissement.models import Etablissement
+        from permissions_matrix.models import PermissionMatrix
+
+        self.ecole = Etablissement.objects.create(nom="École Attestation")
+        PermissionMatrix.seed_pour(self.ecole)
+        self.annee = creer_annee()
+        self.annee.etablissement = self.ecole
+        self.annee.save(update_fields=["etablissement"])
+        self.classe = Classe.objects.create(nom="1ère année A", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
+        self.secretaire = creer_utilisateur_actif("sec-attestation@example.com", Role.SECRETAIRE, etablissement=self.ecole)
+        self.eleve = creer_utilisateur_actif("eleve-attestation@example.com", Role.ELEVE, etablissement=self.ecole)
+        self.inscription = Inscription.objects.create(eleve=self.eleve, classe=self.classe)
+
+    def test_genere_un_pdf_et_cree_un_jeton_de_verification(self):
+        self.client.force_login(self.secretaire)
+        reponse = self.client.get(reverse("scolarite:generer_attestation_scolarite", args=[self.eleve.matricule]))
+        self.assertEqual(reponse.status_code, 200)
+        self.assertEqual(reponse["Content-Type"], "application/pdf")
+        self.assertTrue(
+            VerificationDocument.objects.filter(
+                eleve=self.eleve, inscription=self.inscription,
+                type_document=TypeDocumentVerifiable.ATTESTATION_SCOLARITE,
+            ).exists()
+        )
+
+    def test_reutilise_le_meme_jeton_pour_la_meme_inscription(self):
+        self.client.force_login(self.secretaire)
+        self.client.get(reverse("scolarite:generer_attestation_scolarite", args=[self.eleve.matricule]))
+        self.client.get(reverse("scolarite:generer_attestation_scolarite", args=[self.eleve.matricule]))
+        self.assertEqual(
+            VerificationDocument.objects.filter(eleve=self.eleve, inscription=self.inscription).count(), 1,
+        )
+
+    def test_sans_inscription_en_cours_redirige_avec_message(self):
+        self.inscription.statut = Inscription.Statut.ADMIS
+        self.inscription.save(update_fields=["statut"])
+        self.client.force_login(self.secretaire)
+        reponse = self.client.get(
+            reverse("scolarite:generer_attestation_scolarite", args=[self.eleve.matricule]), follow=True,
+        )
+        self.assertRedirects(reponse, reverse("scolarite:dossier_eleve", args=[self.eleve.matricule]))
+
+    def test_role_sans_acces_a_leleve_refuse(self):
+        # Même établissement (donc même module ELEVES autorisé) pour isoler
+        # ce que ce test vérifie réellement : qu'un autre élève - un rôle
+        # sans lien direct avec ce dossier - est bloqué par eleve_visible_pour,
+        # pas par une matrice de permissions différente.
+        autre_eleve = creer_utilisateur_actif("autre-attestation@example.com", Role.ELEVE, etablissement=self.ecole)
+        self.client.force_login(autre_eleve)
+        reponse = self.client.get(reverse("scolarite:generer_attestation_scolarite", args=[self.eleve.matricule]))
+        self.assertEqual(reponse.status_code, 403)
+
+    def test_verification_publique_renvoie_les_bonnes_informations(self):
+        self.client.force_login(self.secretaire)
+        self.client.get(reverse("scolarite:generer_attestation_scolarite", args=[self.eleve.matricule]))
+        verification = VerificationDocument.objects.get(eleve=self.eleve)
+
+        self.client.logout()
+        reponse = self.client.get(reverse("scolarite:verifier_document", args=[verification.jeton]))
+        self.assertEqual(reponse.status_code, 200)
+        donnees = reponse.json()
+        self.assertTrue(donnees["valide"])
+        self.assertEqual(donnees["matricule"], self.eleve.matricule)
+
+    def test_jeton_inconnu_renvoie_404(self):
+        import uuid
+        reponse = self.client.get(reverse("scolarite:verifier_document", args=[uuid.uuid4()]))
+        self.assertEqual(reponse.status_code, 404)
 
 
 class VueAffecterEnseignantTests(TestCase):

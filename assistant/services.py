@@ -116,6 +116,29 @@ def repondre_question_generale_avec_ia(*, donnees_autorisees: dict, question: st
     return _interroger_groq(instructions=instructions, question=question)
 
 
+def resumer_alertes_avec_ia(*, alertes: list[dict]) -> str:
+    """
+    Synthétise en une phrase les alertes DÉJÀ calculées de manière
+    déterministe (voir assistant.alertes.construire_alertes) : l'IA ne fait
+    que reformuler des chiffres qui lui sont donnés, jamais les calculer
+    elle-même - même garantie que les deux fonctions ci-dessus.
+    """
+    donnees = [{"titre": a["titre"], "description": a["description"]} for a in alertes]
+    contexte_json = json.dumps(donnees, ensure_ascii=False, indent=2)
+
+    instructions = (
+        "Tu es l'assistant d'une plateforme de gestion scolaire. Voici, au "
+        "format JSON, des alertes DÉJÀ calculées pour cet établissement :\n\n"
+        f"{contexte_json}\n\n"
+        "Consignes strictes :\n"
+        "- Résume ces alertes en une seule phrase, sans inventer aucun "
+        "chiffre au-delà de ceux fournis ci-dessus.\n"
+        "- Ton factuel et actionnable, jamais alarmiste.\n"
+        "- Réponds en français, sans formule d'introduction."
+    )
+    return _interroger_groq(instructions=instructions, question="Résume ces alertes en une phrase.")
+
+
 def serialiser_resultat(resultat: dict) -> dict:
     """
     Aplatit le résultat déjà construit par la vue (objets Django compris)

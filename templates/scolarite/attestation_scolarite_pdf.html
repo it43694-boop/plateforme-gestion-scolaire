@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+    @page { size: A4 portrait; margin: 1.8cm; }
+    body { font-family: Helvetica, sans-serif; font-size: 11px; color: #12203D; }
+
+    .entete { width: 100%; margin-bottom: 6px; }
+    .entete td { vertical-align: middle; padding: 0; border: none; }
+    .logo { width: 56px; height: 56px; }
+    .logo-emblème {
+        width: 52px; height: 52px; border: 1.5px solid #B98B2E; border-radius: 50%;
+        text-align: center; color: #9A7423; font-size: 22px; font-weight: bold;
+    }
+    h1 { font-size: 17px; color: #12203D; margin: 0 0 2px; }
+    p.sous-titre { color: #55607A; margin: 0 0 2px; font-size: 10px; }
+    hr.separateur { border: none; border-top: 1.5px solid #B98B2E; margin: 10px 0 16px; }
+
+    h2.titre-document {
+        text-align: center; font-size: 16px; text-transform: uppercase;
+        letter-spacing: 1px; margin: 28px 0 24px;
+    }
+    p.corps { font-size: 12.5px; line-height: 1.8; text-align: justify; margin: 0 0 16px; }
+    .references { font-size: 10px; color: #55607A; margin-bottom: 20px; }
+
+    .signatures { width: 100%; margin-top: 50px; }
+    .signatures td { vertical-align: top; padding: 0; border: none; font-size: 10px; color: #55607A; }
+    .ligne-signature {
+        border-top: 1px solid #8993A8; width: 170px; margin-top: 34px; padding-top: 4px;
+    }
+
+    .pied {
+        margin-top: 30px; padding-top: 8px; border-top: 1px solid #DEE1E6;
+        font-size: 8px; color: #8993A8;
+    }
+</style>
+</head>
+<body>
+    <table class="entete">
+        <tr>
+            <td style="width: 66px;">
+                {% if etablissement.logo %}
+                <img src="{{ etablissement.logo.url }}" alt="{{ etablissement.nom }}" class="logo" />
+                {% else %}
+                <div class="logo-emblème">{{ etablissement.initiale|default:"É" }}</div>
+                {% endif %}
+            </td>
+            <td>
+                <h1>{{ etablissement.nom|default:"Établissement" }}</h1>
+                {% if etablissement.devise %}<p class="sous-titre">{{ etablissement.devise }}</p>{% endif %}
+            </td>
+        </tr>
+    </table>
+    <hr class="separateur">
+
+    <h2 class="titre-document">Attestation de scolarité</h2>
+
+    <p class="references">
+        N° {{ verification.id }} — Année scolaire {{ inscription.classe.annee_scolaire.libelle }}
+    </p>
+
+    <p class="corps">
+        Je soussigné(e), responsable de l'établissement {{ etablissement.nom|default:"susmentionné" }},
+        certifie que <strong>{{ eleve.nom_complet }}</strong>{% if eleve.date_naissance %}, né(e) le
+        {{ eleve.date_naissance|date:"d/m/Y" }}{% endif %}, immatriculé(e) sous le numéro
+        <strong>{{ eleve.matricule }}</strong>, est régulièrement inscrit(e) en classe de
+        <strong>{{ inscription.classe.nom }}</strong> au titre de l'année scolaire
+        <strong>{{ inscription.classe.annee_scolaire.libelle }}</strong>.
+    </p>
+    <p class="corps">
+        La présente attestation est délivrée à l'intéressé(e) pour servir et valoir ce que de droit.
+    </p>
+
+    <table class="signatures">
+        <tr>
+            <td style="width: 50%;">Fait le {% now "d/m/Y" %}</td>
+            <td style="width: 50%; text-align: right;">
+                <div class="ligne-signature" style="margin-left: auto;">
+                    Signature et cachet de l'établissement
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    {% if verification %}
+    <div class="pied">
+        {% if qr_code %}<img src="{{ qr_code }}" alt="QR code de vérification" style="width: 60px; height: 60px; float: left; margin-right: 8px;" />{% endif %}
+        Document vérifiable à l'adresse : {{ verification_url }}
+    </div>
+    {% endif %}
+</body>
+</html>

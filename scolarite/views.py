@@ -10,8 +10,8 @@ from comptes.roles import Role, StatutCompte
 from permissions_matrix.modules import Module
 from scolarite.forms import AffecterEnseignantForm, CreerClasseForm, InscrireEleveForm
 from scolarite.models import (
-    Affectation, AnneeScolaire, Classe, Inscription, classes_visibles_pour, dossier_complet,
-    eleve_visible_pour, lier_parent_a_eleve, passer_eleve, calculer_total_du,
+    Affectation, AnneeScolaire, Classe, Inscription, TypeDocumentVerifiable, VerificationDocument,
+    classes_visibles_pour, dossier_complet, eleve_visible_pour, lier_parent_a_eleve, passer_eleve, calculer_total_du,
 )
 
 DOMAINE_EMAIL_AUTO_ELEVE = "eleves.local"
@@ -120,6 +120,99 @@ def dossier_eleve(request, matricule):
             contexte["solde_annee_active"] = total_du - paye_annee
 
     return render(request, "scolarite/dossier_eleve.html", contexte)
+
+
+@module_requis(Module.ELEVES)
+def generer_attestation_scolarite(request, matricule):
+    """
+    Attestation de scolarité au format PDF, avec QR code de vérification
+    publique (même principe que pedagogie.views.exporter_bulletin_pdf,
+    réutilisé via scolarite.models.VerificationDocument). Même garde que
+    dossier_eleve (module Élèves + eleve_visible_pour), puisque c'est
+    depuis cette page que ce document est généré.
+    """
+    import base64
+    from io import BytesIO
+
+    from django.core.exceptions import PermissionDenied
+    from django.http import HttpResponse
+    from django.template.loader import render_to_string
+    from django.urls import reverse
+    from xhtml2pdf import pisa
+
+    eleve = get_object_or_404(Utilisateur, matricule=matricule, role=Role.ELEVE)
+    if not eleve_visible_pour(request.user, eleve):
+        raise PermissionDenied("Vous n'avez pas accès à cet élève.")
+
+    inscription = Inscription.objects.filter(
+        eleve=eleve, statut=Inscription.Statut.EN_COURS,
+    ).select_related("classe", "classe__annee_scolaire").first()
+    if inscription is None:
+        messages.error(request, "Aucune inscription en cours pour cet élève : impossible d'émettre une attestation.")
+        return redirect("scolarite:dossier_eleve", matricule=matricule)
+
+    verification = VerificationDocument.objects.filter(
+        type_document=TypeDocumentVerifiable.ATTESTATION_SCOLARITE,
+        eleve=eleve, inscription=inscription, actif=True,
+    ).first()
+    if verification is None:
+        verification = VerificationDocument.objects.create(
+            type_document=TypeDocumentVerifiable.ATTESTATION_SCOLARITE,
+            eleve=eleve, inscription=inscription,
+        )
+    verification_url = request.build_absolute_uri(reverse(
+        "scolarite:verifier_document", kwargs={"jeton": verification.jeton},
+    ))
+    qr_code = ""
+    try:
+        import qrcode
+        image = qrcode.make(verification_url)
+        tampon = BytesIO()
+        image.save(tampon, format="PNG")
+        qr_code = "data:image/png;base64," + base64.b64encode(tampon.getvalue()).decode("ascii")
+    except ImportError:
+        pass
+
+    html = render_to_string("scolarite/attestation_scolarite_pdf.html", {
+        "eleve": eleve, "inscription": inscription, "verification": verification,
+        "verification_url": verification_url, "qr_code": qr_code,
+    }, request=request)
+
+    reponse = HttpResponse(content_type="application/pdf")
+    reponse["Content-Disposition"] = f'attachment; filename="attestation_{eleve.matricule}.pdf"'
+    resultat = pisa.CreatePDF(html, dest=reponse, encoding="utf-8")
+    if resultat.err:
+        return HttpResponse("Erreur lors de la génération du PDF.", status=500)
+
+    enregistrer_action(
+        acteur=request.user, action="generation_attestation_scolarite",
+        cible=eleve.matricule, request=request,
+    )
+    return reponse
+
+
+def verifier_document(request, jeton):
+    """
+    Page publique (sans authentification, comme pedagogie:verifier_bulletin)
+    consultée en scannant le QR code du document : confirme son
+    authenticité sans jamais exposer plus que ce que le document imprimé
+    montre déjà.
+    """
+    from django.http import JsonResponse
+
+    verification = get_object_or_404(
+        VerificationDocument.objects.select_related("eleve", "inscription__classe__annee_scolaire__etablissement"),
+        jeton=jeton, actif=True,
+    )
+    return JsonResponse({
+        "valide": True,
+        "type_document": verification.get_type_document_display(),
+        "eleve": verification.eleve.nom_complet,
+        "matricule": verification.eleve.matricule,
+        "classe": str(verification.inscription.classe),
+        "etablissement": verification.inscription.classe.annee_scolaire.etablissement.nom,
+        "emis_le": verification.cree_le.isoformat(),
+    })
 
 
 @module_requis(Module.CLASSES)

@@ -344,12 +344,48 @@ def redirection_tableau_de_bord(request):
         actions_rapides.append({"label": "Suivi des cours", "url": "pedagogie:suivi_des_cours"})
     if Module.COMMUNICATION.value in valeurs_autorisees:
         actions_rapides.append({"label": "Publier une annonce", "url": "communication:publier_annonce"})
+
+    from assistant.alertes import construire_alertes
+    alertes = construire_alertes(request.user)
+    synthese_alertes = _synthese_alertes_en_cache(request.user, alertes) if alertes else ""
+
     return render(request, "comptes/tableau_de_bord.html", {
         "modules": modules, "indicateurs": indicateurs, "actions_rapides": actions_rapides,
+        "alertes": alertes, "synthese_alertes": synthese_alertes,
         "notifications": Notification.objects.filter(
             destinataire=request.user, lue_le__isnull=True,
         )[:5],
     })
+
+
+def _synthese_alertes_en_cache(utilisateur, alertes):
+    """
+    Phrase de synthèse générée par l'Assistant IA, mise en cache 1h par
+    établissement+rôle (les chiffres affichés, eux, restent toujours
+    calculés en direct à chaque chargement - voir assistant.alertes - seule
+    cette phrase peut avoir jusqu'à 1h de retard). Dégrade silencieusement
+    vers aucune synthèse si l'API est indisponible : les alertes restent
+    utilisables sans elle.
+    """
+    from django.core.cache import cache
+
+    from assistant.services import AssistantIndisponible, ia_disponible, resumer_alertes_avec_ia
+
+    if not ia_disponible():
+        return ""
+
+    cle = f"synthese_alertes_{utilisateur.etablissement_id}_{utilisateur.role}"
+    synthese = cache.get(cle)
+    if synthese is not None:
+        return synthese
+
+    try:
+        synthese = resumer_alertes_avec_ia(alertes=alertes)
+    except AssistantIndisponible:
+        return ""
+
+    cache.set(cle, synthese, timeout=3600)
+    return synthese
 
 
 @role_requis(Role.PARENT)

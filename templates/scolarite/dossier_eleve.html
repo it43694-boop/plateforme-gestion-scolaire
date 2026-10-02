@@ -55,6 +55,7 @@
 <div class="d-flex gap-2 mb-3 mt-2">
     {% if peut_voir_notes %}<a href="{% url 'pedagogie:bulletin_eleve' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Voir le bulletin</a>{% endif %}
     {% if peut_voir_absences %}<a href="{% url 'pedagogie:historique_absences' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Historique des absences</a>{% endif %}
+    {% if inscription_active %}<a href="{% url 'scolarite:generer_attestation_scolarite' eleve.matricule %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Attestation de scolarité</a>{% endif %}
 </div>
 
 <div class="card mb-3">

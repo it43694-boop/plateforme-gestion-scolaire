@@ -9,6 +9,25 @@
     </div>
 </div>
 
+{% if alertes %}
+<div class="card alertes-tableau-bord mb-4"><div class="card-body">
+    <p class="titre-section">Alertes</p>
+    {% if synthese_alertes %}<p class="alertes-synthese">{{ synthese_alertes }}</p>{% endif %}
+    {% for alerte in alertes %}
+    <div class="alerte-carte">
+        <p class="alerte-titre">{{ alerte.titre }}</p>
+        <p class="alerte-description">{{ alerte.description }}</p>
+        <div class="alerte-details">
+            {% for detail in alerte.details|slice:":8" %}
+            <a href="{% url 'scolarite:dossier_eleve' detail.eleve.matricule %}" class="badge bg-secondary badge-mini">{{ detail.eleve.nom_complet }}</a>
+            {% endfor %}
+            {% if alerte.details|length > 8 %}<span class="texte-discret">+ {{ alerte.details|length|add:"-8" }} autre(s)</span>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div></div>
+{% endif %}
+
 <div class="row g-3 mb-4">
     {% for indicateur in indicateurs %}
     <div class="col-12 col-sm-6 col-xl-3">

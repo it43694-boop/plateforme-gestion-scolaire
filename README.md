@@ -599,6 +599,57 @@ dans les fichiers de déploiement.
   réelle plutôt que d'un texte marketing générique, avec une mention
   claire que chaque établissement peut ajuster ce périmètre.
 
+## État du projet : Phase 18 — Alertes proactives, attestations vérifiables, correctif de sécurité
+
+- **Correctif de sécurité (pré-existant, pas introduit cette phase)** :
+  `scolarite.models.eleve_visible_pour` - la fonction centrale qui décide
+  si un utilisateur peut consulter le dossier, le bulletin ou les
+  absences d'un élève - laissait passer n'importe quel rôle qui n'était
+  ni l'élève lui-même, ni un parent lié, ni un enseignant affecté : un
+  autre élève, un(e) bibliothécaire ou un compte « Personnel » du même
+  établissement pouvait donc consulter le dossier de n'importe quel
+  élève. Trouvé en écrivant les tests de la fonctionnalité ci-dessous
+  (qui réutilise cette même fonction), pas signalé par un audit dédié.
+  Corrigé par une liste explicite des rôles habilités (direction,
+  secrétariat, comptabilité, pédagogie) plutôt qu'un repli implicite ;
+  87 tests `scolarite`/`pedagogie` revérifiés au vert après le correctif.
+- **Attestation de scolarité vérifiable par QR code** : même principe que
+  le bulletin (`pedagogie.models.VerificationBulletin`), généralisé en un
+  modèle `scolarite.models.VerificationDocument` réutilisable pour de
+  futurs types de documents. Accessible depuis le dossier de l'élève.
+- **Alertes proactives sur le tableau de bord** : calculées par requête
+  déterministe (jamais par l'IA, qui ne fait que reformuler des chiffres
+  déjà exacts en une phrase de synthèse, mise en cache 1h, avec
+  dégradation silencieuse si l'API est indisponible) :
+  - élèves dont la moyenne générale pondérée est sous 10/20 ;
+  - élèves avec un solde dû alors que l'année scolaire est déjà avancée
+    (au moins 40% du temps écoulé).
+
+  Visibilité par liste explicite de rôles, volontairement distincte
+  d'une simple vérification de module : un parent ou un élève ont le
+  module notes/finances dans leur propre matrice, mais pour leurs
+  propres données uniquement (portail parent) - jamais une vue agrégée
+  sur d'autres élèves ou familles. Un enseignant ne voit que ses propres
+  classes affectées, jamais tout l'établissement.
+- 24 nouveaux tests (attestation, vérification publique, alertes par
+  rôle - y compris les cas de non-fuite vers parent/élève/enseignant
+  hors périmètre -, synthèse IA avec mise en cache et dégradation),
+  tous au vert, suite complète revérifiée derrière.
+
+### Ce qui reste ouvert après cette phase
+
+- SMS, WhatsApp et Mobile Money automatisés, tests de charge,
+  restauration testée uniquement en local, rattrapage : toujours
+  ouverts (voir phases précédentes).
+- Le seuil de retard de paiement (40% de l'année écoulée) est une
+  approximation assumée : `EcheancierFrais` n'a pas de date d'échéance
+  par tranche, donc impossible de calculer un retard exact sans ajouter
+  ce champ - non fait ici pour ne pas imposer un calendrier de paiement
+  arbitraire aux établissements.
+- Les alertes ne couvrent que deux signaux (risque académique, impayés) ;
+  d'autres pistes évoquées (absentéisme récurrent, etc.) restent à
+  construire sur le même principe si besoin.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque
