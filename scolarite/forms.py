@@ -91,16 +91,24 @@ class InscrireEleveForm(BootstrapFormMixin, forms.Form):
     parent_email_1 = forms.EmailField(label="Email du 1er parent")
     parent_email_2 = forms.EmailField(label="Email du 2ème parent (optionnel)", required=False)
 
-    def __init__(self, *args, classes_disponibles=None, **kwargs):
+    def __init__(self, *args, classes_disponibles=None, etablissement=None, **kwargs):
         super().__init__(*args, **kwargs)
         if classes_disponibles is not None:
             self.fields["classe"].queryset = classes_disponibles
+        self._etablissement = etablissement
 
     def _recuperer_parent(self, champ, email):
         if not email:
             return None
         try:
-            parent = Utilisateur.objects.get(email__iexact=email)
+            # Cloisonné au même établissement que l'élève à inscrire : sans
+            # ce filtre, un email appartenant à un parent d'un autre
+            # établissement serait trouvé ici, pour échouer plus tard dans
+            # lier_parent_a_eleve (après que l'élève a déjà été créé) - en
+            # filtrant ici, le formulaire refuse proprement avant toute
+            # écriture, avec le même message que « email inconnu » pour ne
+            # pas révéler l'existence d'un compte dans un autre établissement.
+            parent = Utilisateur.objects.get(email__iexact=email, etablissement=self._etablissement)
         except Utilisateur.DoesNotExist:
             self.add_error(champ, "Aucun compte trouvé avec cet email.")
             return None

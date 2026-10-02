@@ -299,6 +299,36 @@ class VueInscrireEleveTests(TestCase):
         reponse = self.client.get(reverse("scolarite:inscrire_eleve"))
         self.assertEqual(reponse.status_code, 403)
 
+    def test_parent_dun_autre_etablissement_refuse_sans_creer_leleve(self):
+        # Avant correctif : l'email était cherché sans filtre d'établissement,
+        # donc trouvé ici - puis lier_parent_a_eleve levait une erreur APRÈS
+        # la création de l'élève (déjà en base, orphelin). Le formulaire doit
+        # désormais refuser proprement, sans rien écrire du tout.
+        from etablissement.models import Etablissement
+        from permissions_matrix.models import PermissionMatrix
+
+        ecole_a = Etablissement.objects.create(nom="École A")
+        ecole_b = Etablissement.objects.create(nom="École B")
+        PermissionMatrix.seed_pour(ecole_a)
+        annee = creer_annee("2029-2030")
+        annee.etablissement = ecole_a
+        annee.save()
+        classe = Classe.objects.create(nom="4ème année A", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=annee)
+        secretaire = creer_utilisateur_actif("sec-cross-etab@example.com", Role.SECRETAIRE, etablissement=ecole_a)
+        parent_autre_ecole = creer_utilisateur_actif(
+            "parent-autre-ecole@example.com", Role.PARENT, telephone="70111188", profession="X",
+            etablissement=ecole_b,
+        )
+
+        self.client.force_login(secretaire)
+        reponse = self.client.post(reverse("scolarite:inscrire_eleve"), {
+            "prenom": "Mariam", "nom": "Coulibaly", "sexe": "F", "date_naissance": "2016-01-01",
+            "classe": classe.id, "parent_email_1": parent_autre_ecole.email, "parent_email_2": "",
+        })
+        self.assertEqual(reponse.status_code, 200)  # formulaire réaffiché avec erreur, pas de redirection
+        self.assertContains(reponse, "Aucun compte trouvé avec cet email.")
+        self.assertFalse(Utilisateur.objects.filter(prenom="Mariam", role=Role.ELEVE).exists())
+
 
 class VueListeElevesTests(TestCase):
     def setUp(self):

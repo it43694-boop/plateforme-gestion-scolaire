@@ -19,9 +19,11 @@ DOMAINE_EMAIL_AUTO_ELEVE = "eleves.local"
 
 @module_requis(Module.ELEVES)
 def inscrire_eleve(request):
+    from django.db import transaction
+
     classes_disponibles = classes_visibles_pour(request.user)
     formulaire = InscrireEleveForm(
-        request.POST or None, classes_disponibles=classes_disponibles,
+        request.POST or None, classes_disponibles=classes_disponibles, etablissement=request.user.etablissement,
     )
 
     if request.method == "POST" and formulaire.is_valid():
@@ -46,19 +48,23 @@ def inscrire_eleve(request):
             nouvel_eleve.save()
             return nouvel_eleve
 
-        eleve = creer_avec_matricule_unique(_construire_eleve)
+        # Atomique : si le lien à un parent ou la création de l'inscription
+        # échoue après coup (ex. incohérence inattendue), l'élève tout juste
+        # créé ne doit jamais rester orphelin, sans classe ni parent, en base.
+        with transaction.atomic():
+            eleve = creer_avec_matricule_unique(_construire_eleve)
 
-        for parent in filter(None, [formulaire.cleaned_data["parent_1"], formulaire.cleaned_data["parent_2"]]):
-            lier_parent_a_eleve(eleve, parent)
+            for parent in filter(None, [formulaire.cleaned_data["parent_1"], formulaire.cleaned_data["parent_2"]]):
+                lier_parent_a_eleve(eleve, parent)
 
-        Inscription.objects.create(eleve=eleve, classe=formulaire.cleaned_data["classe"])
+            Inscription.objects.create(eleve=eleve, classe=formulaire.cleaned_data["classe"])
 
-        enregistrer_action(
-            acteur=request.user, action="inscription_eleve",
-            cible=f"{eleve.nom_complet} ({eleve.matricule})",
-            details={"classe": str(formulaire.cleaned_data["classe"])},
-            request=request,
-        )
+            enregistrer_action(
+                acteur=request.user, action="inscription_eleve",
+                cible=f"{eleve.nom_complet} ({eleve.matricule})",
+                details={"classe": str(formulaire.cleaned_data["classe"])},
+                request=request,
+            )
 
         messages.success(
             request,

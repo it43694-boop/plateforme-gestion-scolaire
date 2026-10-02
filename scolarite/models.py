@@ -5,6 +5,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
+from comptes.validators import valider_contenu_fichier, valider_extension_document, valider_taille_fichier_10mo
 
 
 class Cycle(models.TextChoices):
@@ -306,7 +307,10 @@ class TransfertEleve(models.Model):
     destination_libelle = models.CharField(max_length=255, blank=True)
     date_transfert = models.DateField()
     motif = models.CharField(max_length=255)
-    justificatif = models.FileField(upload_to="transferts/", blank=True)
+    justificatif = models.FileField(
+        upload_to="transferts/", blank=True,
+        validators=[valider_taille_fichier_10mo, valider_extension_document, valider_contenu_fichier],
+    )
     enregistre_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.PROTECT, related_name="transferts_enregistres")
     cree_le = models.DateTimeField(auto_now_add=True)
 

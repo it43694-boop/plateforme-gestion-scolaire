@@ -650,6 +650,55 @@ dans les fichiers de déploiement.
   d'autres pistes évoquées (absentéisme récurrent, etc.) restent à
   construire sur le même principe si besoin.
 
+## État du projet : Phase 19 — Audit de sécurité ciblé, deux correctifs
+
+À la demande explicite d'une vérification complète du code (pas seulement
+des nouvelles fonctionnalités), passage systématique de toutes les vues de
+toutes les applications : décorateurs de permission, cloisonnement par
+établissement sur chaque vue prenant un identifiant en paramètre (risque
+IDOR), upload de fichiers (zip-slip, types autorisés), injection SQL,
+exemptions CSRF, secrets/`DEBUG` codés en dur. Deux problèmes réels trouvés
+et corrigés ; tout le reste (près de 60 vues relues) était déjà correct.
+
+- **`TransfertEleve.justificatif`** (document justifiant un transfert
+  d'élève) n'avait aucun validateur - seul champ fichier de toute
+  l'application dans ce cas, alors que la bibliothèque, les pièces
+  jointes d'annonces et le logo d'établissement sont tous validés (taille,
+  extension, contenu). Risque limité en pratique (champ accessible
+  seulement depuis l'admin Django, zone déjà réservée aux comptes
+  techniques), corrigé par cohérence et défense en profondeur avec les
+  mêmes validateurs que la bibliothèque.
+- **Inscription d'un élève avec un email de parent d'un autre
+  établissement** : le formulaire cherchait ce compte sans filtrer par
+  établissement, et l'erreur n'apparaissait qu'ensuite dans
+  `lier_parent_a_eleve` (qui, lui, vérifie bien l'établissement) - après
+  que l'élève avait déjà été créé en base, sans transaction englobante.
+  Résultat concret : une erreur 500 non gérée et un élève orphelin (sans
+  classe ni parent) laissé en base. Corrigé à deux niveaux : le
+  formulaire filtre maintenant par établissement (même message d'erreur
+  que « email inconnu », pour ne jamais révéler l'existence d'un compte
+  dans un autre établissement), et toute l'opération d'inscription est
+  désormais atomique.
+- **Scan automatisé** (`bandit`, l'outil standard pour Python) passé en
+  complément de la relecture manuelle : 16 signalements, tous relus
+  individuellement et confirmés sans danger (mots de passe de tests,
+  vérification du `SECRET_KEY` par défaut, remise à vide de
+  `totp_secret` lors d'une réinitialisation 2FA - mal interprétée par
+  l'outil comme un « mot de passe codé en dur », contenu SVG figé sans
+  entrée utilisateur, endpoint de supervision qui avale volontairement
+  ses erreurs pour rapporter un état plutôt que de planter). Aucun
+  changement de code nécessaire de ce côté.
+- Suite complète revérifiée au vert après les deux correctifs.
+
+### Ce qui reste ouvert après cette phase
+
+- SMS, WhatsApp et Mobile Money automatisés, tests de charge,
+  restauration testée uniquement en local, rattrapage, traduction
+  bambara : toujours ouverts (voir phases précédentes).
+- Cet audit a porté sur les vues et l'autorisation - pas une relecture
+  ligne par ligne de chaque template ni un test d'intrusion formel. Un
+  outil de scan automatisé (ex. `bandit` pour Python) n'a pas été lancé.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque
