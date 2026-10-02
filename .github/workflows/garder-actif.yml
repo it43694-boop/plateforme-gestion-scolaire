@@ -1,0 +1,25 @@
+name: Empêcher la mise en veille (Render, plan gratuit)
+
+# Contournement temporaire, pas une solution définitive : tant que le
+# service web tourne sur le plan gratuit Render (voir render.yaml), il
+# s'endort après 15 min sans requête. Une requête toutes les 14 min vers
+# /healthz (endpoint léger, sans authentification) l'empêche d'atteindre ce
+# seuil. À supprimer le jour où le service passe en plan payant (starter ou
+# plus), qui ne s'endort jamais - voir render.yaml pour la marche à suivre.
+#
+# Limite à connaître : GitHub exécute les workflows planifiés "au mieux" et
+# peut les retarder de quelques minutes en cas de forte charge côté GitHub -
+# cette marge de 14 min (sur un seuil de 15) n'est donc pas une garantie à
+# 100%, juste une réduction très forte de la fréquence des mises en veille.
+
+on:
+  schedule:
+    - cron: "*/14 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /healthz
+        run: curl --fail --silent --show-error --max-time 30 --retry 2 "https://plateforme-gestion-scolaire.onrender.com/healthz" || true
