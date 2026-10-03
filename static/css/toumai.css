@@ -490,6 +490,7 @@ body, .topbar, table, th, td {
 }
 
 .bouton-menu-mobile { display: none; }
+.sidebar-rideau { display: none; }
 
 @media (max-width: 900px) {
   .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform 0.18s ease; box-shadow: 0 0 0 100vmax rgba(0,0,0,0); }
@@ -498,8 +499,19 @@ body, .topbar, table, th, td {
     display: inline-flex; align-items: center; justify-content: center;
     width: 34px; height: 34px; border-radius: var(--rayon-controle);
     border: 1px solid var(--line-300); background: var(--paper-000); cursor: pointer;
+    position: relative; z-index: 41; /* au-dessus de la sidebar (40) : reste cliquable pour refermer */
   }
   .app-content { padding: 1.1rem; }
+
+  /* Rideau semi-transparent derrière la sidebar ouverte : taper n'importe
+     où en dehors la referme - seul moyen de la refermer, sans ça, vu que
+     la sidebar recouvre entièrement le bouton qui l'a ouverte. */
+  .sidebar-rideau {
+    display: block; position: fixed; inset: 0; z-index: 39;
+    background: rgba(0, 0, 0, 0.4); opacity: 0; pointer-events: none;
+    transition: opacity 0.18s ease;
+  }
+  .sidebar-rideau.ouvert { opacity: 1; pointer-events: auto; }
 }
 
 @media (max-width: 520px) {

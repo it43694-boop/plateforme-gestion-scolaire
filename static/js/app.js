@@ -45,10 +45,20 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     var boutonMenu = document.querySelector(".bouton-menu-mobile");
-    if (boutonMenu) {
+    var sidebar = document.getElementById("sidebar");
+    var rideau = document.getElementById("sidebar-rideau");
+    if (boutonMenu && sidebar) {
         boutonMenu.addEventListener("click", function () {
-            var sidebar = document.getElementById("sidebar");
-            if (sidebar) sidebar.classList.toggle("ouvert");
+            sidebar.classList.toggle("ouvert");
+            if (rideau) rideau.classList.toggle("ouvert");
+        });
+    }
+    if (rideau && sidebar) {
+        // Seul moyen de refermer autrement qu'en tapant le bouton : la
+        // sidebar ouverte recouvre entièrement ce bouton sur mobile.
+        rideau.addEventListener("click", function () {
+            sidebar.classList.remove("ouvert");
+            rideau.classList.remove("ouvert");
         });
     }
 

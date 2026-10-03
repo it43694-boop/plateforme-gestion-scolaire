@@ -806,6 +806,33 @@ test, plutôt qu'une supposition.
   l'application - d'autres motifs similaires pourraient encore exister
   ailleurs.
 
+## État du projet : Phase 23 — Menu mobile : possibilité de le refermer
+
+Signalé par un utilisateur : une fois le menu latéral ouvert sur mobile
+(bouton ☰), il n'y avait aucun moyen de le refermer. Confirmé par test
+réel (Playwright, viewport 375×667) : la sidebar ouverte (`position:
+fixed`, pleine hauteur, `z-index: 40`) recouvre visuellement le bouton
+☰ qui l'a ouverte - `elementFromPoint` sur la position du bouton
+retournait un élément interne de la sidebar, pas le bouton, et un clic
+Playwright sur le bouton expirait sans effet.
+
+- Le bouton ☰ passe à `z-index: 41` (au-dessus de la sidebar) en vue
+  mobile : il reste donc cliquable même sidebar ouverte, et un second
+  clic referme désormais le menu.
+- Ajout d'un rideau (`#sidebar-rideau`, fond semi-transparent, `z-index:
+  39`, sous la sidebar mais au-dessus du contenu) qui couvre le reste de
+  l'écran quand le menu est ouvert ; un tap n'importe où sur ce rideau
+  referme aussi le menu - comportement attendu de tout menu mobile à
+  tiroir.
+- Les deux mécanismes de fermeture (second tap sur ☰, tap en dehors)
+  ont été vérifiés par un scénario Playwright complet avant commit.
+
+### Ce qui reste ouvert après cette phase
+
+- SMS, WhatsApp et Mobile Money automatisés, tests de charge,
+  restauration testée uniquement en local, rattrapage, traduction
+  bambara : toujours ouverts (voir phases précédentes).
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque
