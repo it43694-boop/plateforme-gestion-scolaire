@@ -297,6 +297,21 @@ class CodesSecours2FATests(TestCase):
         self.utilisateur.save(update_fields=["totp_secret", "deux_facteurs_actif"])
         self.codes = self.utilisateur.generer_codes_secours_2fa()
 
+    def test_generer_reste_rapide(self):
+        # Régression : une première version utilisait le hacheur de mot de
+        # passe par défaut de Django (~1,5M d'itérations, réglé pour un mot
+        # de passe humain) pour les 10 codes - plusieurs secondes par code,
+        # de quoi dépasser le délai d'attente du serveur en production et
+        # provoquer une erreur 502 à l'activation de la 2FA (observé en
+        # conditions réelles). Les codes de secours sont générés
+        # aléatoirement côté serveur, pas choisis par un humain : un
+        # hachage bien plus rapide suffit (voir comptes.models._hacheur_code_secours).
+        import time
+        debut = time.time()
+        self.utilisateur.generer_codes_secours_2fa()
+        duree = time.time() - debut
+        self.assertLess(duree, 3, "La génération des codes de secours est redevenue trop lente.")
+
     def test_generer_cree_dix_codes_uniques(self):
         self.assertEqual(len(self.codes), 10)
         self.assertEqual(len(set(self.codes)), 10)

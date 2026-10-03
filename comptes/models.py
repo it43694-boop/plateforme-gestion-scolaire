@@ -12,6 +12,31 @@ from django.utils import timezone
 from comptes.roles import Role, StatutCompte
 
 
+def _hacheur_code_secours():
+    """
+    Hacheur dédié aux codes de secours 2FA - PBKDF2 à 30 000 itérations
+    plutôt que les ~1,5 million par défaut de Django (réglées pour un mot
+    de passe choisi par un humain, donc potentiellement faible). Les codes
+    de secours, eux, sont générés aléatoirement côté serveur sur un
+    alphabet de 32 caractères (~2^40 combinaisons pour 8 caractères) :
+    déjà largement infaisables à deviner, 30 000 itérations suffisent donc
+    très confortablement en défense supplémentaire, sans le coût du réglage
+    « mot de passe humain ».
+
+    Ce coût n'est pas qu'un détail : hacher 10 codes à 1,5M d'itérations
+    chacun prend plusieurs secondes par code (confirmé : ~1,5s/code en
+    local, bien pire sur une instance Render gratuite, au CPU limité) - de
+    quoi dépasser le délai d'attente du serveur pendant l'activation de la
+    2FA et provoquer une erreur 502 côté utilisateur. Ici, ~30-50ms/code.
+    """
+    from django.contrib.auth.hashers import PBKDF2PasswordHasher
+
+    class HacheurCodeSecours(PBKDF2PasswordHasher):
+        iterations = 30_000
+
+    return HacheurCodeSecours()
+
+
 class Sexe(models.TextChoices):
     MASCULIN = "M", "Masculin"
     FEMININ = "F", "Féminin"
@@ -250,26 +275,29 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
         usage unique, retournés en clair pour être affichés une seule fois :
         seul leur hachage est conservé ensuite (comme un mot de passe), donc
         impossible de les reconsulter après coup - uniquement les régénérer.
-        """
-        from django.contrib.auth.hashers import make_password
 
+        Hachés avec _hacheur_code_secours() (PBKDF2 à itérations réduites),
+        PAS le hacheur de mot de passe par défaut de Django - voir sa
+        docstring pour pourquoi ce choix est sûr ici.
+        """
+        hacheur = _hacheur_code_secours()
         self.codes_secours_2fa.all().delete()
         codes_affiches = []
         for _ in range(10):
             brut = "".join(secrets.choice(self.ALPHABET_CODES_SECOURS) for _ in range(8))
             codes_affiches.append(f"{brut[:4]}-{brut[4:]}")
-            CodeSecours2FA.objects.create(utilisateur=self, code_hache=make_password(brut))
+            code_hache = hacheur.encode(brut, hacheur.salt())
+            CodeSecours2FA.objects.create(utilisateur=self, code_hache=code_hache)
         return codes_affiches
 
     def verifier_et_consommer_code_secours(self, code: str) -> bool:
         """Un code de secours n'est valable qu'une seule fois - consommé dès qu'il sert."""
-        from django.contrib.auth.hashers import check_password
-
+        hacheur = _hacheur_code_secours()
         normalise = (code or "").strip().upper().replace("-", "").replace(" ", "")
         if not normalise:
             return False
         for entree in self.codes_secours_2fa.filter(utilise=False):
-            if check_password(normalise, entree.code_hache):
+            if hacheur.verify(normalise, entree.code_hache):
                 entree.utilise = True
                 entree.save(update_fields=["utilise"])
                 return True
