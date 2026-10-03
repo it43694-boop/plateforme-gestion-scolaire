@@ -696,8 +696,47 @@ et corrigés ; tout le reste (près de 60 vues relues) était déjà correct.
   restauration testée uniquement en local, rattrapage, traduction
   bambara : toujours ouverts (voir phases précédentes).
 - Cet audit a porté sur les vues et l'autorisation - pas une relecture
-  ligne par ligne de chaque template ni un test d'intrusion formel. Un
-  outil de scan automatisé (ex. `bandit` pour Python) n'a pas été lancé.
+  ligne par ligne de chaque template ni un test d'intrusion formel.
+  (Mise à jour : `bandit` a finalement été lancé peu après - voir Phase 20.)
+
+## État du projet : Phase 20 — Erreur 502 corrigée, cycle Lycée ajouté
+
+- **Correctif urgent, découvert en production** : l'activation de la 2FA
+  provoquait une erreur 502 (signalée par l'utilisateur avec capture
+  d'écran). Cause confirmée par mesure : les 10 codes de secours générés
+  à l'activation étaient hachés avec le hacheur de mot de passe par
+  défaut de Django (~1,5 million d'itérations PBKDF2, réglé pour un mot
+  de passe choisi par un humain) - 15,7 secondes pour les 10 hachages en
+  local, largement de quoi dépasser le délai d'attente du serveur sur
+  l'instance Render gratuite. Un hacheur dédié à 30 000 itérations
+  (toujours PBKDF2 salé, juste proportionné à des codes générés
+  aléatoirement côté serveur) ramène ça à 0,44s. Rétrocompatible sans
+  migration de données : le format du hachage encode son propre nombre
+  d'itérations.
+- **`bandit`** (scanner de sécurité Python standard) lancé en complément
+  de l'audit de la phase précédente : 16 signalements, tous relus et
+  confirmés sans danger.
+- **Cycle Lycée** (10ème à 12ème année - Seconde à Terminale, menant au
+  baccalauréat malien) ajouté à côté du 1er et du 2ème cycle de
+  l'enseignement fondamental, avec un rôle `Directeur du lycée` cloisonné
+  au même principe que les deux rôles de direction de cycle existants.
+  Migration de données pour les établissements déjà créés (le nouveau
+  rôle n'existait pas dans leur matrice de permissions). Au passage,
+  deux ensembles de constantes dupliqués et jamais utilisés nulle part
+  dans le code (`ROLES_DIRECTION_CYCLE`/`ROLES_DIRECTION_TOTALE` dans
+  `comptes/roles.py`, `ROLES_VISION_TOUS_CYCLES` dans
+  `scolarite/models.py`) ont été retirés plutôt que laissés devenir plus
+  trompeurs encore avec un 3ème cycle qu'ils n'auraient pas reflété.
+
+### Ce qui reste ouvert après cette phase
+
+- SMS, WhatsApp et Mobile Money automatisés, tests de charge,
+  restauration testée uniquement en local, rattrapage, traduction
+  bambara : toujours ouverts (voir phases précédentes).
+- Le Lycée malien oriente les élèves par filière à partir de la 11ème
+  année (Lettres, Sciences, Sciences Économiques et Sociales) - non
+  modélisé ici (seul le regroupement par cycle existe). À ajouter si le
+  suivi par filière devient un besoin concret.
 
 ## Sauvegardes locales (base de données et médias)
 

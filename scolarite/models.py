@@ -9,23 +9,21 @@ from comptes.validators import valider_contenu_fichier, valider_extension_docume
 
 
 class Cycle(models.TextChoices):
-    """Cycles de l'enseignement fondamental malien (cf. cahier des charges)."""
+    """
+    Cycles de l'enseignement malien (cf. cahier des charges pour le
+    fondamental ; le lycée a été ajouté ensuite sur le même principe -
+    seconde à terminale, menant au baccalauréat malien).
+    """
     PREMIER_CYCLE = "1er_cycle", "1er cycle (1ère à 6ème année)"
     DEUXIEME_CYCLE = "2eme_cycle", "2ème cycle (7ème à 9ème année)"
+    LYCEE = "lycee", "Lycée (10ème à 12ème année)"
 
 
 # Correspondance rôle de direction cloisonné -> cycle qu'il supervise.
 CYCLE_PAR_ROLE_DIRECTION = {
     Role.DIRECTEUR_1ER_CYCLE.value: Cycle.PREMIER_CYCLE.value,
     Role.DIRECTEUR_2EME_CYCLE.value: Cycle.DEUXIEME_CYCLE.value,
-}
-
-# Rôles ayant une vue sur tous les cycles sans restriction (matrice de
-# permissions mise à part - voir permissions_matrix pour l'accès au module).
-ROLES_VISION_TOUS_CYCLES = {
-    Role.DEVELOPPEUR.value, Role.FONDATEUR.value, Role.ADMINISTRATEUR_GENERAL.value,
-    Role.SUPER_ADMINISTRATEUR.value, Role.COMPTABLE.value, Role.SECRETAIRE.value,
-    Role.RESPONSABLE_PEDAGOGIQUE.value,
+    Role.DIRECTEUR_LYCEE.value: Cycle.LYCEE.value,
 }
 
 
@@ -428,7 +426,7 @@ def dossier_complet(eleve) -> bool:
 # générique, ou un autre élève) n'a aucune raison de consulter le dossier
 # d'un élève auquel il n'est pas directement lié.
 ROLES_VOIENT_TOUT_ELEVE_DE_LETABLISSEMENT = {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL} | {
-    Role.DIRECTEUR_1ER_CYCLE.value, Role.DIRECTEUR_2EME_CYCLE.value,
+    Role.DIRECTEUR_1ER_CYCLE.value, Role.DIRECTEUR_2EME_CYCLE.value, Role.DIRECTEUR_LYCEE.value,
     Role.SUPER_ADMINISTRATEUR.value, Role.SECRETAIRE.value,
     Role.COMPTABLE.value, Role.RESPONSABLE_PEDAGOGIQUE.value,
 }

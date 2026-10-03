@@ -160,6 +160,7 @@ class MatricePermissionsVueTests(TestCase):
         self.assertNotIn(Role.DEVELOPPEUR, roles_affiches)
         self.assertNotIn(Role.FONDATEUR, roles_affiches)
         self.assertIn(Role.SECRETAIRE, roles_affiches)
+        self.assertIn(Role.DIRECTEUR_LYCEE, roles_affiches)
 
     def test_cocher_une_case_accorde_immediatement_lacces(self):
         self.assertFalse(PermissionMatrix.a_acces(Role.SECRETAIRE, Module.BIBLIOTHEQUE, etablissement=self.etablissement))

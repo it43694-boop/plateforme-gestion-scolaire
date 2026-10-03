@@ -13,7 +13,7 @@ from comptes.roles import Role, StatutCompte
 from scolarite.models import (
     Affectation, AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription,
     TypeDocumentVerifiable, VerificationDocument,
-    classes_visibles_pour, dossier_complet, lier_parent_a_eleve,
+    classes_visibles_pour, dossier_complet, eleve_visible_pour, lier_parent_a_eleve,
 )
 
 
@@ -112,24 +112,47 @@ class CloisonnementCycleTests(TestCase):
         self.annee = creer_annee()
         self.classe_1er = Classe.objects.create(nom="3ème année A", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
         self.classe_2eme = Classe.objects.create(nom="8ème année A", cycle=Cycle.DEUXIEME_CYCLE, annee_scolaire=self.annee)
+        self.classe_lycee = Classe.objects.create(nom="11ème année A", cycle=Cycle.LYCEE, annee_scolaire=self.annee)
 
     def test_directeur_1er_cycle_ne_voit_que_son_cycle(self):
         directeur = creer_utilisateur_actif("dir1@example.com", Role.DIRECTEUR_1ER_CYCLE)
         visibles = classes_visibles_pour(directeur)
         self.assertIn(self.classe_1er, visibles)
         self.assertNotIn(self.classe_2eme, visibles)
+        self.assertNotIn(self.classe_lycee, visibles)
 
     def test_directeur_2eme_cycle_ne_voit_que_son_cycle(self):
         directeur = creer_utilisateur_actif("dir2@example.com", Role.DIRECTEUR_2EME_CYCLE)
         visibles = classes_visibles_pour(directeur)
         self.assertIn(self.classe_2eme, visibles)
         self.assertNotIn(self.classe_1er, visibles)
+        self.assertNotIn(self.classe_lycee, visibles)
+
+    def test_directeur_lycee_ne_voit_que_le_lycee(self):
+        directeur = creer_utilisateur_actif("dir-lycee@example.com", Role.DIRECTEUR_LYCEE)
+        visibles = classes_visibles_pour(directeur)
+        self.assertIn(self.classe_lycee, visibles)
+        self.assertNotIn(self.classe_1er, visibles)
+        self.assertNotIn(self.classe_2eme, visibles)
 
     def test_fondateur_voit_toutes_les_classes(self):
         fondateur = creer_utilisateur_actif("fondateur@example.com", Role.FONDATEUR)
         visibles = classes_visibles_pour(fondateur)
         self.assertIn(self.classe_1er, visibles)
         self.assertIn(self.classe_2eme, visibles)
+        self.assertIn(self.classe_lycee, visibles)
+
+    def test_directeur_lycee_voit_le_dossier_dun_eleve_du_lycee(self):
+        directeur = creer_utilisateur_actif("dir-lycee-dossier@example.com", Role.DIRECTEUR_LYCEE)
+        eleve = creer_utilisateur_actif("eleve-lycee@example.com", Role.ELEVE)
+        Inscription.objects.create(eleve=eleve, classe=self.classe_lycee)
+        self.assertTrue(eleve_visible_pour(directeur, eleve))
+
+    def test_directeur_1er_cycle_ne_voit_pas_le_dossier_dun_eleve_du_lycee(self):
+        directeur = creer_utilisateur_actif("dir1-dossier@example.com", Role.DIRECTEUR_1ER_CYCLE)
+        eleve = creer_utilisateur_actif("eleve-lycee2@example.com", Role.ELEVE)
+        Inscription.objects.create(eleve=eleve, classe=self.classe_lycee)
+        self.assertFalse(eleve_visible_pour(directeur, eleve))
 
 
 class LiaisonParentEleveTests(TestCase):

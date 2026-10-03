@@ -17,6 +17,7 @@ class Role(models.TextChoices):
     ADMINISTRATEUR_GENERAL = "administrateur_general", "Administrateur général"
     DIRECTEUR_1ER_CYCLE = "directeur_1er_cycle", "Directeur du 1er cycle"
     DIRECTEUR_2EME_CYCLE = "directeur_2eme_cycle", "Directeur du 2ème cycle"
+    DIRECTEUR_LYCEE = "directeur_lycee", "Directeur du lycée"
     SUPER_ADMINISTRATEUR = "super_administrateur", "Super administrateur"
     SECRETAIRE = "secretaire", "Secrétaire"
     COMPTABLE = "comptable", "Comptable"
@@ -27,17 +28,6 @@ class Role(models.TextChoices):
     PARENT = "parent", "Parent"
     ELEVE = "eleve", "Élève"
 
-
-# Rôles de la catégorie « Direction » : accès à tous les modules, ou à leur
-# cycle uniquement pour les deux rôles cloisonnés.
-ROLES_DIRECTION_TOTALE = {
-    Role.FONDATEUR,
-    Role.ADMINISTRATEUR_GENERAL,
-}
-ROLES_DIRECTION_CYCLE = {
-    Role.DIRECTEUR_1ER_CYCLE: "1er_cycle",
-    Role.DIRECTEUR_2EME_CYCLE: "2eme_cycle",
-}
 
 # Rôles pouvant valider un compte en attente (secrétariat ou direction)
 ROLES_VALIDATION_COMPTES = {

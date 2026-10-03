@@ -31,6 +31,11 @@ MATRICE_PAR_DEFAUT = {
         M.NOTES_BULLETINS, M.ABSENCES, M.TESTS_DE_NIVEAU, M.STATISTIQUES,
         M.BIBLIOTHEQUE, M.COMMUNICATION, M.ASSISTANT,
     },
+    Role.DIRECTEUR_LYCEE: {
+        M.CLASSES, M.ELEVES, M.ENSEIGNANTS, M.EMPLOI_DU_TEMPS, M.SUIVI_DES_COURS,
+        M.NOTES_BULLETINS, M.ABSENCES, M.TESTS_DE_NIVEAU, M.STATISTIQUES,
+        M.BIBLIOTHEQUE, M.COMMUNICATION, M.ASSISTANT,
+    },
     # Rôle technique réservé : périmètre large, mais jamais la gestion des
     # rôles/matrice, réservée exclusivement au développeur.
     Role.SUPER_ADMINISTRATEUR: set(Module) - {M.ESPACE_DEVELOPPEUR},

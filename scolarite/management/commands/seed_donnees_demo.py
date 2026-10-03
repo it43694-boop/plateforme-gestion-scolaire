@@ -42,6 +42,8 @@ class Command(BaseCommand):
             ("6ème année A", Cycle.PREMIER_CYCLE, 20000, 20000, 20000),
             ("7ème année A", Cycle.DEUXIEME_CYCLE, 25000, 25000, 25000),
             ("9ème année A", Cycle.DEUXIEME_CYCLE, 30000, 25000, 25000),
+            ("10ème année A", Cycle.LYCEE, 35000, 30000, 30000),
+            ("12ème année A", Cycle.LYCEE, 35000, 30000, 30000),
         ]
         for nom, cycle, insc, t1, t2 in classes_demo:
             classe, cree = Classe.objects.get_or_create(
