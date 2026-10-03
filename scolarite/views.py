@@ -231,7 +231,9 @@ def liste_matieres(request):
     """
     affectations = Affectation.objects.filter(
         classe__in=classes_visibles_pour(request.user),
-    ).exclude(matiere="").select_related("enseignant", "classe").order_by("matiere", "classe__nom")
+    ).exclude(matiere="").select_related(
+        "enseignant", "classe", "classe__annee_scolaire",
+    ).order_by("matiere", "classe__nom")
 
     matieres = {}
     for affectation in affectations:
@@ -248,7 +250,7 @@ def liste_eleves(request):
     classes = classes_visibles_pour(request.user)
     inscriptions = Inscription.objects.filter(
         classe__in=classes, statut=Inscription.Statut.EN_COURS,
-    ).select_related("eleve", "classe").order_by("classe__nom", "eleve__nom")
+    ).select_related("eleve", "classe", "classe__annee_scolaire").order_by("classe__nom", "eleve__nom")
     if classe_id:
         inscriptions = inscriptions.filter(classe_id=classe_id)
 
@@ -277,7 +279,7 @@ def recherche_globale(request):
             classe__in=classes_visibles_pour(request.user), statut=Inscription.Statut.EN_COURS,
         ).filter(
             Q(eleve__nom__icontains=terme) | Q(eleve__prenom__icontains=terme) | Q(eleve__matricule__icontains=terme),
-        ).select_related("eleve", "classe").order_by("eleve__nom")
+        ).select_related("eleve", "classe", "classe__annee_scolaire").order_by("eleve__nom")
         if request.user.role == Role.PARENT:
             inscriptions = inscriptions.filter(eleve__parents_lies=request.user)
         resultats = inscriptions[:25]

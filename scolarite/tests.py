@@ -424,6 +424,26 @@ class VueListeElevesTests(TestCase):
         eleves = [i.eleve for i in reponse.context["inscriptions"]]
         self.assertEqual(eleves, [self.eleve_2])
 
+    def test_ne_fait_pas_une_requete_par_eleve(self):
+        # Régression : {{ inscription.classe }} (affiché dans le template)
+        # déclenche Classe.__str__, qui accède à annee_scolaire - sans
+        # classe__annee_scolaire dans le select_related, c'était une
+        # requête de plus par élève affiché.
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        for i in range(5):
+            eleve = creer_utilisateur_actif(f"perf-liste{i}@example.com", Role.ELEVE)
+            Inscription.objects.create(eleve=eleve, classe=self.classe)
+
+        self.client.force_login(self.secretaire)
+        with CaptureQueriesContext(connection) as capture:
+            self.client.get(reverse("scolarite:liste_eleves"))
+        self.assertLess(
+            len(capture.captured_queries), 20,
+            "liste_eleves semble à nouveau faire une requête par élève.",
+        )
+
 
 class RechercheGlobaleTests(TestCase):
     def setUp(self):

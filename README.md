@@ -760,6 +760,52 @@ Littérature (TLL), Arts et Lettres (TAL).
   un filtre dans les statistiques (répartition par série) ni un critère
   de recherche dédié - à ajouter si le besoin se précise.
 
+## État du projet : Phase 22 — Performance (requêtes N+1)
+
+Suite à une question sur la lenteur ressentie de l'application : mesure
+réelle (307 à 348 tests ne suffisent pas à détecter un problème de
+performance, qui n'empêche aucun test de passer) avec 100 élèves de
+test, plutôt qu'une supposition.
+
+- **`assistant.alertes.construire_alertes`** (tableau de bord) : 703
+  requêtes SQL et 2,7s mesurées pour 100 élèves - une boucle Python
+  appelait une fonction faisant sa propre requête à chaque élève. Réécrit
+  en requêtes groupées par classe (moyenne pondérée) et par lot (soldes
+  dus). Résultat mesuré : 7 requêtes, 0,042s - mêmes chiffres produits,
+  juste calculés différemment.
+- **`finances.views.suivi_paiements`** : 140+ requêtes pour 100 élèves,
+  un problème préexistant, pas introduit par la phase précédente -
+  `calculer_total_du` et la recherche du téléphone d'un parent
+  (`Utilisateur.telephone_effectif`) faisaient chacune une requête par
+  élève affiché. `calculer_total_du` accepte maintenant un paramètre
+  optionnel pour recevoir les aides déjà chargées (compatible : les
+  autres appels, à un seul élève, sont inchangés).
+- **`scolarite.views.liste_eleves`, `recherche_globale`,
+  `liste_matieres`** : même cause plus discrète - `{{ inscription.classe
+  }}` déclenche `Classe.__str__`, qui accède à `annee_scolaire` ; ce
+  champ n'était pas dans le `select_related`, donc une requête de plus
+  par ligne affichée. `liste_eleves` est probablement la page la plus
+  consultée de toute l'application.
+- 3 tests de régression ajoutés (assertion sur un plafond de requêtes,
+  pas un nombre exact - pour ne pas casser au moindre changement mineur),
+  conçus pour échouer si le motif « une requête par élève » revient.
+
+### Ce qui reste ouvert après cette phase
+
+- SMS, WhatsApp et Mobile Money automatisés, tests de charge,
+  restauration testée uniquement en local, rattrapage, traduction
+  bambara : toujours ouverts (voir phases précédentes).
+- `finances/management/commands/relancer_impayes.py` (la commande cron
+  de relance automatique) a le même motif de requête par élève, non
+  corrigé ici : elle tourne en tâche planifiée, jamais pendant qu'un
+  utilisateur attend une page, donc hors du périmètre de cette phase
+  (lenteur ressentie) - à revoir si le temps d'exécution de la tâche
+  elle-même devient un problème concret.
+- Cette phase a corrigé les cas trouvés par mesure réelle sur les pages
+  les plus probables, pas un audit exhaustif de chaque vue de
+  l'application - d'autres motifs similaires pourraient encore exister
+  ailleurs.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

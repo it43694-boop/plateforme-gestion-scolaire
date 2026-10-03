@@ -460,6 +460,26 @@ class SuiviPaiementsTests(TestCase):
         emails = [l["inscription"].eleve.email for l in reponse.context["lignes"]]
         self.assertEqual(emails, ["eleve-impaye@example.com"])
 
+    def test_ne_fait_pas_une_requete_par_eleve(self):
+        # Régression : calculer_total_du (aides) et telephone_effectif
+        # (recherche du parent) faisaient chacun une requête par élève
+        # affiché - 140 requêtes mesurées pour 100 élèves avant correctif.
+        # Quelques élèves de plus ici ne doivent pas faire grimper le total.
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        for i in range(5):
+            eleve = creer_utilisateur_actif(f"perf-suivi{i}@example.com", Role.ELEVE)
+            Inscription.objects.create(eleve=eleve, classe=self.classe)
+
+        self.client.force_login(self.comptable)
+        with CaptureQueriesContext(connection) as capture:
+            self.client.get(reverse("finances:suivi_paiements"))
+        self.assertLess(
+            len(capture.captured_queries), 20,
+            "suivi_paiements semble à nouveau faire une requête par élève.",
+        )
+
     def test_paiement_supprime_nest_pas_compte(self):
         direction = creer_utilisateur_actif("direction-suivi@example.com", Role.FONDATEUR)
         eleve = creer_utilisateur_actif("eleve-supprime@example.com", Role.ELEVE)

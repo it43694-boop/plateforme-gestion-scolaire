@@ -41,53 +41,118 @@ def _inscriptions_visibles_pour_alertes(utilisateur):
     que ses propres classes affectées, les autres rôles de la liste
     d'autorisation voient tout l'établissement (cloisonné par cycle le cas
     échéant, via classes_visibles_pour).
+
+    select_related/prefetch_related choisis précisément pour que les deux
+    fonctions d'alerte ci-dessous n'aient plus besoin d'une requête par
+    élève (voir leur historique : 703 requêtes et 2,7s mesurées pour 100
+    élèves avant ce correctif - une requête de plus ici coûte bien moins
+    cher qu'une requête en moins dans une boucle Python).
     """
-    from scolarite.models import Inscription, classes_visibles_pour
+    from django.db.models import Prefetch
+
+    from scolarite.models import AideScolarite, Inscription, classes_visibles_pour
+
+    aides_actives = Prefetch(
+        "aides_scolarite", queryset=AideScolarite.objects.filter(active=True), to_attr="aides_actives_prefetchees",
+    )
 
     if utilisateur.role == Role.ENSEIGNANT:
-        return Inscription.objects.filter(
+        base = Inscription.objects.filter(
             classe__affectations__enseignant=utilisateur,
             statut=Inscription.Statut.EN_COURS,
-        ).select_related("eleve", "classe").distinct()
+        ).distinct()
+    else:
+        classes = classes_visibles_pour(utilisateur)
+        base = Inscription.objects.filter(classe__in=classes, statut=Inscription.Statut.EN_COURS)
 
-    classes = classes_visibles_pour(utilisateur)
-    return Inscription.objects.filter(
-        classe__in=classes, statut=Inscription.Statut.EN_COURS,
-    ).select_related("eleve", "classe")
+    return base.select_related("eleve", "classe", "classe__annee_scolaire", "classe__echeancier").prefetch_related(aides_actives)
 
 
 def _eleves_a_risque_academique(utilisateur):
-    from pedagogie.views import _calculer_bulletin
+    """
+    Moyenne pondérée par élève, calculée en UNE requête groupée par classe
+    (pas une par élève - voir pedagogie.views._calculer_bulletin pour
+    l'équivalent "un seul élève", dont ceci reprend exactement le même
+    calcul, juste groupé).
+    """
+    from collections import defaultdict
+
+    from django.db.models import DecimalField, ExpressionWrapper, F, Sum
+
+    from pedagogie.models import Note
+
+    inscriptions = list(_inscriptions_visibles_pour_alertes(utilisateur))
+    if not inscriptions:
+        return []
+
+    inscriptions_par_classe = defaultdict(list)
+    for inscription in inscriptions:
+        inscriptions_par_classe[inscription.classe_id].append(inscription)
 
     a_risque = []
-    for inscription in _inscriptions_visibles_pour_alertes(utilisateur):
-        resultat = _calculer_bulletin(inscription.eleve, inscription)
-        moyenne = resultat["moyenne_generale"]
-        if moyenne is not None and moyenne < SEUIL_MOYENNE_RISQUE:
-            a_risque.append({"eleve": inscription.eleve, "classe": inscription.classe, "moyenne": moyenne})
+    for classe_id, inscriptions_classe in inscriptions_par_classe.items():
+        inscription_par_eleve = {i.eleve_id: i for i in inscriptions_classe}
+        lignes = (
+            Note.objects.filter(affectation__classe_id=classe_id, eleve_id__in=inscription_par_eleve.keys())
+            .values("eleve_id")
+            .annotate(
+                total_pondere=Sum(
+                    ExpressionWrapper(
+                        F("valeur") * F("affectation__coefficient"),
+                        output_field=DecimalField(max_digits=12, decimal_places=2),
+                    ),
+                ),
+                poids=Sum("affectation__coefficient"),
+            )
+        )
+        for ligne in lignes:
+            if not ligne["poids"]:
+                continue
+            moyenne = ligne["total_pondere"] / ligne["poids"]
+            if moyenne < SEUIL_MOYENNE_RISQUE:
+                inscription = inscription_par_eleve[ligne["eleve_id"]]
+                a_risque.append({"eleve": inscription.eleve, "classe": inscription.classe, "moyenne": round(moyenne, 2)})
     return a_risque
 
 
 def _familles_impayees(utilisateur):
+    """
+    total_du réutilise scolarite.models.calculer_total_du tel quel (même
+    calcul de remise, pas dupliqué) - rendu sans requête supplémentaire
+    par élève grâce au select_related/prefetch_related déjà posés par
+    _inscriptions_visibles_pour_alertes (classe__echeancier,
+    aides_actives_prefetchees). Seul total_paye est groupé en une requête
+    pour tous les élèves d'un coup, au lieu d'une par élève.
+    """
     from django.db.models import Sum
 
     from finances.models import Paiement
     from scolarite.models import calculer_total_du
 
-    impayees = []
+    aujourdhui = date.today()
+    candidates = []
     for inscription in _inscriptions_visibles_pour_alertes(utilisateur):
         annee = inscription.classe.annee_scolaire
         if not annee.est_active:
             continue
         duree_totale = (annee.date_fin - annee.date_debut).days or 1
-        ecoule = (date.today() - annee.date_debut).days
+        ecoule = (aujourdhui - annee.date_debut).days
         avancement = max(Decimal(ecoule) / Decimal(duree_totale), Decimal("0"))
-        if avancement < SEUIL_AVANCEMENT_ANNEE:
-            continue
-        total_du = calculer_total_du(inscription)
-        total_paye = Paiement.objects.filter(
-            inscription=inscription, est_supprime=False,
-        ).aggregate(total=Sum("montant"))["total"] or 0
+        if avancement >= SEUIL_AVANCEMENT_ANNEE:
+            candidates.append(inscription)
+    if not candidates:
+        return []
+
+    totaux_payes = dict(
+        Paiement.objects.filter(
+            inscription_id__in=[i.id for i in candidates], est_supprime=False,
+        ).values_list("inscription_id").annotate(total=Sum("montant")),
+    )
+
+    impayees = []
+    for inscription in candidates:
+        total_du = calculer_total_du(inscription, aides_actives=inscription.aides_actives_prefetchees)
+        total_paye = totaux_payes.get(inscription.id, 0)
         solde = total_du - total_paye
         if solde > 0:
             impayees.append({"eleve": inscription.eleve, "classe": inscription.classe, "solde": solde})

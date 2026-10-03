@@ -440,6 +440,29 @@ class AlertesTableauDeBordTests(TestCase):
             self.assertEqual(reponse.context["synthese_alertes"], "")
             self.assertTrue(reponse.context["alertes"])
 
+    def test_construire_alertes_ne_fait_pas_une_requete_par_eleve(self):
+        # Régression : la première version bouclait sur chaque élève pour
+        # calculer sa moyenne et son solde dû (une requête à chaque fois),
+        # soit 703 requêtes mesurées pour 100 élèves. Avec les requêtes
+        # groupées par classe, le nombre de requêtes ne dépend (presque)
+        # plus du nombre d'élèves - quelques élèves supplémentaires ici ne
+        # doivent donc pas faire grimper le total de façon notable.
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from assistant.alertes import construire_alertes
+
+        for i in range(5):
+            eleve = creer_utilisateur_actif(f"perf-alertes{i}@example.com", Role.ELEVE)
+            Inscription.objects.create(eleve=eleve, classe=self.classe)
+
+        with CaptureQueriesContext(connection) as capture:
+            construire_alertes(self.fondateur)
+        self.assertLess(
+            len(capture.captured_queries), 15,
+            "construire_alertes semble à nouveau faire une requête par élève.",
+        )
+
 
 class AssistantSansCleApiTests(TestCase):
     @override_settings(GROQ_API_KEY="")

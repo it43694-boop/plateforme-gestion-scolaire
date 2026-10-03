@@ -48,16 +48,21 @@ def suivi_paiements(request):
     déjà payé, solde restant. Répond directement à la question « qui n'a
     pas encore tout payé ? » - absente jusqu'ici de l'application.
     """
-    from django.db.models import Q, Sum
+    from django.db.models import Prefetch, Q, Sum
     from django.db.models.functions import Coalesce
-    from scolarite.models import Inscription, calculer_total_du, classes_visibles_pour
+    from scolarite.models import AideScolarite, Inscription, calculer_total_du, classes_visibles_pour
 
     filtre_statut = request.GET.get("statut", "")
     classe_id = request.GET.get("classe", "")
 
+    aides_actives = Prefetch(
+        "aides_scolarite", queryset=AideScolarite.objects.filter(active=True), to_attr="aides_actives_prefetchees",
+    )
     inscriptions = Inscription.objects.filter(
         classe__in=classes_visibles_pour(request.user), statut=Inscription.Statut.EN_COURS,
-    ).select_related("eleve", "classe", "classe__echeancier").annotate(
+    ).select_related("eleve", "classe", "classe__echeancier", "classe__annee_scolaire").prefetch_related(
+        aides_actives, "eleve__parents_lies",
+    ).annotate(
         total_paye=Coalesce(Sum("paiements__montant", filter=Q(paiements__est_supprime=False)), 0),
     ).order_by("classe__nom", "eleve__nom")
 
@@ -70,12 +75,22 @@ def suivi_paiements(request):
     devise = getattr(request.user.etablissement, "code_devise", "FCFA")
     lignes = []
     for inscription in inscriptions:
-        total_du = calculer_total_du(inscription)
+        total_du = calculer_total_du(inscription, aides_actives=inscription.aides_actives_prefetchees)
         solde = total_du - inscription.total_paye
         statut = "paye" if solde <= 0 else ("partiel" if inscription.total_paye > 0 else "impaye")
         if filtre_statut and statut != filtre_statut:
             continue
-        telephone_whatsapp = inscription.eleve.telephone_effectif if solde > 0 else None
+        # Équivalent de Utilisateur.telephone_effectif, mais à partir des
+        # parents déjà préchargés (prefetch_related ci-dessus) plutôt que
+        # via la propriété, qui ferait une requête par élève dans cette boucle.
+        if not solde > 0:
+            telephone_whatsapp = None
+        elif inscription.eleve.telephone:
+            telephone_whatsapp = inscription.eleve.telephone
+        else:
+            telephone_whatsapp = next(
+                (p.telephone for p in inscription.eleve.parents_lies.all() if p.telephone), None,
+            )
         message_whatsapp = (
             f"Bonjour, ceci est un rappel concernant le solde de scolarité de "
             f"{inscription.eleve.nom_complet} ({inscription.classe}) : {solde} {devise}."

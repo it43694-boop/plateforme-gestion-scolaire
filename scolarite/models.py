@@ -310,12 +310,21 @@ class AideScolarite(models.Model):
             raise ValidationError("L'aide et l'inscription doivent appartenir au même établissement.")
 
 
-def calculer_total_du(inscription):
-    """Calcule le net dû en tenant compte des aides actives de l'inscription."""
+def calculer_total_du(inscription, aides_actives=None):
+    """
+    Calcule le net dû en tenant compte des aides actives de l'inscription.
+
+    `aides_actives` : liste déjà chargée des aides actives de CETTE
+    inscription, à fournir quand l'appelant boucle sur plusieurs
+    inscriptions (ex. finances.views.suivi_paiements,
+    assistant.alertes._familles_impayees) pour éviter une requête par
+    élève - sans ce paramètre, comportement inchangé (une requête ici).
+    """
     echeancier = getattr(inscription.classe, "echeancier", None)
     brut = echeancier.total_annuel if echeancier else 0
     remise = 0
-    for aide in inscription.aides_scolarite.filter(active=True):
+    aides = aides_actives if aides_actives is not None else inscription.aides_scolarite.filter(active=True)
+    for aide in aides:
         remise += aide.montant or round(brut * aide.pourcentage / 100)
     return max(brut - remise, 0)
 
