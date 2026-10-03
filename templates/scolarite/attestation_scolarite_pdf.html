@@ -65,7 +65,8 @@
         certifie que <strong>{{ eleve.nom_complet }}</strong>{% if eleve.date_naissance %}, né(e) le
         {{ eleve.date_naissance|date:"d/m/Y" }}{% endif %}, immatriculé(e) sous le numéro
         <strong>{{ eleve.matricule }}</strong>, est régulièrement inscrit(e) en classe de
-        <strong>{{ inscription.classe.nom }}</strong> au titre de l'année scolaire
+        <strong>{{ inscription.classe.nom }}</strong>{% if inscription.classe.serie %}, série
+        <strong>{{ inscription.classe.get_serie_display }}</strong>{% endif %} au titre de l'année scolaire
         <strong>{{ inscription.classe.annee_scolaire.libelle }}</strong>.
     </p>
     <p class="corps">

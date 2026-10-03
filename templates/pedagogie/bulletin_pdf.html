@@ -66,7 +66,7 @@
     </p>
     <p class="matricule">
         Matricule : {{ eleve.matricule }}
-        {% if inscription %} — Classe : {{ inscription.classe }}{% endif %}
+        {% if inscription %} — Classe : {{ inscription.classe }}{% if inscription.classe.serie %} — Série {{ inscription.classe.get_serie_display }}{% endif %}{% endif %}
     </p>
 
     <br>

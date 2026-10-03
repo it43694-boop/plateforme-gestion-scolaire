@@ -19,6 +19,21 @@ class Cycle(models.TextChoices):
     LYCEE = "lycee", "Lycée (10ème à 12ème année)"
 
 
+class Serie(models.TextChoices):
+    """
+    Séries du baccalauréat malien, administrées par le CNECE (Centre
+    national des examens et concours de l'éducation) - orientation des
+    élèves à l'entrée en 11ème année, jusqu'au bac en 12ème (Terminale).
+    La 10ème année (tronc commun) n'a pas encore de série.
+    """
+    SCIENCES_EXACTES = "tse", "Sciences Exactes (TSE)"
+    SCIENCES_EXPERIMENTALES = "tsexp", "Sciences Expérimentales (TSExp)"
+    SCIENCES_ECONOMIQUES = "tseco", "Sciences Économiques (TSEco)"
+    SCIENCES_SOCIALES = "tss", "Sciences Sociales (TSS)"
+    LANGUES_LITTERATURE = "tll", "Langues et Littérature (TLL)"
+    ARTS_LETTRES = "tal", "Arts et Lettres (TAL)"
+
+
 # Correspondance rôle de direction cloisonné -> cycle qu'il supervise.
 CYCLE_PAR_ROLE_DIRECTION = {
     Role.DIRECTEUR_1ER_CYCLE.value: Cycle.PREMIER_CYCLE.value,
@@ -108,6 +123,10 @@ class Classe(models.Model):
 
     nom = models.CharField(max_length=60, help_text="Exemple : 3ème année A")
     cycle = models.CharField(max_length=20, choices=Cycle.choices)
+    serie = models.CharField(
+        "série", max_length=20, choices=Serie.choices, blank=True,
+        help_text="Uniquement pour une classe de 11ème ou 12ème année (lycée) - laisser vide sinon.",
+    )
     annee_scolaire = models.ForeignKey(
         AnneeScolaire, on_delete=models.PROTECT, related_name="classes",
     )
@@ -125,6 +144,11 @@ class Classe(models.Model):
 
     def __str__(self):
         return f"{self.nom} ({self.annee_scolaire.libelle})"
+
+    def clean(self):
+        super().clean()
+        if self.serie and self.cycle != Cycle.LYCEE:
+            raise ValidationError("Une série ne s'applique qu'à une classe du cycle Lycée.")
 
     @property
     def effectif(self):

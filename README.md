@@ -733,10 +733,32 @@ et corrigés ; tout le reste (près de 60 vues relues) était déjà correct.
 - SMS, WhatsApp et Mobile Money automatisés, tests de charge,
   restauration testée uniquement en local, rattrapage, traduction
   bambara : toujours ouverts (voir phases précédentes).
-- Le Lycée malien oriente les élèves par filière à partir de la 11ème
-  année (Lettres, Sciences, Sciences Économiques et Sociales) - non
-  modélisé ici (seul le regroupement par cycle existe). À ajouter si le
-  suivi par filière devient un besoin concret.
+## État du projet : Phase 21 — Séries du baccalauréat malien
+
+Suite à la Phase 20 (cycle Lycée) : ajout des 6 séries officielles du
+baccalauréat malien, administrées par le CNECE (Centre national des
+examens et concours de l'éducation) - confirmées par recherche, pas
+devinées : Sciences Exactes (TSE), Sciences Expérimentales (TSExp),
+Sciences Économiques (TSEco), Sciences Sociales (TSS), Langues et
+Littérature (TLL), Arts et Lettres (TAL).
+
+- Champ `serie` sur `Classe`, optionnel, utilisable uniquement avec le
+  cycle Lycée (validé à la fois dans `Classe.clean()` et dans
+  `CreerClasseForm` - la 10ème année, tronc commun, n'a pas encore de
+  série).
+- Affichée partout où la classe d'un élève du lycée a un sens concret :
+  liste des classes, dossier élève, bulletin PDF, attestation de
+  scolarité.
+- 6 nouveaux tests (validation modèle + formulaire + vue), tous au vert.
+
+### Ce qui reste ouvert après cette phase
+
+- SMS, WhatsApp et Mobile Money automatisés, tests de charge,
+  restauration testée uniquement en local, rattrapage, traduction
+  bambara : toujours ouverts (voir phases précédentes).
+- Les séries ne sont pour l'instant qu'une étiquette sur la classe, pas
+  un filtre dans les statistiques (répartition par série) ni un critère
+  de recherche dédié - à ajouter si le besoin se précise.
 
 ## Sauvegardes locales (base de données et médias)
 

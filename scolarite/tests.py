@@ -11,7 +11,7 @@ from django.urls import reverse
 from comptes.models import Utilisateur
 from comptes.roles import Role, StatutCompte
 from scolarite.models import (
-    Affectation, AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription,
+    Affectation, AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription, Serie,
     TypeDocumentVerifiable, VerificationDocument,
     classes_visibles_pour, dossier_complet, eleve_visible_pour, lier_parent_a_eleve,
 )
@@ -61,6 +61,27 @@ class ClasseEtFraisTests(TestCase):
         Classe.objects.create(nom="6ème A", cycle=Cycle.DEUXIEME_CYCLE, annee_scolaire=self.annee)
         with self.assertRaises(Exception):
             Classe.objects.create(nom="6ème A", cycle=Cycle.DEUXIEME_CYCLE, annee_scolaire=self.annee)
+
+    def test_serie_hors_lycee_refusee(self):
+        classe = Classe(
+            nom="9ème A", cycle=Cycle.DEUXIEME_CYCLE, serie=Serie.SCIENCES_EXACTES, annee_scolaire=self.annee,
+        )
+        with self.assertRaises(ValidationError):
+            classe.clean()
+
+    def test_serie_au_lycee_acceptee(self):
+        classe = Classe(
+            nom="Terminale A", cycle=Cycle.LYCEE, serie=Serie.SCIENCES_EXACTES, annee_scolaire=self.annee,
+        )
+        classe.clean()  # ne doit pas lever d'exception
+        classe.save()
+        self.assertEqual(classe.get_serie_display(), "Sciences Exactes (TSE)")
+
+    def test_classe_lycee_sans_serie_acceptee(self):
+        # La 10ème année (tronc commun) n'a pas encore de série.
+        classe = Classe(nom="10ème A", cycle=Cycle.LYCEE, annee_scolaire=self.annee)
+        classe.clean()
+        classe.save()
 
     def test_frais_multiple_de_5000_obligatoire(self):
         classe = Classe.objects.create(nom="1ère année A", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
@@ -230,6 +251,27 @@ class VueCreerClasseTests(TestCase):
         self.assertEqual(reponse.status_code, 302)
         classe = Classe.objects.get(nom="5ème année C")
         self.assertEqual(classe.echeancier.montant_inscription, 30000)
+
+    def test_creer_une_classe_de_lycee_avec_serie(self):
+        self.client.force_login(self.secretaire)
+        reponse = self.client.post(reverse("scolarite:creer_classe"), {
+            "nom": "Terminale A", "cycle": Cycle.LYCEE, "serie": Serie.SCIENCES_EXACTES,
+            "annee_scolaire": self.annee.id,
+            "montant_inscription": 30000, "montant_tranche_1": 15000, "montant_tranche_2": 15000,
+        })
+        self.assertEqual(reponse.status_code, 302)
+        classe = Classe.objects.get(nom="Terminale A")
+        self.assertEqual(classe.serie, Serie.SCIENCES_EXACTES)
+
+    def test_serie_hors_lycee_refusee_par_la_vue(self):
+        self.client.force_login(self.secretaire)
+        reponse = self.client.post(reverse("scolarite:creer_classe"), {
+            "nom": "5ème année D", "cycle": Cycle.PREMIER_CYCLE, "serie": Serie.SCIENCES_EXACTES,
+            "annee_scolaire": self.annee.id,
+            "montant_inscription": 30000, "montant_tranche_1": 15000, "montant_tranche_2": 15000,
+        })
+        self.assertEqual(reponse.status_code, 200)  # formulaire réaffiché avec erreur
+        self.assertFalse(Classe.objects.filter(nom="5ème année D").exists())
 
     def test_montant_non_multiple_de_5000_refuse(self):
         self.client.force_login(self.secretaire)

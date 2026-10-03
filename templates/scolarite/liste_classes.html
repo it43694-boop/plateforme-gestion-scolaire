@@ -22,7 +22,7 @@
                 {% for classe in classes %}
                 <tr>
                     <td>{{ classe.nom }}</td>
-                    <td>{{ classe.get_cycle_display }}</td>
+                    <td>{{ classe.get_cycle_display }}{% if classe.serie %} — {{ classe.get_serie_display }}{% endif %}</td>
                     <td>{{ classe.annee_scolaire.libelle }}</td>
                     <td class="montant-val">{{ classe.effectif }}</td>
                     <td class="text-end">

@@ -20,7 +20,9 @@
     <div class="col-6 col-md-3">
         <div class="card"><div class="card-body mini-stat">
             <div class="mini-stat-label">Classe actuelle</div>
-            <div class="mini-stat-valeur petit">{{ inscription_active.classe }}</div>
+            <div class="mini-stat-valeur petit">
+                {{ inscription_active.classe }}{% if inscription_active.classe.serie %} — {{ inscription_active.classe.get_serie_display }}{% endif %}
+            </div>
         </div></div>
     </div>
     {% endif %}

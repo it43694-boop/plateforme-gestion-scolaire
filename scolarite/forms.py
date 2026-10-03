@@ -4,12 +4,16 @@ from comptes.forms import BootstrapFormMixin
 from comptes.models import Sexe, Utilisateur
 from comptes.roles import Role
 from scolarite.models import PAS_MONTANT as PAS_MONTANT_PAR_DEFAUT
-from scolarite.models import DEVISE_PAR_DEFAUT, AnneeScolaire, Classe, Cycle, EcheancierFrais
+from scolarite.models import DEVISE_PAR_DEFAUT, AnneeScolaire, Classe, Cycle, EcheancierFrais, Serie
 
 
 class CreerClasseForm(BootstrapFormMixin, forms.Form):
     nom = forms.CharField(label="Nom de la classe", max_length=60, help_text="Exemple : 3ème année A")
     cycle = forms.ChoiceField(label="Cycle", choices=Cycle.choices)
+    serie = forms.ChoiceField(
+        label="Série", choices=[("", "— Aucune (hors lycée, ou 10ème année) —")] + Serie.choices,
+        required=False, help_text="Uniquement pour une classe de 11ème ou 12ème année.",
+    )
     annee_scolaire = forms.ModelChoiceField(label="Année scolaire", queryset=AnneeScolaire.objects.none())
     montant_inscription = forms.IntegerField(label="Frais d'inscription", min_value=0)
     montant_tranche_1 = forms.IntegerField(label="Tranche 1", min_value=0)
@@ -36,12 +40,14 @@ class CreerClasseForm(BootstrapFormMixin, forms.Form):
         annee = cleaned.get("annee_scolaire")
         if nom and annee and Classe.objects.filter(nom=nom, annee_scolaire=annee).exists():
             self.add_error("nom", "Une classe porte déjà ce nom pour cette année scolaire.")
+        if cleaned.get("serie") and cleaned.get("cycle") != Cycle.LYCEE:
+            self.add_error("serie", "Une série ne s'applique qu'à une classe du cycle Lycée.")
         return cleaned
 
     def save(self):
         classe = Classe.objects.create(
             nom=self.cleaned_data["nom"], cycle=self.cleaned_data["cycle"],
-            annee_scolaire=self.cleaned_data["annee_scolaire"],
+            serie=self.cleaned_data["serie"], annee_scolaire=self.cleaned_data["annee_scolaire"],
         )
         EcheancierFrais.objects.create(
             classe=classe,
