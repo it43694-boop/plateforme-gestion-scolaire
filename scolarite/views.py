@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.crypto import get_random_string
+from django.views.decorators.http import require_http_methods
 
 from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
@@ -396,6 +397,29 @@ def creer_classe(request):
         messages.success(request, f"Classe « {classe} » créée avec son échéancier de frais.")
         return redirect("scolarite:liste_classes")
     return render(request, "scolarite/creer_classe.html", {"formulaire": formulaire})
+
+
+@module_requis(Module.CLASSES)
+@require_http_methods(["POST"])
+def supprimer_classe(request, classe_id):
+    """
+    Refuse toujours une classe ayant la moindre inscription, même passée
+    (admis, redoublant, transféré) - pas seulement les élèves actuellement
+    en cours : Inscription.classe est en PROTECT précisément pour ne
+    jamais perdre un historique scolaire par erreur de manipulation.
+    """
+    classe = get_object_or_404(classes_visibles_pour(request.user), id=classe_id)
+    if classe.inscriptions.exists():
+        messages.error(
+            request,
+            f"Impossible de supprimer « {classe} » : des élèves y sont ou y ont été inscrits.",
+        )
+        return redirect("scolarite:liste_classes")
+    nom = str(classe)
+    classe.delete()
+    enregistrer_action(acteur=request.user, action="suppression_classe", cible=nom, request=request)
+    messages.success(request, f"Classe « {nom} » supprimée.")
+    return redirect("scolarite:liste_classes")
 
 
 @module_requis(Module.CLASSES)

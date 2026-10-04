@@ -891,6 +891,24 @@ l'application elle-même. Nouvelle page `espace_developpeur:annees_scolaires`
 - Vérifié visuellement (Playwright) : création, badges de statut,
   dialogue de confirmation avant archivage.
 
+## État du projet : Phase 27 — Suppression d'une classe vide
+
+Suite à une question sur la suppression d'une classe : aucun moyen de le
+faire depuis l'application (seulement `/admin/`). Bouton « Supprimer »
+ajouté sur la liste des classes, visible uniquement quand l'effectif
+affiché est à 0, mais la vérification faite par la vue est plus stricte
+que ce simple affichage : elle refuse la suppression dès qu'une
+inscription existe pour cette classe, même ancienne (admis, redoublant,
+transféré) - `effectif` ne compte que les inscriptions EN_COURS, un
+historique peut donc exister même à 0. Cohérent avec `Inscription.classe`
+qui est en PROTECT au niveau base de données pour la même raison : ne
+jamais perdre un historique scolaire par erreur de manipulation.
+
+Même périmètre d'accès que les autres actions de gestion des classes
+(module Classes, donc secrétariat/direction - pas les enseignants depuis
+la Phase 25). Vérifié visuellement (Playwright) : bouton absent sur une
+classe non vide, dialogue de confirmation, suppression effective.
+
 ### Ce qui reste ouvert après ces phases
 
 - SMS, WhatsApp et Mobile Money automatisés, tests de charge,

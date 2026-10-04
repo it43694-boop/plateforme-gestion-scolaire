@@ -17,6 +17,7 @@ urlpatterns = [
     path("classes/", views.liste_classes, name="liste_classes"),
     path("matieres/", views.liste_matieres, name="liste_matieres"),
     path("classes/creer/", views.creer_classe, name="creer_classe"),
+    path("classes/<int:classe_id>/supprimer/", views.supprimer_classe, name="supprimer_classe"),
     path("classes/affecter-enseignant/", views.affecter_enseignant, name="affecter_enseignant"),
     path("classes/<int:classe_id>/passage-de-classe/", views.passage_de_classe, name="passage_de_classe"),
 ]

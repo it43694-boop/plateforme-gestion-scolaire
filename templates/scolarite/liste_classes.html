@@ -33,6 +33,13 @@
                         {% if peut_voir_statistiques %}
                         <a href="{% url 'statistiques:statistiques_classe' classe.id %}" class="btn btn-sm btn-outline-secondary">Statistiques</a>
                         {% endif %}
+                        {% if classe.effectif == 0 %}
+                        <form method="post" action="{% url 'scolarite:supprimer_classe' classe.id %}" class="d-inline"
+                              data-confirmer="Supprimer « {{ classe }} » ? Impossible si des élèves y ont déjà été inscrits.">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
+                        </form>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

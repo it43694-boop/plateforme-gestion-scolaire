@@ -306,6 +306,59 @@ class VueCreerClasseTests(TestCase):
         self.assertFalse(Classe.objects.filter(nom="5ème année F").exists())
 
 
+class VueSupprimerClasseTests(TestCase):
+    def setUp(self):
+        self.annee = creer_annee()
+        self.secretaire = creer_utilisateur_actif("secretaire-suppr-classe@example.com", Role.SECRETAIRE)
+        self.classe_vide = Classe.objects.create(nom="5ème année G", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
+
+    def test_supprimer_une_classe_vide(self):
+        self.client.force_login(self.secretaire)
+        reponse = self.client.post(reverse("scolarite:supprimer_classe", args=[self.classe_vide.id]))
+        self.assertEqual(reponse.status_code, 302)
+        self.assertFalse(Classe.objects.filter(id=self.classe_vide.id).exists())
+
+    def test_refuse_si_un_eleve_est_inscrit(self):
+        eleve = creer_utilisateur_actif("eleve-suppr-classe@example.com", Role.ELEVE)
+        Inscription.objects.create(eleve=eleve, classe=self.classe_vide, statut=Inscription.Statut.EN_COURS)
+        self.client.force_login(self.secretaire)
+        reponse = self.client.post(reverse("scolarite:supprimer_classe", args=[self.classe_vide.id]))
+        self.assertEqual(reponse.status_code, 302)
+        self.assertTrue(Classe.objects.filter(id=self.classe_vide.id).exists())
+
+    def test_refuse_meme_pour_une_inscription_passee(self):
+        """effectif == 0 (plus aucune inscription EN_COURS) ne veut pas dire
+        « sans historique » - un élève admis/redoublant/transféré y a quand
+        même été inscrit : la classe reste protégée."""
+        eleve = creer_utilisateur_actif("eleve-suppr-classe-2@example.com", Role.ELEVE)
+        Inscription.objects.create(eleve=eleve, classe=self.classe_vide, statut=Inscription.Statut.ADMIS)
+        self.assertEqual(self.classe_vide.effectif, 0)
+        self.client.force_login(self.secretaire)
+        reponse = self.client.post(reverse("scolarite:supprimer_classe", args=[self.classe_vide.id]))
+        self.assertEqual(reponse.status_code, 302)
+        self.assertTrue(Classe.objects.filter(id=self.classe_vide.id).exists())
+
+    def test_un_enseignant_ne_peut_pas_supprimer_de_classe(self):
+        enseignant = creer_utilisateur_actif("enseignant-suppr-classe@example.com", Role.ENSEIGNANT)
+        self.client.force_login(enseignant)
+        reponse = self.client.post(reverse("scolarite:supprimer_classe", args=[self.classe_vide.id]))
+        self.assertEqual(reponse.status_code, 403)
+        self.assertTrue(Classe.objects.filter(id=self.classe_vide.id).exists())
+
+    def test_classe_dune_autre_ecole_introuvable(self):
+        from etablissement.models import Etablissement
+        autre_ecole = Etablissement.objects.create(nom="Autre école suppr classe")
+        autre_annee = AnneeScolaire.objects.create(
+            etablissement=autre_ecole, libelle="2026-2027",
+            date_debut=datetime.date(2026, 10, 1), date_fin=datetime.date(2027, 7, 31),
+        )
+        classe_exterieure = Classe.objects.create(nom="Classe externe", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=autre_annee)
+        self.client.force_login(self.secretaire)
+        reponse = self.client.post(reverse("scolarite:supprimer_classe", args=[classe_exterieure.id]))
+        self.assertEqual(reponse.status_code, 404)
+        self.assertTrue(Classe.objects.filter(id=classe_exterieure.id).exists())
+
+
 class VueInscrireEleveTests(TestCase):
     def setUp(self):
         self.annee = creer_annee()
