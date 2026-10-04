@@ -244,10 +244,12 @@ class AssistantVueGeneraleTests(TestCase):
         self.assertNotIn("classes_actives", donnees_comptable)
 
         donnees_enseignant = {item["cle"]: item["valeur"] for item in construire_donnees_generales(self.enseignant)}
-        self.assertIn("classes_actives", donnees_enseignant)
         self.assertIn("absences_enregistrees", donnees_enseignant)
         self.assertNotIn("total_encaissements", donnees_enseignant)
         self.assertNotIn("solde_caisse", donnees_enseignant)
+        # Module Classes volontairement retiré de l'enseignant (administration de
+        # toute l'école, pas son périmètre - voir permissions_matrix/matrice_par_defaut.py).
+        self.assertNotIn("classes_actives", donnees_enseignant)
 
     def test_sans_etablissement_aucune_donnee(self):
         from assistant.views import construire_donnees_generales

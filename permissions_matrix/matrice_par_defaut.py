@@ -53,8 +53,14 @@ MATRICE_PAR_DEFAUT = {
     },
     # Rôle générique : aucun module par défaut, précisé ensuite par le développeur.
     Role.PERSONNEL: set(),
+    # M.CLASSES volontairement absent : il donne accès à la création de
+    # classes, à l'affectation d'enseignants (y compris soi-même, à
+    # n'importe quelle classe) et au passage de classe - des actions
+    # d'administration de TOUTE l'école, pas de la classe d'un enseignant.
+    # Son propre périmètre ("Mes classes" : ses affectations, saisie de
+    # notes/absences) est déjà couvert par M.NOTES_BULLETINS et M.ABSENCES.
     Role.ENSEIGNANT: {
-        M.CLASSES, M.EMPLOI_DU_TEMPS, M.NOTES_BULLETINS,
+        M.EMPLOI_DU_TEMPS, M.NOTES_BULLETINS,
         M.ABSENCES, M.BIBLIOTHEQUE, M.COMMUNICATION, M.ASSISTANT,
     },
     Role.PARENT: {

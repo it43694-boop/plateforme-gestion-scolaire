@@ -290,6 +290,21 @@ class VueCreerClasseTests(TestCase):
         })
         self.assertEqual(Classe.objects.filter(nom="5ème année E").count(), 1)
 
+    def test_un_enseignant_ne_peut_pas_creer_de_classe(self):
+        """
+        Module Classes = administration de toute l'école (création de classes,
+        affectation d'enseignants, passage de classe), pas le périmètre d'un
+        enseignant - qui ne doit voir que ses propres classes via "Mes classes".
+        """
+        enseignant = creer_utilisateur_actif("enseignant-creer-classe@example.com", Role.ENSEIGNANT)
+        self.client.force_login(enseignant)
+        reponse = self.client.post(reverse("scolarite:creer_classe"), {
+            "nom": "5ème année F", "cycle": Cycle.PREMIER_CYCLE, "annee_scolaire": self.annee.id,
+            "montant_inscription": 30000, "montant_tranche_1": 15000, "montant_tranche_2": 15000,
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.assertFalse(Classe.objects.filter(nom="5ème année F").exists())
+
 
 class VueInscrireEleveTests(TestCase):
     def setUp(self):
@@ -609,6 +624,14 @@ class VueAffecterEnseignantTests(TestCase):
         reponse = self.client.get(reverse("scolarite:affecter_enseignant"))
         enseignants_proposes = list(reponse.context["formulaire"].fields["enseignant"].queryset)
         self.assertNotIn(enseignant_exterieur, enseignants_proposes)
+
+    def test_un_enseignant_ne_peut_pas_saffecter_lui_meme(self):
+        self.client.force_login(self.enseignant)
+        reponse = self.client.post(reverse("scolarite:affecter_enseignant"), {
+            "enseignant": self.enseignant.id, "classe": self.classe.id, "matiere": "Mathématiques",
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.assertFalse(Affectation.objects.filter(enseignant=self.enseignant, classe=self.classe).exists())
 
 
 class DossierEleveTests(TestCase):
