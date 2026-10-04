@@ -5,6 +5,7 @@ from comptes.models import Utilisateur
 from comptes.roles import Role, StatutCompte
 from permissions_matrix.models import PermissionMatrix
 from permissions_matrix.modules import Module
+from scolarite.models import AnneeScolaire
 
 
 def creer_utilisateur_actif(email, role, **kwargs):
@@ -195,6 +196,99 @@ class MatricePermissionsVueTests(TestCase):
 
         self.client.post(reverse("espace_developpeur:matrice_permissions"), donnees_post)
         self.assertFalse(PermissionMatrix.a_acces(Role.COMPTABLE, Module.FINANCES, etablissement=self.etablissement))
+
+
+class AnneesScolairesVueTests(TestCase):
+    """
+    Avant cette fonctionnalité, créer une année scolaire n'était possible que
+    depuis /admin/ (superutilisateur technique) - aucune page dans
+    l'application elle-même. Vérifie la création, le cycle de vie
+    (activation/archivage) et l'isolation entre établissements.
+    """
+
+    def setUp(self):
+        from etablissement.models import Etablissement
+
+        self.ecole_a = Etablissement.objects.create(nom="École années A")
+        self.ecole_b = Etablissement.objects.create(nom="École années B")
+        self.developpeur = creer_utilisateur_actif("dev-annees@example.com", Role.DEVELOPPEUR, etablissement=self.ecole_a)
+
+    def test_creer_une_annee_scolaire(self):
+        self.client.force_login(self.developpeur)
+        reponse = self.client.post(reverse("espace_developpeur:annees_scolaires"), {
+            "libelle": "2026-2027", "date_debut": "2026-10-01", "date_fin": "2027-07-31",
+        })
+        self.assertEqual(reponse.status_code, 302)
+        annee = AnneeScolaire.objects.get(libelle="2026-2027", etablissement=self.ecole_a)
+        self.assertFalse(annee.est_active)
+
+    def test_creer_en_la_marquant_active_desactive_lancienne_active(self):
+        ancienne = AnneeScolaire.objects.create(
+            etablissement=self.ecole_a, libelle="2025-2026",
+            date_debut="2025-10-01", date_fin="2026-07-31", est_active=True,
+        )
+        self.client.force_login(self.developpeur)
+        self.client.post(reverse("espace_developpeur:annees_scolaires"), {
+            "libelle": "2026-2027", "date_debut": "2026-10-01", "date_fin": "2027-07-31",
+            "est_active": "on",
+        })
+        ancienne.refresh_from_db()
+        self.assertFalse(ancienne.est_active)
+        nouvelle = AnneeScolaire.objects.get(libelle="2026-2027")
+        self.assertTrue(nouvelle.est_active)
+
+    def test_libelle_duplique_refuse(self):
+        AnneeScolaire.objects.create(
+            etablissement=self.ecole_a, libelle="2026-2027", date_debut="2026-10-01", date_fin="2027-07-31",
+        )
+        self.client.force_login(self.developpeur)
+        reponse = self.client.post(reverse("espace_developpeur:annees_scolaires"), {
+            "libelle": "2026-2027", "date_debut": "2026-10-01", "date_fin": "2027-07-31",
+        })
+        self.assertEqual(reponse.status_code, 200)  # formulaire réaffiché avec erreur
+        self.assertEqual(AnneeScolaire.objects.filter(etablissement=self.ecole_a, libelle="2026-2027").count(), 1)
+
+    def test_date_fin_avant_date_debut_refusee(self):
+        self.client.force_login(self.developpeur)
+        reponse = self.client.post(reverse("espace_developpeur:annees_scolaires"), {
+            "libelle": "2026-2027", "date_debut": "2027-07-31", "date_fin": "2026-10-01",
+        })
+        self.assertEqual(reponse.status_code, 200)
+        self.assertFalse(AnneeScolaire.objects.filter(libelle="2026-2027").exists())
+
+    def test_archiver_desactive_et_empeche_une_reactivation_directe(self):
+        annee = AnneeScolaire.objects.create(
+            etablissement=self.ecole_a, libelle="2024-2025",
+            date_debut="2024-10-01", date_fin="2025-07-31", est_active=True,
+        )
+        self.client.force_login(self.developpeur)
+        self.client.post(reverse("espace_developpeur:archiver_annee_scolaire", args=[annee.id]))
+        annee.refresh_from_db()
+        self.assertTrue(annee.est_archivee)
+        self.assertFalse(annee.est_active)
+
+        reponse = self.client.post(reverse("espace_developpeur:activer_annee_scolaire", args=[annee.id]))
+        self.assertEqual(reponse.status_code, 302)
+        annee.refresh_from_db()
+        self.assertFalse(annee.est_active)  # toujours refusé : une année archivée reste archivée
+
+    def test_un_developpeur_ne_voit_pas_les_annees_dune_autre_ecole(self):
+        AnneeScolaire.objects.create(
+            etablissement=self.ecole_b, libelle="2026-2027", date_debut="2026-10-01", date_fin="2027-07-31",
+        )
+        self.client.force_login(self.developpeur)
+        reponse = self.client.get(reverse("espace_developpeur:annees_scolaires"))
+        self.assertEqual(list(reponse.context["annees"]), [])
+
+    def test_un_developpeur_ne_peut_pas_activer_lannee_dune_autre_ecole(self):
+        annee_b = AnneeScolaire.objects.create(
+            etablissement=self.ecole_b, libelle="2026-2027", date_debut="2026-10-01", date_fin="2027-07-31",
+        )
+        self.client.force_login(self.developpeur)
+        reponse = self.client.post(reverse("espace_developpeur:activer_annee_scolaire", args=[annee_b.id]))
+        self.assertEqual(reponse.status_code, 404)
+        annee_b.refresh_from_db()
+        self.assertFalse(annee_b.est_active)
 
 
 class IsolationListeComptesTests(TestCase):

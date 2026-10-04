@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block titre %}Espace développeur - Années scolaires{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div><h1>Années scolaires</h1><p>Création et cycle de vie des années scolaires - réservé au développeur.</p></div>
+</div>
+
+<div class="row">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-body">
+                <p class="titre-section">Nouvelle année</p>
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% for champ in formulaire %}
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                            {{ champ }}
+                            {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                            {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                        </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary w-100">Créer l'année scolaire</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-body">
+                <p class="titre-section">Années existantes</p>
+                {% if annees %}
+                <table class="table">
+                    <thead><tr><th>Libellé</th><th>Période</th><th>Statut</th><th></th></tr></thead>
+                    <tbody>
+                        {% for annee in annees %}
+                        <tr>
+                            <td>{{ annee.libelle }}</td>
+                            <td>{{ annee.date_debut|date:"d/m/Y" }} – {{ annee.date_fin|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if annee.est_archivee %}
+                                <span class="badge bg-secondary">Archivée</span>
+                                {% elif annee.est_active %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-light text-dark">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if not annee.est_archivee %}
+                                    {% if not annee.est_active %}
+                                    <form method="post" action="{% url 'espace_developpeur:activer_annee_scolaire' annee.id %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">Activer</button>
+                                    </form>
+                                    {% endif %}
+                                    <form method="post" action="{% url 'espace_developpeur:archiver_annee_scolaire' annee.id %}" class="d-inline"
+                                          data-confirmer="Archiver « {{ annee.libelle }} » ? Elle ne pourra plus recevoir de nouvelles inscriptions.">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Archiver</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="etat-vide"><p>Aucune année scolaire pour le moment.</p></div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -113,6 +113,7 @@ def navigation(request):
         administration.append({"label": "Comptes en attente", "url": "comptes:comptes_en_attente"})
     if role == Role.DEVELOPPEUR.value and request.user.etablissement_id:
         administration.append({"label": "Établissement", "url": "espace_developpeur:parametres_etablissement"})
+        administration.append({"label": "Années scolaires", "url": "espace_developpeur:annees_scolaires"})
         administration.append({"label": "Comptes", "url": "espace_developpeur:liste_comptes"})
         administration.append({"label": "Matrice de permissions", "url": "espace_developpeur:matrice_permissions"})
         administration.append({"label": "Journal d'audit", "url": "espace_developpeur:journal_audit"})

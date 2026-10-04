@@ -870,14 +870,29 @@ modules Notes/bulletins et Absences.
 - Reste personnalisable sans redéploiement depuis l'espace développeur
   si un établissement veut l'autoriser pour certains enseignants.
 
+## État du projet : Phase 26 — Gestion des années scolaires depuis l'espace développeur
+
+Suite à la Phase 25 : jusqu'ici, créer une année scolaire n'était
+possible que depuis l'interface d'administration Django (`/admin/`,
+réservée à un compte superutilisateur technique), jamais depuis
+l'application elle-même. Nouvelle page `espace_developpeur:annees_scolaires`
+(réservée au rôle développeur, comme le reste de cet espace) :
+
+- Création (libellé, dates, cocher « active » à la volée) - le modèle
+  garantit déjà une seule année active par établissement et valide
+  date_fin > date_debut, repris ici pour un message d'erreur clair
+  plutôt qu'une `IntegrityError`.
+- Activation d'une année existante, et archivage (bloque les nouvelles
+  inscriptions, irréversible depuis cette page - confirmation demandée
+  avant l'action).
+- Isolation testée comme le reste de l'espace développeur : un
+  développeur ne voit, n'active ni n'archive que les années de son
+  propre établissement (404 sinon).
+- Vérifié visuellement (Playwright) : création, badges de statut,
+  dialogue de confirmation avant archivage.
+
 ### Ce qui reste ouvert après ces phases
 
-- Il n'existe aucune page dans l'application pour créer une année
-  scolaire : c'est actuellement possible uniquement depuis
-  l'interface d'administration Django (`/admin/`), réservée à un
-  compte superutilisateur technique - pas via le rôle « développeur »
-  de l'application elle-même. À construire si une gestion depuis
-  l'espace développeur est souhaitée.
 - SMS, WhatsApp et Mobile Money automatisés, tests de charge,
   restauration testée uniquement en local, rattrapage, traduction
   bambara : toujours ouverts (voir phases précédentes).

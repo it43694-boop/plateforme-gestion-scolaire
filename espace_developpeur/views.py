@@ -8,10 +8,11 @@ from comptes.audit import enregistrer_action
 from comptes.decorators import role_requis
 from comptes.models import Utilisateur
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
-from espace_developpeur.forms import ModifierCompteForm, ParametresEtablissementForm
+from espace_developpeur.forms import CreerAnneeScolaireForm, ModifierCompteForm, ParametresEtablissementForm
 from etablissement.models import Etablissement
 from permissions_matrix.models import PermissionMatrix
 from permissions_matrix.modules import Module
+from scolarite.models import AnneeScolaire
 
 # Cahier des charges : « Seul rôle pouvant attribuer les rôles/statuts et
 # gérer la matrice de permissions. » - une restriction volontairement plus
@@ -171,6 +172,63 @@ def matrice_permissions_vue(request):
     return render(request, "espace_developpeur/matrice_permissions.html", {
         "lignes": lignes, "modules": list(Module), "roles_acces_total": ROLES_ACCES_TOTAL_INCONDITIONNEL,
     })
+
+
+@role_requis(*ROLE_ESPACE_DEVELOPPEUR)
+def annees_scolaires(request):
+    """
+    Seule façon de créer une année scolaire jusqu'ici : l'interface
+    d'administration Django (/admin/), réservée à un compte superutilisateur
+    technique - pas au rôle « développeur » de l'application elle-même.
+    """
+    etablissement = request.user.etablissement
+    if etablissement is None:
+        messages.error(request, "Votre compte n'est rattaché à aucun établissement.")
+        return redirect("comptes:redirection_tableau_de_bord")
+
+    formulaire = CreerAnneeScolaireForm(request.POST or None, etablissement=etablissement)
+    if request.method == "POST" and formulaire.is_valid():
+        annee = formulaire.save()
+        enregistrer_action(
+            acteur=request.user, action="creation_annee_scolaire", cible=annee.libelle, request=request,
+        )
+        messages.success(request, f"Année scolaire « {annee.libelle} » créée.")
+        return redirect("espace_developpeur:annees_scolaires")
+
+    annees = AnneeScolaire.objects.filter(etablissement=etablissement).order_by("-date_debut")
+    return render(request, "espace_developpeur/annees_scolaires.html", {
+        "formulaire": formulaire, "annees": annees,
+    })
+
+
+@role_requis(*ROLE_ESPACE_DEVELOPPEUR)
+@require_http_methods(["POST"])
+def activer_annee_scolaire(request, annee_id):
+    annee = get_object_or_404(AnneeScolaire, id=annee_id, etablissement=request.user.etablissement)
+    if annee.est_archivee:
+        messages.error(request, "Une année archivée ne peut pas être réactivée depuis cette page.")
+        return redirect("espace_developpeur:annees_scolaires")
+    annee.est_active = True
+    annee.save()
+    enregistrer_action(
+        acteur=request.user, action="activation_annee_scolaire", cible=annee.libelle, request=request,
+    )
+    messages.success(request, f"« {annee.libelle} » est maintenant l'année active.")
+    return redirect("espace_developpeur:annees_scolaires")
+
+
+@role_requis(*ROLE_ESPACE_DEVELOPPEUR)
+@require_http_methods(["POST"])
+def archiver_annee_scolaire(request, annee_id):
+    annee = get_object_or_404(AnneeScolaire, id=annee_id, etablissement=request.user.etablissement)
+    annee.est_active = False
+    annee.est_archivee = True
+    annee.save()
+    enregistrer_action(
+        acteur=request.user, action="archivage_annee_scolaire", cible=annee.libelle, request=request,
+    )
+    messages.success(request, f"« {annee.libelle} » archivée : elle ne peut plus recevoir de nouvelles écritures.")
+    return redirect("espace_developpeur:annees_scolaires")
 
 
 @role_requis(*ROLE_ESPACE_DEVELOPPEUR)

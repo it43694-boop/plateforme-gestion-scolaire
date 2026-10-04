@@ -3,6 +3,7 @@ from django import forms
 from comptes.forms import BootstrapFormMixin
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role, StatutCompte
 from etablissement.models import Etablissement
+from scolarite.models import AnneeScolaire
 
 # Les rôles à accès total inconditionnel (développeur, fondateur,
 # administrateur général) ne sont jamais attribuables depuis cette interface :
@@ -24,3 +25,37 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Etablissement
         fields = ["nom", "devise", "logo", "code_devise", "pas_montant"]
+
+
+class CreerAnneeScolaireForm(BootstrapFormMixin, forms.Form):
+    libelle = forms.CharField(label="Libellé", max_length=20, help_text="Exemple : 2026-2027")
+    date_debut = forms.DateField(label="Date de début", widget=forms.DateInput(attrs={"type": "date"}))
+    date_fin = forms.DateField(label="Date de fin", widget=forms.DateInput(attrs={"type": "date"}))
+    est_active = forms.BooleanField(
+        label="Année active", required=False,
+        help_text="Les nouvelles classes s'y rattachent par défaut. Désactive automatiquement l'année "
+                   "active précédente de cet établissement (une seule à la fois).",
+    )
+
+    def __init__(self, *args, etablissement=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.etablissement = etablissement
+
+    def clean(self):
+        cleaned = super().clean()
+        date_debut, date_fin = cleaned.get("date_debut"), cleaned.get("date_fin")
+        if date_debut and date_fin and date_fin <= date_debut:
+            self.add_error("date_fin", "La date de fin doit être postérieure à la date de début.")
+        libelle = cleaned.get("libelle")
+        if libelle and AnneeScolaire.objects.filter(etablissement=self.etablissement, libelle=libelle).exists():
+            self.add_error("libelle", "Une année scolaire porte déjà ce libellé pour cet établissement.")
+        return cleaned
+
+    def save(self):
+        return AnneeScolaire.objects.create(
+            etablissement=self.etablissement,
+            libelle=self.cleaned_data["libelle"],
+            date_debut=self.cleaned_data["date_debut"],
+            date_fin=self.cleaned_data["date_fin"],
+            est_active=self.cleaned_data["est_active"],
+        )
