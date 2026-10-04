@@ -833,6 +833,55 @@ Playwright sur le bouton expirait sans effet.
   restauration testée uniquement en local, rattrapage, traduction
   bambara : toujours ouverts (voir phases précédentes).
 
+## État du projet : Phase 24 — Erreur 502 à l'inscription (envoi SMTP sans timeout)
+
+Signalé par un utilisateur : page 502 lors d'une création de compte.
+Cause identifiée (même famille que le 502 de la Phase 20) : en
+production, l'email de vérification part de manière synchrone pendant
+la requête (`EMAIL_ASYNC=False` - le plan Render gratuit n'a pas de
+tâche planifiée pour traiter une file d'attente). Sans timeout, un
+serveur SMTP lent ou injoignable bloquait indéfiniment le worker
+gunicorn jusqu'à ce qu'il soit tué par son propre délai - 502 pour
+l'utilisateur, alors que son compte était déjà créé en base (le
+`save()` a lieu avant l'envoi de l'email).
+
+- `EMAIL_TIMEOUT=10` borne chaque tentative SMTP à 10 secondes.
+- `comptes.mail.envoyer_email` capture maintenant un échec SMTP (envoyé
+  à Sentry) au lieu de le laisser remonter jusqu'à la requête : un email
+  manquant peut toujours être redemandé via « renvoyer le code »,
+  contrairement à un compte bloqué sur une page d'erreur.
+
+## État du projet : Phase 25 — Un enseignant ne peut plus créer de classe ni s'auto-affecter
+
+Signalé par un utilisateur : un compte enseignant pouvait créer une
+classe et s'affecter lui-même à n'importe quelle classe de l'école.
+Cause : le module Classes (création de classe, affectation d'un
+enseignant, passage de classe - des actions d'administration de toute
+l'école) était accordé par défaut au rôle Enseignant dans la matrice de
+permissions, alors que son seul besoin légitime (voir ses propres
+classes via « Mes classes ») est déjà couvert séparément par les
+modules Notes/bulletins et Absences.
+
+- Module Classes retiré du rôle Enseignant dans la matrice par défaut,
+  avec une migration de données pour les établissements déjà créés
+  (`seed_pour()` ne couvre que les nouveaux).
+- Deux tests de régression : un enseignant reçoit un 403 s'il tente de
+  créer une classe ou de s'affecter lui-même.
+- Reste personnalisable sans redéploiement depuis l'espace développeur
+  si un établissement veut l'autoriser pour certains enseignants.
+
+### Ce qui reste ouvert après ces phases
+
+- Il n'existe aucune page dans l'application pour créer une année
+  scolaire : c'est actuellement possible uniquement depuis
+  l'interface d'administration Django (`/admin/`), réservée à un
+  compte superutilisateur technique - pas via le rôle « développeur »
+  de l'application elle-même. À construire si une gestion depuis
+  l'espace développeur est souhaitée.
+- SMS, WhatsApp et Mobile Money automatisés, tests de charge,
+  restauration testée uniquement en local, rattrapage, traduction
+  bambara : toujours ouverts (voir phases précédentes).
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque
