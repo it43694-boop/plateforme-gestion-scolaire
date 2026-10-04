@@ -43,6 +43,13 @@
                             <div class="emploi-creneau-heure">{{ creneau.heure_debut|time:"H:i" }} – {{ creneau.heure_fin|time:"H:i" }}</div>
                             <div class="emploi-creneau-matiere">{{ creneau.affectation.matiere|default:"Titulaire" }}</div>
                             <div class="emploi-creneau-detail">{{ creneau.affectation.enseignant.nom_complet }}{% if creneau.salle %} · {{ creneau.salle }}{% endif %}</div>
+                            {% if peut_gerer %}
+                            <form method="post" action="{% url 'pedagogie:supprimer_creneau' creneau.id %}"
+                                  data-confirmer="Supprimer ce créneau ({{ creneau.affectation.matiere|default:'Titulaire' }}, {{ creneau.get_jour_semaine_display }} {{ creneau.heure_debut|time:'H:i' }}) ?">
+                                {% csrf_token %}
+                                <button type="submit" class="emploi-creneau-suppr">Supprimer</button>
+                            </form>
+                            {% endif %}
                         </div>
                         {% empty %}
                         <div class="emploi-jour-vide">—</div>

@@ -1,5 +1,6 @@
 import datetime
 import uuid
+from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
@@ -16,10 +17,15 @@ class Trimestre(models.TextChoices):
 
 class Note(models.Model):
     """
-    Note d'un élève pour une affectation (classe + matière + enseignant)
-    donnée, sur un trimestre. Resaisir une note pour le même triplet
-    (élève, affectation, trimestre) la CORRIGE - jamais de doublon
-    (cahier des charges, section Notes et bulletins).
+    Note finale d'un élève pour une affectation (classe + matière +
+    enseignant) donnée, sur un trimestre - jamais de doublon pour un même
+    triplet (élève, affectation, trimestre).
+
+    Calculée automatiquement à partir des évaluations saisies (devoirs,
+    interrogations, bonus - voir Evaluation et _recalculer_note_trimestre),
+    pondérées selon Affectation.poids_devoirs/poids_interrogations/
+    poids_bonus : un enseignant ne modifie plus jamais ce champ
+    directement, il saisit des évaluations individuelles.
     """
 
     eleve = models.ForeignKey(
@@ -95,6 +101,138 @@ class NoteHistorique(models.Model):
     ancienne_valeur = models.DecimalField(max_digits=4, decimal_places=2)
     modifiee_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.SET_NULL, null=True, related_name="corrections_notes")
     modifiee_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-modifiee_le"]
+
+
+class TypeEvaluation(models.TextChoices):
+    DEVOIR = "devoir", "Devoir"
+    INTERROGATION = "interrogation", "Interrogation"
+    BONUS = "bonus", "Bonus"
+
+
+class Evaluation(models.Model):
+    """
+    Note individuelle d'un devoir, d'une interrogation ou d'un bonus, pour
+    un élève/affectation/trimestre. Plusieurs évaluations du même type
+    peuvent coexister dans un trimestre (ex. deux devoirs) : elles sont
+    moyennées entre elles, puis combinées aux autres types selon les poids
+    de l'affectation (Affectation.poids_devoirs/poids_interrogations/
+    poids_bonus) pour produire automatiquement la note finale du trimestre
+    (voir _recalculer_note_trimestre, appelée à chaque ajout/suppression).
+    """
+
+    eleve = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.CASCADE, related_name="evaluations",
+        limit_choices_to={"role": Role.ELEVE},
+    )
+    affectation = models.ForeignKey(Affectation, on_delete=models.PROTECT, related_name="evaluations")
+    trimestre = models.CharField(max_length=20, choices=Trimestre.choices)
+    type_evaluation = models.CharField(max_length=20, choices=TypeEvaluation.choices)
+    libelle = models.CharField(max_length=100, blank=True, help_text="Exemple : « Devoir sur les fractions ». Facultatif.")
+    valeur = models.DecimalField(max_digits=4, decimal_places=2)
+
+    enregistre_par = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.SET_NULL, null=True, related_name="evaluations_saisies",
+    )
+    saisie_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "évaluation"
+        verbose_name_plural = "évaluations"
+        ordering = ["-saisie_le"]
+
+    def __str__(self):
+        libelle = self.libelle or self.get_type_evaluation_display()
+        return f"{self.eleve.nom_complet} - {libelle} - {self.get_trimestre_display()} : {self.valeur}/20"
+
+    def clean(self):
+        super().clean()
+        if self.eleve_id and self.eleve.role != Role.ELEVE:
+            raise ValidationError("Seul un élève peut recevoir une évaluation.")
+        if not (0 <= self.valeur <= 20):
+            raise ValidationError("La note doit être comprise entre 0 et 20.")
+        if self.affectation_id and self.eleve_id:
+            if self.eleve.etablissement_id != self.affectation.classe.annee_scolaire.etablissement_id:
+                raise ValidationError("L'élève et l'affectation doivent appartenir au même établissement.")
+            inscrit = Inscription.objects.filter(
+                eleve_id=self.eleve_id, classe_id=self.affectation.classe_id,
+            ).exists()
+            if not inscrit:
+                raise ValidationError("Cet élève n'est pas inscrit dans la classe de cette affectation.")
+
+
+def _recalculer_note_trimestre(*, eleve, affectation, trimestre, enregistre_par):
+    """
+    Recalcule la note finale du trimestre à partir de la moyenne, par type,
+    des évaluations existantes, combinées selon les poids de l'affectation.
+    Un type sans évaluation est exclu du calcul et les poids des types
+    restants sont re-proportionnés entre eux - la note reflète ce qui a
+    déjà été noté plutôt que de chuter artificiellement tant qu'un type
+    (ex. bonus) n'a reçu aucune évaluation.
+    """
+    poids_par_type = {
+        TypeEvaluation.DEVOIR: affectation.poids_devoirs,
+        TypeEvaluation.INTERROGATION: affectation.poids_interrogations,
+        TypeEvaluation.BONUS: affectation.poids_bonus,
+    }
+    total_pondere, poids_total = Decimal("0"), 0
+    for type_evaluation, poids in poids_par_type.items():
+        if poids <= 0:
+            continue
+        valeurs = list(Evaluation.objects.filter(
+            eleve=eleve, affectation=affectation, trimestre=trimestre, type_evaluation=type_evaluation,
+        ).values_list("valeur", flat=True))
+        if not valeurs:
+            continue
+        moyenne_type = sum(valeurs) / len(valeurs)
+        total_pondere += moyenne_type * poids
+        poids_total += poids
+
+    if poids_total == 0:
+        Note.objects.filter(eleve=eleve, affectation=affectation, trimestre=trimestre).delete()
+        return None
+
+    valeur_finale = (total_pondere / poids_total).quantize(Decimal("0.01"))
+    return saisir_note(
+        eleve=eleve, affectation=affectation, trimestre=trimestre,
+        valeur=valeur_finale, enseignant=enregistre_par,
+    )
+
+
+def saisir_evaluation(*, eleve, affectation, trimestre, type_evaluation, valeur, libelle, enseignant):
+    """
+    Enregistre une nouvelle évaluation (devoir, interrogation ou bonus) et
+    recalcule immédiatement la note finale du trimestre qui en découle.
+    Contrairement à saisir_note, chaque appel ajoute une évaluation
+    distincte plutôt que de corriger la précédente - plusieurs devoirs par
+    trimestre sont attendus. Pour corriger une erreur de saisie, voir
+    supprimer_evaluation.
+    """
+    if enseignant.role == Role.ENSEIGNANT and affectation.enseignant_id != enseignant.id:
+        raise ValidationError("Vous n'êtes pas l'enseignant affecté à cette matière pour cette classe.")
+
+    with transaction.atomic():
+        evaluation = Evaluation(
+            eleve=eleve, affectation=affectation, trimestre=trimestre,
+            type_evaluation=type_evaluation, valeur=valeur, libelle=libelle, enregistre_par=enseignant,
+        )
+        evaluation.full_clean()
+        evaluation.save()
+        _recalculer_note_trimestre(eleve=eleve, affectation=affectation, trimestre=trimestre, enregistre_par=enseignant)
+        return evaluation
+
+
+def supprimer_evaluation(*, evaluation, enseignant):
+    """Retire une évaluation et recalcule la note finale du trimestre qui en découlait."""
+    if enseignant.role == Role.ENSEIGNANT and evaluation.affectation.enseignant_id != enseignant.id:
+        raise ValidationError("Vous n'êtes pas l'enseignant affecté à cette matière pour cette classe.")
+
+    eleve, affectation, trimestre = evaluation.eleve, evaluation.affectation, evaluation.trimestre
+    with transaction.atomic():
+        evaluation.delete()
+        _recalculer_note_trimestre(eleve=eleve, affectation=affectation, trimestre=trimestre, enregistre_par=enseignant)
 
     class Meta:
         ordering = ["-modifiee_le"]

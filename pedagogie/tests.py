@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.test import TestCase
@@ -6,7 +7,10 @@ from django.urls import reverse
 
 from comptes.models import Utilisateur
 from comptes.roles import Role, StatutCompte
-from pedagogie.models import Absence, CreneauEmploiDuTemps, JourSemaine, Note, Trimestre, saisir_note
+from pedagogie.models import (
+    Absence, CreneauEmploiDuTemps, Evaluation, JourSemaine, Note, Trimestre, TypeEvaluation,
+    saisir_evaluation, saisir_note, supprimer_evaluation,
+)
 from scolarite.models import Affectation, AnneeScolaire, Classe, Cycle, Inscription
 
 
@@ -69,6 +73,242 @@ class SaisieNoteTests(TestCase):
         autre_eleve = creer_utilisateur_actif("hors-classe@example.com", Role.ELEVE)
         with self.assertRaises(ValidationError):
             saisir_note(eleve=autre_eleve, affectation=self.affectation, trimestre=Trimestre.T1, valeur=12, enseignant=self.enseignant)
+
+
+class EvaluationModelTests(TestCase):
+    """Mêmes garanties que Note (voir SaisieNoteTests) : validées à nouveau ici car Evaluation a son propre clean()."""
+
+    def setUp(self):
+        self.annee, self.classe = creer_contexte_classe()
+        self.enseignant = creer_utilisateur_actif("prof-eval-modele@example.com", Role.ENSEIGNANT)
+        self.affectation = Affectation.objects.create(
+            enseignant=self.enseignant, classe=self.classe, matiere="Mathématiques",
+        )
+        self.eleve = creer_utilisateur_actif("eleve-eval-modele@example.com", Role.ELEVE)
+        Inscription.objects.create(eleve=self.eleve, classe=self.classe)
+
+    def test_evaluation_hors_intervalle_refusee(self):
+        with self.assertRaises(ValidationError):
+            saisir_evaluation(
+                eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+                type_evaluation=TypeEvaluation.DEVOIR, valeur=25, libelle="", enseignant=self.enseignant,
+            )
+
+    def test_eleve_non_inscrit_refuse(self):
+        autre_eleve = creer_utilisateur_actif("hors-classe-eval@example.com", Role.ELEVE)
+        with self.assertRaises(ValidationError):
+            saisir_evaluation(
+                eleve=autre_eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+                type_evaluation=TypeEvaluation.DEVOIR, valeur=12, libelle="", enseignant=self.enseignant,
+            )
+
+    def test_autre_enseignant_ne_peut_pas_evaluer(self):
+        autre_enseignant = creer_utilisateur_actif("autre-prof-eval-modele@example.com", Role.ENSEIGNANT)
+        with self.assertRaises(ValidationError):
+            saisir_evaluation(
+                eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+                type_evaluation=TypeEvaluation.DEVOIR, valeur=12, libelle="", enseignant=autre_enseignant,
+            )
+
+    def test_plusieurs_devoirs_meme_trimestre_autorises(self):
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=14, libelle="Devoir 1", enseignant=self.enseignant,
+        )
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=16, libelle="Devoir 2", enseignant=self.enseignant,
+        )
+        self.assertEqual(
+            Evaluation.objects.filter(eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1).count(), 2,
+        )
+
+
+class AffectationPoidsTests(TestCase):
+    def setUp(self):
+        self.annee, self.classe = creer_contexte_classe()
+        self.enseignant = creer_utilisateur_actif("prof-poids@example.com", Role.ENSEIGNANT)
+
+    def test_poids_par_defaut_totalisent_100(self):
+        affectation = Affectation.objects.create(enseignant=self.enseignant, classe=self.classe, matiere="Sciences")
+        self.assertEqual(affectation.poids_devoirs + affectation.poids_interrogations + affectation.poids_bonus, 100)
+
+    def test_poids_ne_totalisant_pas_100_refuses(self):
+        affectation = Affectation(
+            enseignant=self.enseignant, classe=self.classe, matiere="Sciences",
+            poids_devoirs=50, poids_interrogations=50, poids_bonus=10,
+        )
+        with self.assertRaises(ValidationError):
+            affectation.full_clean()
+
+
+class RecalculNoteTrimestreTests(TestCase):
+    """
+    Coeur de la fonctionnalité : la note finale du trimestre se recalcule
+    automatiquement à partir des évaluations saisies, pondérées par type.
+    Un type sans évaluation est exclu et les poids des autres types sont
+    re-proportionnés entre eux, pour que la note reflète ce qui a déjà été
+    noté plutôt que de chuter tant qu'un type reste vide.
+    """
+
+    def setUp(self):
+        self.annee, self.classe = creer_contexte_classe()
+        self.enseignant = creer_utilisateur_actif("prof-recalcul@example.com", Role.ENSEIGNANT)
+        self.affectation = Affectation.objects.create(
+            enseignant=self.enseignant, classe=self.classe, matiere="Mathématiques",
+            poids_devoirs=40, poids_interrogations=40, poids_bonus=20,
+        )
+        self.eleve = creer_utilisateur_actif("eleve-recalcul@example.com", Role.ELEVE)
+        Inscription.objects.create(eleve=self.eleve, classe=self.classe)
+
+    def _note(self):
+        return Note.objects.get(eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1)
+
+    def test_aucune_evaluation_aucune_note(self):
+        self.assertFalse(Note.objects.filter(eleve=self.eleve, affectation=self.affectation).exists())
+
+    def test_un_seul_type_renseigne_compte_pour_tout(self):
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=14, libelle="", enseignant=self.enseignant,
+        )
+        self.assertEqual(self._note().valeur, 14)
+
+    def test_moyenne_de_plusieurs_devoirs_avant_ponderation(self):
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=14, libelle="", enseignant=self.enseignant,
+        )
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=16, libelle="", enseignant=self.enseignant,
+        )
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.INTERROGATION, valeur=12, libelle="", enseignant=self.enseignant,
+        )
+        # Devoirs (40%) : moyenne de 14 et 16 = 15 ; interrogations (40%) : 12 ;
+        # bonus (20%) absent -> poids re-proportionnés sur 40+40=80.
+        # (15*40 + 12*40) / 80 = 13.5
+        self.assertEqual(self._note().valeur, Decimal("13.50"))
+
+    def test_bonus_sajoute_au_calcul_une_fois_renseigne(self):
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=14, libelle="", enseignant=self.enseignant,
+        )
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=16, libelle="", enseignant=self.enseignant,
+        )
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.INTERROGATION, valeur=12, libelle="", enseignant=self.enseignant,
+        )
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.BONUS, valeur=18, libelle="", enseignant=self.enseignant,
+        )
+        # (15*40 + 12*40 + 18*20) / 100 = 14.4
+        self.assertEqual(self._note().valeur, Decimal("14.40"))
+
+    def test_supprimer_une_evaluation_recalcule(self):
+        premier = saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=14, libelle="", enseignant=self.enseignant,
+        )
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=16, libelle="", enseignant=self.enseignant,
+        )
+        self.assertEqual(self._note().valeur, 15)  # moyenne de 14 et 16
+        supprimer_evaluation(evaluation=premier, enseignant=self.enseignant)
+        self.assertEqual(self._note().valeur, 16)  # ne reste que le devoir à 16
+
+    def test_supprimer_la_derniere_evaluation_supprime_la_note(self):
+        evaluation = saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=14, libelle="", enseignant=self.enseignant,
+        )
+        supprimer_evaluation(evaluation=evaluation, enseignant=self.enseignant)
+        self.assertFalse(Note.objects.filter(eleve=self.eleve, affectation=self.affectation).exists())
+
+    def test_poids_zero_exclut_le_type_meme_avec_une_evaluation(self):
+        self.affectation.poids_devoirs = 50
+        self.affectation.poids_interrogations = 50
+        self.affectation.poids_bonus = 0
+        self.affectation.save()
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=10, libelle="", enseignant=self.enseignant,
+        )
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.BONUS, valeur=20, libelle="", enseignant=self.enseignant,
+        )
+        # Bonus à poids 0 : ignoré malgré la présence d'une évaluation -> ne reste que le devoir.
+        self.assertEqual(self._note().valeur, 10)
+
+    def test_historique_conserve_a_chaque_recalcul(self):
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=10, libelle="", enseignant=self.enseignant,
+        )
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=20, libelle="", enseignant=self.enseignant,
+        )
+        self.assertEqual(self._note().historique.count(), 1)
+
+
+class SaisirEvaluationVueTests(TestCase):
+    def setUp(self):
+        self.annee, self.classe = creer_contexte_classe()
+        self.enseignant = creer_utilisateur_actif("prof-vue-eval@example.com", Role.ENSEIGNANT)
+        self.autre_enseignant = creer_utilisateur_actif("autre-prof-vue-eval@example.com", Role.ENSEIGNANT)
+        self.affectation = Affectation.objects.create(
+            enseignant=self.enseignant, classe=self.classe, matiere="Mathématiques",
+        )
+        self.eleve = creer_utilisateur_actif("eleve-vue-eval@example.com", Role.ELEVE)
+        Inscription.objects.create(eleve=self.eleve, classe=self.classe)
+
+    def test_enseignant_affecte_peut_saisir_une_evaluation(self):
+        self.client.force_login(self.enseignant)
+        reponse = self.client.post(reverse("pedagogie:saisir_note", args=[self.affectation.id]), {
+            "matricule_eleve": self.eleve.matricule, "trimestre": Trimestre.T1,
+            "type_evaluation": TypeEvaluation.DEVOIR, "libelle": "Devoir 1", "valeur": 14,
+        })
+        self.assertEqual(reponse.status_code, 302)
+        self.assertTrue(Evaluation.objects.filter(eleve=self.eleve, affectation=self.affectation).exists())
+        self.assertEqual(Note.objects.get(eleve=self.eleve, affectation=self.affectation).valeur, 14)
+
+    def test_autre_enseignant_ne_peut_pas_saisir(self):
+        self.client.force_login(self.autre_enseignant)
+        reponse = self.client.post(reverse("pedagogie:saisir_note", args=[self.affectation.id]), {
+            "matricule_eleve": self.eleve.matricule, "trimestre": Trimestre.T1,
+            "type_evaluation": TypeEvaluation.DEVOIR, "libelle": "", "valeur": 14,
+        })
+        self.assertEqual(reponse.status_code, 403)
+
+    def test_supprimer_une_evaluation_depuis_la_vue(self):
+        evaluation = saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=14, libelle="", enseignant=self.enseignant,
+        )
+        self.client.force_login(self.enseignant)
+        reponse = self.client.post(reverse("pedagogie:supprimer_evaluation", args=[evaluation.id]))
+        self.assertEqual(reponse.status_code, 302)
+        self.assertFalse(Evaluation.objects.filter(id=evaluation.id).exists())
+
+    def test_autre_enseignant_ne_peut_pas_supprimer(self):
+        evaluation = saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=14, libelle="", enseignant=self.enseignant,
+        )
+        self.client.force_login(self.autre_enseignant)
+        reponse = self.client.post(reverse("pedagogie:supprimer_evaluation", args=[evaluation.id]))
+        self.assertEqual(reponse.status_code, 403)
+        self.assertTrue(Evaluation.objects.filter(id=evaluation.id).exists())
 
 
 class BulletinPondereTests(TestCase):
@@ -527,3 +767,34 @@ class GererEmploiDuTempsVueTests(TestCase):
         self.client.force_login(self.eleve)
         reponse = self.client.get(reverse("pedagogie:exporter_emploi_du_temps_pdf", args=[self.autre_classe.id]))
         self.assertEqual(reponse.status_code, 403)
+
+    def test_direction_peut_supprimer_un_creneau(self):
+        creneau = CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=self.affectation, jour_semaine=JourSemaine.LUNDI,
+            heure_debut=datetime.time(8, 0), heure_fin=datetime.time(9, 0),
+        )
+        direction = creer_utilisateur_actif("direction-suppr-creneau@example.com", Role.FONDATEUR)
+        self.client.force_login(direction)
+        reponse = self.client.post(reverse("pedagogie:supprimer_creneau", args=[creneau.id]))
+        self.assertEqual(reponse.status_code, 302)
+        self.assertFalse(CreneauEmploiDuTemps.objects.filter(id=creneau.id).exists())
+
+    def test_enseignant_ne_peut_pas_supprimer_un_creneau_meme_le_sien(self):
+        creneau = CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=self.affectation, jour_semaine=JourSemaine.LUNDI,
+            heure_debut=datetime.time(8, 0), heure_fin=datetime.time(9, 0),
+        )
+        self.client.force_login(self.enseignant)
+        reponse = self.client.post(reverse("pedagogie:supprimer_creneau", args=[creneau.id]))
+        self.assertEqual(reponse.status_code, 403)
+        self.assertTrue(CreneauEmploiDuTemps.objects.filter(id=creneau.id).exists())
+
+    def test_eleve_ne_peut_pas_supprimer_un_creneau(self):
+        creneau = CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=self.affectation, jour_semaine=JourSemaine.LUNDI,
+            heure_debut=datetime.time(8, 0), heure_fin=datetime.time(9, 0),
+        )
+        self.client.force_login(self.eleve)
+        reponse = self.client.post(reverse("pedagogie:supprimer_creneau", args=[creneau.id]))
+        self.assertEqual(reponse.status_code, 403)
+        self.assertTrue(CreneauEmploiDuTemps.objects.filter(id=creneau.id).exists())

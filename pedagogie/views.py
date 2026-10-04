@@ -10,14 +10,18 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.views.decorators.http import require_http_methods
 from xhtml2pdf import pisa
 
 from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
 from comptes.models import Utilisateur
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
-from pedagogie.forms import CreneauForm, SaisirAbsenceForm, SaisirNoteForm
-from pedagogie.models import Absence, CreneauEmploiDuTemps, JourSemaine, Note, Trimestre, VerificationBulletin, saisir_note
+from pedagogie.forms import CreneauForm, SaisirAbsenceForm, SaisirEvaluationForm
+from pedagogie.models import (
+    Absence, CreneauEmploiDuTemps, Evaluation, JourSemaine, Note, Trimestre, VerificationBulletin,
+    saisir_evaluation, supprimer_evaluation,
+)
 from permissions_matrix.modules import Module
 from scolarite.models import (
     Affectation, Classe, CYCLE_PAR_ROLE_DIRECTION, Inscription, classes_visibles_pour, eleve_visible_pour,
@@ -102,6 +106,12 @@ def mes_classes(request):
 
 @module_requis(Module.NOTES_BULLETINS)
 def saisir_note_vue(request, affectation_id):
+    """
+    Un enseignant saisit des évaluations individuelles (devoirs,
+    interrogations, bonus) plutôt qu'une note finale directement : la note
+    du trimestre (Note, affichée sur le bulletin) se recalcule
+    automatiquement à chaque ajout/suppression - voir pedagogie.models.
+    """
     affectation = get_object_or_404(
         Affectation,
         id=affectation_id,
@@ -110,29 +120,50 @@ def saisir_note_vue(request, affectation_id):
     if request.user.role == Role.ENSEIGNANT and affectation.enseignant_id != request.user.id:
         raise PermissionDenied("Vous n'êtes pas l'enseignant affecté à cette matière pour cette classe.")
 
-    formulaire = SaisirNoteForm(request.POST or None, affectation=affectation)
+    formulaire = SaisirEvaluationForm(request.POST or None, affectation=affectation)
     if request.method == "POST" and formulaire.is_valid():
         eleve = Utilisateur.objects.get(matricule=formulaire.cleaned_data["matricule_eleve"], role=Role.ELEVE)
         try:
-            saisir_note(
+            saisir_evaluation(
                 eleve=eleve, affectation=affectation,
                 trimestre=formulaire.cleaned_data["trimestre"],
+                type_evaluation=formulaire.cleaned_data["type_evaluation"],
+                libelle=formulaire.cleaned_data["libelle"],
                 valeur=formulaire.cleaned_data["valeur"], enseignant=request.user,
             )
         except ValidationError as erreur:
             messages.error(request, "; ".join(erreur.messages))
         else:
             enregistrer_action(
-                acteur=request.user, action="saisie_note",
-                cible=f"{eleve.matricule} - {affectation}", request=request,
+                acteur=request.user, action="saisie_evaluation",
+                cible=f"{eleve.matricule} - {affectation}",
+                details={"type": formulaire.cleaned_data["type_evaluation"]}, request=request,
             )
-            messages.success(request, f"Note enregistrée pour {eleve.nom_complet}.")
+            messages.success(request, f"Évaluation enregistrée pour {eleve.nom_complet}.")
         return redirect("pedagogie:saisir_note", affectation_id=affectation.id)
 
-    notes_existantes = Note.objects.filter(affectation=affectation).select_related("eleve")
+    evaluations_existantes = Evaluation.objects.filter(affectation=affectation).select_related("eleve")
     return render(request, "pedagogie/saisir_note.html", {
-        "formulaire": formulaire, "affectation": affectation, "notes_existantes": notes_existantes,
+        "formulaire": formulaire, "affectation": affectation, "evaluations_existantes": evaluations_existantes,
     })
+
+
+@module_requis(Module.NOTES_BULLETINS)
+@require_http_methods(["POST"])
+def supprimer_evaluation_vue(request, evaluation_id):
+    evaluation = get_object_or_404(
+        Evaluation.objects.select_related("eleve", "affectation"),
+        id=evaluation_id, affectation__classe__in=classes_visibles_pour(request.user),
+    )
+    affectation_id = evaluation.affectation_id
+    description = f"{evaluation.eleve.matricule} - {evaluation.affectation}"
+    try:
+        supprimer_evaluation(evaluation=evaluation, enseignant=request.user)
+    except ValidationError as erreur:
+        raise PermissionDenied("; ".join(erreur.messages))
+    enregistrer_action(acteur=request.user, action="suppression_evaluation", cible=description, request=request)
+    messages.success(request, "Évaluation supprimée.")
+    return redirect("pedagogie:saisir_note", affectation_id=affectation_id)
 
 
 def _calculer_bulletin(eleve, inscription=None):
@@ -424,6 +455,23 @@ def gerer_emploi_du_temps(request, classe_id):
     return render(request, "pedagogie/emploi_du_temps.html", {
         "classe": classe, "formulaire": formulaire, "peut_gerer": peut_gerer, "creneaux": creneaux, "jours": jours,
     })
+
+
+@module_requis(Module.EMPLOI_DU_TEMPS)
+@require_http_methods(["POST"])
+def supprimer_creneau(request, creneau_id):
+    creneau = get_object_or_404(
+        CreneauEmploiDuTemps.objects.select_related("classe"),
+        id=creneau_id, classe__in=classes_visibles_pour(request.user),
+    )
+    if not _peut_gerer_emploi_du_temps(request.user):
+        raise PermissionDenied("Vous n'avez pas le droit de modifier cet emploi du temps.")
+    classe_id = creneau.classe_id
+    description = str(creneau)
+    creneau.delete()
+    enregistrer_action(acteur=request.user, action="suppression_creneau_emploi_du_temps", cible=description, request=request)
+    messages.success(request, "Créneau supprimé.")
+    return redirect("pedagogie:gerer_emploi_du_temps", classe_id=classe_id)
 
 
 @module_requis(Module.EMPLOI_DU_TEMPS)

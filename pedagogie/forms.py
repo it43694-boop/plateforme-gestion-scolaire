@@ -3,13 +3,18 @@ from django import forms
 from comptes.forms import BootstrapFormMixin
 from comptes.models import Utilisateur
 from comptes.roles import Role
-from pedagogie.models import CreneauEmploiDuTemps, JourSemaine, Trimestre
+from pedagogie.models import CreneauEmploiDuTemps, JourSemaine, Trimestre, TypeEvaluation
 from scolarite.models import Affectation
 
 
-class SaisirNoteForm(BootstrapFormMixin, forms.Form):
+class SaisirEvaluationForm(BootstrapFormMixin, forms.Form):
     matricule_eleve = forms.CharField(label="Matricule de l'élève")
     trimestre = forms.ChoiceField(label="Trimestre", choices=Trimestre.choices)
+    type_evaluation = forms.ChoiceField(label="Type", choices=TypeEvaluation.choices)
+    libelle = forms.CharField(
+        label="Libellé (optionnel)", max_length=100, required=False,
+        help_text="Exemple : « Devoir sur les fractions ».",
+    )
     valeur = forms.DecimalField(label="Note / 20", min_value=0, max_value=20, decimal_places=2)
 
     def __init__(self, *args, affectation, **kwargs):
