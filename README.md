@@ -944,6 +944,37 @@ sont supprimés avec (CASCADE, pure logistique). Même périmètre d'accès
 que les autres actions de gestion des classes (module Classes). 5 tests,
 vérifié visuellement.
 
+## État du projet : Phase 29 — Devoirs, interrogations, bonus ; assistant et emploi du temps ; suppression d'un créneau
+
+Trois ajouts liés à la même conversation :
+
+- **Notation par devoirs/interrogations/bonus.** Jusqu'ici, une seule
+  note/20 par matière et par trimestre, saisie directement. Remplacée
+  par des évaluations individuelles (plusieurs devoirs/interrogations/
+  bonus possibles par trimestre) : la note finale du trimestre se
+  recalcule automatiquement, moyennée par type puis pondérée selon les
+  poids propres à chaque affectation (`Affectation.poids_devoirs` /
+  `poids_interrogations` / `poids_bonus`, 40/40/20 par défaut,
+  modifiables à l'affectation). Un type sans évaluation est exclu du
+  calcul (poids des autres re-proportionnés) plutôt que de faire chuter
+  la note tant qu'il reste vide. `Note` elle-même est inchangée :
+  bulletin, classement, alertes et Assistant IA continuent de
+  fonctionner sans modification, puisqu'ils ne lisent que `Note`,
+  jamais les évaluations individuelles. Vérifié visuellement : devoir
+  14 + devoir 16 + interro 12 + bonus 18 (poids 40/40/20) → 14,40/20,
+  correctement affiché sur le bulletin.
+- **Assistant IA et emploi du temps.** Un enseignant avec plusieurs
+  classes peut désormais demander à l'Assistant « quel jour suis-je en
+  telle classe ? » au lieu d'ouvrir chaque classe une par une : son
+  emploi du temps complet (toutes classes) est ajouté au contexte
+  envoyé à l'IA pour une question générale - jamais celui d'un collègue,
+  jamais pour un autre rôle.
+- **Suppression d'un créneau.** La direction peut désormais retirer un
+  créneau d'emploi du temps, pas seulement en ajouter.
+
+19 tests de régression pour le calcul des notes, vérifié visuellement
+pour les trois ajouts.
+
 ### Ce qui reste ouvert après ces phases
 
 - SMS, WhatsApp et Mobile Money automatisés, tests de charge,
