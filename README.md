@@ -975,6 +975,36 @@ Trois ajouts liés à la même conversation :
 19 tests de régression pour le calcul des notes, vérifié visuellement
 pour les trois ajouts.
 
+## État du projet : Phase 30 — Parent sans compte préalable, notation alignée sur la pratique malienne
+
+Suite à une question sur l'inscription d'un élève : jusqu'ici, un parent
+devait déjà posséder un compte (recherché par email) avant que son
+enfant puisse être inscrit - un détour en deux étapes à chaque fois.
+
+- **Lien automatique.** L'email du parent suffit même sans compte
+  existant ; nom, prénom et téléphone (optionnels) sont enregistrés en
+  attente (`ParentEnAttente`). Dès que ce parent crée son compte et
+  vérifie son email avec la même adresse, le lien avec son enfant se
+  fait automatiquement (`comptes.views.verifier_email` ->
+  `scolarite.models.lier_parents_en_attente`), sans action manuelle.
+  Le dossier élève distingue les parents liés des parents « en
+  attente ». Toujours cloisonné par établissement : un email d'une
+  autre école n'est jamais lié. 19 tests, vérifié de bout en bout
+  (navigateur) : inscription avec email inconnu → dossier incomplet →
+  inscription et vérification du parent → dossier complet, téléphone
+  repris automatiquement.
+- **Poids de notation alignés sur la réalité malienne.** Recherche
+  effectuée sur le système éducatif malien (aucune formule nationale
+  publiée trouvée, mais deux signaux concordants : les décisions de
+  passage en classe supérieure reposent officiellement sur la
+  composition trimestrielle, et un logiciel scolaire malien réel
+  (Scolynx) pondère par matière plutôt que par type d'évaluation).
+  Ajout d'un type d'évaluation « Composition » et nouveaux poids par
+  défaut (composition 50 %, devoirs 25 %, interrogations 15 %, bonus
+  10 %, contre 40/40/20 sans composition à la phase précédente) -
+  toujours ajustables par affectation. Migration de données incluse
+  pour les affectations déjà créées.
+
 ### Ce qui reste ouvert après ces phases
 
 - SMS, WhatsApp et Mobile Money automatisés, tests de charge,
