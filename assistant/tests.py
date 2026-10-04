@@ -286,6 +286,65 @@ class AssistantVueGeneraleTests(TestCase):
         self.assertIsNone(reponse.context["resultat_general"])
         self.assertIsNone(reponse.context["erreur"])
 
+    @override_settings(GROQ_API_KEY="cle-de-test-factice")
+    def test_enseignant_peut_demander_son_emploi_du_temps_a_lassistant(self):
+        """
+        Exemple du cahier des charges : un enseignant avec plusieurs classes
+        ne devrait pas avoir à ouvrir chacune une par une pour savoir où il
+        est tel jour - l'Assistant reçoit directement son planning complet.
+        """
+        from django.core.cache import cache
+        from pedagogie.models import CreneauEmploiDuTemps, JourSemaine
+
+        cache.clear()
+        affectation = Affectation.objects.create(enseignant=self.enseignant, classe=self.classe, matiere="Sciences")
+        CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=affectation, jour_semaine=JourSemaine.LUNDI,
+            heure_debut=datetime.time(8, 0), heure_fin=datetime.time(9, 0),
+        )
+        with patch("assistant.views.repondre_question_generale_avec_ia") as mock_ia:
+            mock_ia.return_value = "Vous êtes en 5ème année A le lundi de 8h à 9h."
+            self.client.force_login(self.enseignant)
+            self.client.get(reverse("assistant:poser_question"), {"question": "Quel jour suis-je en 5ème année A ?"})
+            donnees_envoyees = mock_ia.call_args.kwargs["donnees_autorisees"]
+            self.assertEqual(len(donnees_envoyees["mon_emploi_du_temps"]), 1)
+            creneau = donnees_envoyees["mon_emploi_du_temps"][0]
+            self.assertEqual(creneau["classe"], str(self.classe))
+            self.assertEqual(creneau["jour"], "Lundi")
+            self.assertEqual(creneau["heure_debut"], "08:00")
+
+    @override_settings(GROQ_API_KEY="cle-de-test-factice")
+    def test_un_role_non_enseignant_ne_recoit_jamais_demploi_du_temps(self):
+        from django.core.cache import cache
+        cache.clear()
+        with patch("assistant.views.repondre_question_generale_avec_ia") as mock_ia:
+            mock_ia.return_value = "Le solde de caisse est positif."
+            self.client.force_login(self.comptable)
+            self.client.get(reverse("assistant:poser_question"), {"question": "Quel est le solde de caisse ?"})
+            donnees_envoyees = mock_ia.call_args.kwargs["donnees_autorisees"]
+            self.assertNotIn("mon_emploi_du_temps", donnees_envoyees)
+
+    def test_un_enseignant_ne_voit_que_ses_propres_creneaux_dans_les_donnees_ia(self):
+        from assistant.views import _creneaux_pour_assistant
+        from pedagogie.models import CreneauEmploiDuTemps, JourSemaine
+
+        autre_enseignant = creer_utilisateur_actif(
+            "autre-prof-general@example.com", Role.ENSEIGNANT, etablissement=self.etablissement,
+        )
+        affectation_moi = Affectation.objects.create(enseignant=self.enseignant, classe=self.classe, matiere="Sciences")
+        affectation_autre = Affectation.objects.create(enseignant=autre_enseignant, classe=self.classe, matiere="Français")
+        CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=affectation_moi, jour_semaine=JourSemaine.LUNDI,
+            heure_debut=datetime.time(8, 0), heure_fin=datetime.time(9, 0),
+        )
+        CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=affectation_autre, jour_semaine=JourSemaine.MARDI,
+            heure_debut=datetime.time(10, 0), heure_fin=datetime.time(11, 0),
+        )
+        creneaux = _creneaux_pour_assistant(self.enseignant)
+        self.assertEqual(len(creneaux), 1)
+        self.assertEqual(creneaux[0]["jour"], "Lundi")
+
 
 class AlertesTableauDeBordTests(TestCase):
     def setUp(self):

@@ -99,6 +99,37 @@ def construire_donnees_generales(utilisateur):
     return items
 
 
+def _creneaux_pour_assistant(utilisateur):
+    """
+    Emploi du temps complet d'un enseignant (toutes ses classes confondues),
+    pour que l'Assistant IA réponde à des questions comme « quel jour
+    suis-je en 6ème année A ? » sans qu'il ait à ouvrir chaque classe une
+    par une. Toujours SES propres créneaux uniquement - jamais ceux d'un
+    collègue (voir pedagogie.views._creneaux_visibles pour la même règle
+    côté page emploi du temps).
+    """
+    if utilisateur.role != Role.ENSEIGNANT.value:
+        return []
+
+    from pedagogie.models import CreneauEmploiDuTemps, JourSemaine
+
+    jours = dict(JourSemaine.choices)
+    creneaux = CreneauEmploiDuTemps.objects.filter(
+        affectation__enseignant=utilisateur,
+    ).select_related("classe", "affectation").order_by("jour_semaine", "heure_debut")
+    return [
+        {
+            "classe": str(creneau.classe),
+            "matiere": creneau.affectation.matiere or "Titulaire",
+            "jour": jours.get(creneau.jour_semaine, creneau.jour_semaine),
+            "heure_debut": creneau.heure_debut.strftime("%H:%M"),
+            "heure_fin": creneau.heure_fin.strftime("%H:%M"),
+            "salle": creneau.salle,
+        }
+        for creneau in creneaux
+    ]
+
+
 @module_requis(Module.ASSISTANT)
 def poser_question(request):
     """
@@ -111,7 +142,10 @@ def poser_question(request):
       paiements selon les modules autorisés) ;
     - sans matricule mais avec une question : vue d'ensemble de
       l'établissement, agrégée par construire_donnees_generales() selon
-      les mêmes modules.
+      les mêmes modules ; pour un enseignant, son propre emploi du temps
+      (toutes classes confondues) est ajouté à ce contexte, pour qu'il
+      puisse demander « quel jour suis-je en 6ème année A ? » sans avoir
+      à ouvrir chaque classe une par une (voir _creneaux_pour_assistant).
 
     Mode génératif optionnel (cahier des charges, section Assistant) :
     si une clé API est configurée ET qu'une question en langage libre est
@@ -142,6 +176,9 @@ def poser_question(request):
             else:
                 try:
                     donnees_autorisees = {item["cle"]: item["valeur"] for item in resultat_general}
+                    creneaux_personnels = _creneaux_pour_assistant(request.user)
+                    if creneaux_personnels:
+                        donnees_autorisees["mon_emploi_du_temps"] = creneaux_personnels
                     reponse_ia = repondre_question_generale_avec_ia(
                         donnees_autorisees=donnees_autorisees, question=question_libre,
                     )
