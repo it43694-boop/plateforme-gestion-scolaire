@@ -129,14 +129,30 @@ class AffectationPoidsTests(TestCase):
         self.annee, self.classe = creer_contexte_classe()
         self.enseignant = creer_utilisateur_actif("prof-poids@example.com", Role.ENSEIGNANT)
 
-    def test_poids_par_defaut_totalisent_100(self):
+    def test_poids_par_defaut_favorisent_la_composition(self):
+        """
+        Pas de formule nationale malienne publiée et standardisée (vérifié
+        par recherche), mais la pratique observée (compositions
+        trimestrielles décisives pour le passage de classe, logiciels
+        scolaires maliens pondérant surtout par matière) justifie des
+        défauts où la composition domine largement - ajustables par
+        affectation si une école préfère un autre dosage.
+        """
         affectation = Affectation.objects.create(enseignant=self.enseignant, classe=self.classe, matiere="Sciences")
-        self.assertEqual(affectation.poids_devoirs + affectation.poids_interrogations + affectation.poids_bonus, 100)
+        self.assertEqual(affectation.poids_composition, 50)
+        self.assertEqual(affectation.poids_devoirs, 25)
+        self.assertEqual(affectation.poids_interrogations, 15)
+        self.assertEqual(affectation.poids_bonus, 10)
+        self.assertEqual(
+            affectation.poids_composition + affectation.poids_devoirs
+            + affectation.poids_interrogations + affectation.poids_bonus,
+            100,
+        )
 
     def test_poids_ne_totalisant_pas_100_refuses(self):
         affectation = Affectation(
             enseignant=self.enseignant, classe=self.classe, matiere="Sciences",
-            poids_devoirs=50, poids_interrogations=50, poids_bonus=10,
+            poids_composition=50, poids_devoirs=50, poids_interrogations=50, poids_bonus=10,
         )
         with self.assertRaises(ValidationError):
             affectation.full_clean()
@@ -248,6 +264,28 @@ class RecalculNoteTrimestreTests(TestCase):
         )
         # Bonus à poids 0 : ignoré malgré la présence d'une évaluation -> ne reste que le devoir.
         self.assertEqual(self._note().valeur, 10)
+
+    def test_composition_domine_avec_les_poids_par_defaut(self):
+        """La composition trimestrielle doit peser nettement plus lourd que
+        devoirs/interrogations/bonus avec les poids par défaut de l'affectation
+        (50/25/15/10) - cohérent avec la pratique malienne où elle conditionne
+        le passage en classe supérieure."""
+        self.affectation.poids_composition = 50
+        self.affectation.poids_devoirs = 25
+        self.affectation.poids_interrogations = 15
+        self.affectation.poids_bonus = 10
+        self.affectation.save()
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.COMPOSITION, valeur=16, libelle="", enseignant=self.enseignant,
+        )
+        saisir_evaluation(
+            eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1,
+            type_evaluation=TypeEvaluation.DEVOIR, valeur=8, libelle="", enseignant=self.enseignant,
+        )
+        # composition (50%) et devoir (25%) seuls présents -> re-proportionnés sur 75.
+        # (16*50 + 8*25) / 75 = (800 + 200) / 75 = 13.33
+        self.assertEqual(self._note().valeur, Decimal("13.33"))
 
     def test_historique_conserve_a_chaque_recalcul(self):
         saisir_evaluation(

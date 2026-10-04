@@ -216,20 +216,29 @@ class Affectation(models.Model):
                    "1 par défaut (toutes les matières comptent également) ; augmentez pour une matière "
                    "à plus fort coefficient (ex. Mathématiques, Français).",
     )
-    # Poids de chaque type d'évaluation (devoirs/interrogations/bonus) dans le
-    # calcul de la note finale du trimestre (pedagogie.models.Evaluation) -
-    # propres à cette affectation, pas un réglage unique pour toute l'école,
-    # pour qu'un enseignant adapte le dosage à sa matière.
+    # Poids de chaque type d'évaluation (composition/devoirs/interrogations/
+    # bonus) dans le calcul de la note finale du trimestre
+    # (pedagogie.models.Evaluation) - propres à cette affectation, pas un
+    # réglage unique pour toute l'école, pour qu'un enseignant adapte le
+    # dosage à sa matière. Défauts choisis pour refléter la pratique
+    # observée au Mali (pas de formule nationale unique publiée) : la
+    # composition trimestrielle reste l'évaluation dominante - c'est elle
+    # qui conditionne le passage en classe supérieure - devoirs et
+    # interrogations ne pèsent qu'en appoint.
+    poids_composition = models.PositiveSmallIntegerField(
+        default=50, validators=[MaxValueValidator(100)],
+        help_text="Poids de la composition trimestrielle dans la note finale (%).",
+    )
     poids_devoirs = models.PositiveSmallIntegerField(
-        default=40, validators=[MaxValueValidator(100)],
+        default=25, validators=[MaxValueValidator(100)],
         help_text="Poids des devoirs dans la note finale du trimestre (%).",
     )
     poids_interrogations = models.PositiveSmallIntegerField(
-        default=40, validators=[MaxValueValidator(100)],
+        default=15, validators=[MaxValueValidator(100)],
         help_text="Poids des interrogations dans la note finale du trimestre (%).",
     )
     poids_bonus = models.PositiveSmallIntegerField(
-        default=20, validators=[MaxValueValidator(100)],
+        default=10, validators=[MaxValueValidator(100)],
         help_text="Poids du bonus dans la note finale du trimestre (%).",
     )
 
@@ -244,8 +253,11 @@ class Affectation(models.Model):
             raise ValidationError("Seul un utilisateur avec le rôle « enseignant » peut être affecté.")
         if self.enseignant_id and self.classe_id and self.enseignant.etablissement_id != self.classe.annee_scolaire.etablissement_id:
             raise ValidationError("L'enseignant et la classe doivent appartenir au même établissement.")
-        if self.poids_devoirs + self.poids_interrogations + self.poids_bonus != 100:
-            raise ValidationError("Les poids des devoirs, interrogations et bonus doivent totaliser 100%.")
+        poids_total = self.poids_composition + self.poids_devoirs + self.poids_interrogations + self.poids_bonus
+        if poids_total != 100:
+            raise ValidationError(
+                "Les poids de la composition, des devoirs, des interrogations et du bonus doivent totaliser 100%.",
+            )
 
     def __str__(self):
         libelle_matiere = self.matiere or "Titulaire"
@@ -300,6 +312,37 @@ class Inscription(models.Model):
         self.classe.annee_scolaire.verifier_mutable()
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class ParentEnAttente(models.Model):
+    """
+    Email (et éventuellement nom/prénom/téléphone) d'un parent communiqué
+    à l'inscription d'un élève, avant que ce parent n'ait lui-même créé de
+    compte. Dès qu'un compte est créé et vérifié avec cet email (voir
+    comptes.views.verifier_email -> lier_parents_en_attente), le lien
+    élève-parent se fait automatiquement et cette ligne est supprimée -
+    le secrétariat n'a plus besoin d'attendre que chaque parent se soit
+    déjà inscrit avant de pouvoir inscrire son enfant.
+    """
+
+    eleve = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.CASCADE, related_name="parents_en_attente",
+        limit_choices_to={"role": Role.ELEVE},
+    )
+    email = models.EmailField()
+    nom = models.CharField(max_length=100, blank=True)
+    prenom = models.CharField(max_length=100, blank=True)
+    telephone = models.CharField(max_length=20, blank=True)
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "parent en attente"
+        verbose_name_plural = "parents en attente"
+        unique_together = ("eleve", "email")
+        ordering = ["-cree_le"]
+
+    def __str__(self):
+        return f"{self.email} (en attente - {self.eleve.nom_complet})"
 
 
 class TypeAideScolarite(models.TextChoices):
@@ -459,6 +502,27 @@ def lier_parent_a_eleve(eleve, parent):
         raise ValidationError("L'élève et le parent doivent appartenir au même établissement.")
 
     eleve.parents_lies.add(parent)
+
+
+def lier_parents_en_attente(parent):
+    """
+    Appelée quand un compte parent vient d'être vérifié (voir
+    comptes.views.verifier_email) : relie automatiquement tous les élèves
+    de son établissement pour lesquels son email avait été enregistré
+    avant qu'il n'ait de compte (voir ParentEnAttente). Une ligne dont le
+    lien échoue (ex. élève ayant déjà 2 parents) est laissée en place pour
+    une action manuelle plutôt que silencieusement perdue.
+    """
+    if parent.role != Role.PARENT:
+        return
+    for attente in ParentEnAttente.objects.filter(
+        email__iexact=parent.email, eleve__etablissement_id=parent.etablissement_id,
+    ).select_related("eleve"):
+        try:
+            lier_parent_a_eleve(attente.eleve, parent)
+        except ValidationError:
+            continue
+        attente.delete()
 
 
 def dossier_complet(eleve) -> bool:

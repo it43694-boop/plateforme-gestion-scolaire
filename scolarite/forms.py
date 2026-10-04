@@ -71,16 +71,22 @@ class AffecterEnseignantForm(BootstrapFormMixin, forms.Form):
         label="Coefficient", min_value=1, initial=1, required=False,
         help_text="Poids de cette matière dans la moyenne du bulletin. 1 = compte comme les autres.",
     )
+    poids_composition = forms.IntegerField(
+        label="Poids de la composition (%)", min_value=0, max_value=100, initial=50,
+        help_text="Par défaut, la composition trimestrielle domine (pratique courante au Mali), "
+                   "devoirs et interrogations ne pèsent qu'en appoint - ajustable par matière.",
+    )
     poids_devoirs = forms.IntegerField(
-        label="Poids des devoirs (%)", min_value=0, max_value=100, initial=40,
+        label="Poids des devoirs (%)", min_value=0, max_value=100, initial=25,
     )
     poids_interrogations = forms.IntegerField(
-        label="Poids des interrogations (%)", min_value=0, max_value=100, initial=40,
+        label="Poids des interrogations (%)", min_value=0, max_value=100, initial=15,
     )
     poids_bonus = forms.IntegerField(
-        label="Poids du bonus (%)", min_value=0, max_value=100, initial=20,
-        help_text="Les trois poids ci-dessus doivent totaliser 100% - ils déterminent comment devoirs, "
-                   "interrogations et bonus se combinent pour donner la note finale du trimestre.",
+        label="Poids du bonus (%)", min_value=0, max_value=100, initial=10,
+        help_text="Les quatre poids ci-dessus doivent totaliser 100% - ils déterminent comment "
+                   "composition, devoirs, interrogations et bonus se combinent pour donner la note "
+                   "finale du trimestre.",
     )
 
     def __init__(self, *args, etablissement=None, classes_disponibles=None, **kwargs):
@@ -93,10 +99,10 @@ class AffecterEnseignantForm(BootstrapFormMixin, forms.Form):
 
     def clean(self):
         cleaned = super().clean()
-        poids = ["poids_devoirs", "poids_interrogations", "poids_bonus"]
+        poids = ["poids_composition", "poids_devoirs", "poids_interrogations", "poids_bonus"]
         if all(cleaned.get(champ) is not None for champ in poids):
             if sum(cleaned[champ] for champ in poids) != 100:
-                self.add_error("poids_bonus", "Les trois poids doivent totaliser 100%.")
+                self.add_error("poids_bonus", "Les quatre poids doivent totaliser 100%.")
         return cleaned
 
 
@@ -114,7 +120,13 @@ class InscrireEleveForm(BootstrapFormMixin, forms.Form):
     )
     classe = forms.ModelChoiceField(label="Classe", queryset=Classe.objects.none())
     parent_email_1 = forms.EmailField(label="Email du 1er parent")
+    parent_nom_1 = forms.CharField(label="Nom du 1er parent", max_length=100, required=False)
+    parent_prenom_1 = forms.CharField(label="Prénom du 1er parent", max_length=100, required=False)
+    parent_telephone_1 = forms.CharField(label="Téléphone du 1er parent", max_length=20, required=False)
     parent_email_2 = forms.EmailField(label="Email du 2ème parent (optionnel)", required=False)
+    parent_nom_2 = forms.CharField(label="Nom du 2ème parent", max_length=100, required=False)
+    parent_prenom_2 = forms.CharField(label="Prénom du 2ème parent", max_length=100, required=False)
+    parent_telephone_2 = forms.CharField(label="Téléphone du 2ème parent", max_length=20, required=False)
 
     def __init__(self, *args, classes_disponibles=None, etablissement=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -122,25 +134,30 @@ class InscrireEleveForm(BootstrapFormMixin, forms.Form):
             self.fields["classe"].queryset = classes_disponibles
         self._etablissement = etablissement
 
-    def _recuperer_parent(self, champ, email):
+    def _resoudre_parent(self, suffixe, email):
+        """
+        Si l'email correspond déjà à un compte parent de cet établissement,
+        le lien se fait immédiatement. Sinon, l'email (et le nom/prénom/
+        téléphone éventuellement fournis) est simplement mémorisé
+        (ParentEnAttente) : le lien se fera automatiquement dès que ce
+        parent créera et vérifiera son compte avec le même email - plus
+        besoin qu'il soit déjà inscrit pour que son enfant le soit.
+        """
         if not email:
-            return None
+            return None, None
         try:
-            # Cloisonné au même établissement que l'élève à inscrire : sans
-            # ce filtre, un email appartenant à un parent d'un autre
-            # établissement serait trouvé ici, pour échouer plus tard dans
-            # lier_parent_a_eleve (après que l'élève a déjà été créé) - en
-            # filtrant ici, le formulaire refuse proprement avant toute
-            # écriture, avec le même message que « email inconnu » pour ne
-            # pas révéler l'existence d'un compte dans un autre établissement.
             parent = Utilisateur.objects.get(email__iexact=email, etablissement=self._etablissement)
         except Utilisateur.DoesNotExist:
-            self.add_error(champ, "Aucun compte trouvé avec cet email.")
-            return None
+            return None, {
+                "email": email,
+                "nom": self.data.get(f"parent_nom_{suffixe}", "").strip(),
+                "prenom": self.data.get(f"parent_prenom_{suffixe}", "").strip(),
+                "telephone": self.data.get(f"parent_telephone_{suffixe}", "").strip(),
+            }
         if parent.role != Role.PARENT:
-            self.add_error(champ, "Ce compte n'a pas le rôle « parent ».")
-            return None
-        return parent
+            self.add_error(f"parent_email_{suffixe}", "Ce compte n'a pas le rôle « parent ».")
+            return None, None
+        return parent, None
 
     def clean_matricule(self):
         matricule = self.cleaned_data["matricule"].strip()
@@ -150,10 +167,15 @@ class InscrireEleveForm(BootstrapFormMixin, forms.Form):
 
     def clean(self):
         cleaned = super().clean()
-        parent_1 = self._recuperer_parent("parent_email_1", cleaned.get("parent_email_1"))
-        parent_2 = self._recuperer_parent("parent_email_2", cleaned.get("parent_email_2"))
+        email_1, email_2 = cleaned.get("parent_email_1"), cleaned.get("parent_email_2")
+        if email_1 and email_2 and email_1.strip().lower() == email_2.strip().lower():
+            self.add_error("parent_email_2", "Les deux parents doivent avoir des emails différents.")
+            return cleaned
+        parent_1, en_attente_1 = self._resoudre_parent("1", email_1)
+        parent_2, en_attente_2 = self._resoudre_parent("2", email_2)
         if parent_1 and parent_2 and parent_1.pk == parent_2.pk:
             self.add_error("parent_email_2", "Les deux parents doivent être des comptes différents.")
         cleaned["parent_1"] = parent_1
         cleaned["parent_2"] = parent_2
+        cleaned["parents_en_attente"] = [info for info in (en_attente_1, en_attente_2) if info]
         return cleaned

@@ -11,7 +11,7 @@ from django.urls import reverse
 from comptes.models import Utilisateur
 from comptes.roles import Role, StatutCompte
 from scolarite.models import (
-    Affectation, AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription, Serie,
+    Affectation, AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription, ParentEnAttente, Serie,
     TypeDocumentVerifiable, VerificationDocument,
     classes_visibles_pour, dossier_complet, eleve_visible_pour, lier_parent_a_eleve,
 )
@@ -207,6 +207,63 @@ class LiaisonParentEleveTests(TestCase):
         eleve.date_naissance = datetime.date(2015, 3, 12)
         eleve.save()
         self.assertTrue(dossier_complet(eleve))
+
+
+class LierParentsEnAttenteTests(TestCase):
+    """lier_parents_en_attente est le mécanisme appelé par
+    comptes.views.verifier_email dès qu'un compte parent vient d'être vérifié."""
+
+    def test_lie_et_supprime_lattente_correspondante(self):
+        from scolarite.models import lier_parents_en_attente
+
+        eleve = creer_utilisateur_actif("eleve-attente1@example.com", Role.ELEVE)
+        ParentEnAttente.objects.create(eleve=eleve, email="parent-attente1@example.com", nom="X", prenom="Y")
+        parent = creer_utilisateur_actif(
+            "parent-attente1@example.com", Role.PARENT, telephone="70222221", profession="X",
+        )
+        lier_parents_en_attente(parent)
+        self.assertTrue(eleve.parents_lies.filter(pk=parent.pk).exists())
+        self.assertFalse(ParentEnAttente.objects.filter(eleve=eleve).exists())
+
+    def test_insensible_a_la_casse_de_lemail(self):
+        from scolarite.models import lier_parents_en_attente
+
+        eleve = creer_utilisateur_actif("eleve-attente2@example.com", Role.ELEVE)
+        ParentEnAttente.objects.create(eleve=eleve, email="Parent-Attente2@Example.com")
+        parent = creer_utilisateur_actif(
+            "parent-attente2@example.com", Role.PARENT, telephone="70222222", profession="X",
+        )
+        lier_parents_en_attente(parent)
+        self.assertTrue(eleve.parents_lies.filter(pk=parent.pk).exists())
+
+    def test_lattente_dun_autre_etablissement_nest_jamais_liee(self):
+        from etablissement.models import Etablissement
+        from scolarite.models import lier_parents_en_attente
+
+        ecole_a = Etablissement.objects.create(nom="École attente A")
+        ecole_b = Etablissement.objects.create(nom="École attente B")
+        eleve = creer_utilisateur_actif("eleve-attente3@example.com", Role.ELEVE, etablissement=ecole_a)
+        ParentEnAttente.objects.create(eleve=eleve, email="parent-attente3@example.com")
+        parent = creer_utilisateur_actif(
+            "parent-attente3@example.com", Role.PARENT, telephone="70222223", profession="X",
+            etablissement=ecole_b,
+        )
+        lier_parents_en_attente(parent)
+        self.assertFalse(eleve.parents_lies.filter(pk=parent.pk).exists())
+        self.assertTrue(ParentEnAttente.objects.filter(eleve=eleve).exists())  # laissée en place
+
+    def test_attente_non_resolue_si_deja_deux_parents_est_conservee(self):
+        from scolarite.models import lier_parents_en_attente
+
+        eleve = creer_utilisateur_actif("eleve-attente4@example.com", Role.ELEVE)
+        lier_parent_a_eleve(eleve, creer_utilisateur_actif("p1-attente4@example.com", Role.PARENT, telephone="70222224", profession="X"))
+        lier_parent_a_eleve(eleve, creer_utilisateur_actif("p2-attente4@example.com", Role.PARENT, telephone="70222225", profession="X"))
+        ParentEnAttente.objects.create(eleve=eleve, email="p3-attente4@example.com")
+        parent_3 = creer_utilisateur_actif("p3-attente4@example.com", Role.PARENT, telephone="70222226", profession="X")
+
+        lier_parents_en_attente(parent_3)
+        self.assertFalse(eleve.parents_lies.filter(pk=parent_3.pk).exists())
+        self.assertTrue(ParentEnAttente.objects.filter(eleve=eleve, email="p3-attente4@example.com").exists())
 
 
 class InscriptionEleveDansClasseTests(TestCase):
@@ -432,11 +489,16 @@ class VueInscrireEleveTests(TestCase):
         reponse = self.client.get(reverse("scolarite:inscrire_eleve"))
         self.assertEqual(reponse.status_code, 403)
 
-    def test_parent_dun_autre_etablissement_refuse_sans_creer_leleve(self):
-        # Avant correctif : l'email était cherché sans filtre d'établissement,
-        # donc trouvé ici - puis lier_parent_a_eleve levait une erreur APRÈS
-        # la création de l'élève (déjà en base, orphelin). Le formulaire doit
-        # désormais refuser proprement, sans rien écrire du tout.
+    def test_parent_dun_autre_etablissement_jamais_lie_mais_eleve_cree(self):
+        """
+        L'email d'un parent d'un AUTRE établissement ne doit jamais être
+        trouvé/lié ici (cloisonnement) - mais comme un email inconnu de cet
+        établissement est désormais traité comme « en attente » plutôt que
+        refusé (voir test_parent_sans_compte_cree_une_attente), l'élève est
+        bien créé, avec une simple mémorisation en attente (qui ne pourra
+        jamais se résoudre pour cet email précis, déjà pris ailleurs - sans
+        conséquence : aucun accès n'est accordé tant qu'aucun lien ne se fait).
+        """
         from etablissement.models import Etablissement
         from permissions_matrix.models import PermissionMatrix
 
@@ -458,9 +520,61 @@ class VueInscrireEleveTests(TestCase):
             "prenom": "Mariam", "nom": "Coulibaly", "sexe": "F", "date_naissance": "2016-01-01",
             "classe": classe.id, "parent_email_1": parent_autre_ecole.email, "parent_email_2": "",
         })
-        self.assertEqual(reponse.status_code, 200)  # formulaire réaffiché avec erreur, pas de redirection
-        self.assertContains(reponse, "Aucun compte trouvé avec cet email.")
-        self.assertFalse(Utilisateur.objects.filter(prenom="Mariam", role=Role.ELEVE).exists())
+        self.assertEqual(reponse.status_code, 302)
+        eleve = Utilisateur.objects.get(prenom="Mariam", role=Role.ELEVE)
+        self.assertFalse(eleve.parents_lies.filter(pk=parent_autre_ecole.pk).exists())
+        self.assertTrue(ParentEnAttente.objects.filter(eleve=eleve, email=parent_autre_ecole.email).exists())
+
+    def test_parent_sans_compte_cree_une_attente(self):
+        self.client.force_login(self.secretaire)
+        reponse = self.client.post(reverse("scolarite:inscrire_eleve"), {
+            "prenom": "Issa", "nom": "Konaté", "sexe": "M", "date_naissance": "2016-01-01",
+            "classe": self.classe.id, "parent_email_1": "nouveau-parent@example.com",
+            "parent_nom_1": "Konaté", "parent_prenom_1": "Aminata", "parent_telephone_1": "70123456",
+            "parent_email_2": "",
+        })
+        self.assertEqual(reponse.status_code, 302)
+        eleve = Utilisateur.objects.get(prenom="Issa", role=Role.ELEVE)
+        attente = ParentEnAttente.objects.get(eleve=eleve, email="nouveau-parent@example.com")
+        self.assertEqual(attente.nom, "Konaté")
+        self.assertEqual(attente.prenom, "Aminata")
+        self.assertEqual(attente.telephone, "70123456")
+        self.assertFalse(eleve.parents_lies.exists())
+
+    def test_lien_se_fait_automatiquement_a_la_verification_email(self):
+        """Bout en bout : inscription de l'élève avec un email non encore inscrit, puis
+        ce parent crée son compte et le vérifie - le lien doit se faire sans aucune action manuelle."""
+        from comptes.models import CodeVerificationEmail
+
+        self.client.force_login(self.secretaire)
+        self.client.post(reverse("scolarite:inscrire_eleve"), {
+            "prenom": "Salif", "nom": "Diabaté", "sexe": "M", "date_naissance": "2016-01-01",
+            "classe": self.classe.id, "parent_email_1": "futur-parent@example.com", "parent_email_2": "",
+        })
+        eleve = Utilisateur.objects.get(prenom="Salif", role=Role.ELEVE)
+        self.client.logout()
+
+        # Reproduit l'état d'un compte juste après l'étape 1 (mot de passe choisi,
+        # email pas encore vérifié) sans dépendre de la résolution d'établissement
+        # du formulaire public, hors sujet pour ce test.
+        nouveau_parent = Utilisateur(
+            email="futur-parent@example.com", prenom="Mamadou", nom="Diabaté",
+            role=Role.PARENT, telephone="70999999",
+        )
+        nouveau_parent.set_password("MotDePasse#2026")
+        nouveau_parent.full_clean(exclude=["password"])
+        nouveau_parent.save()
+        code_verif = CodeVerificationEmail.objects.create(utilisateur=nouveau_parent, code="123456")
+        session = self.client.session
+        session["utilisateur_en_verification_id"] = nouveau_parent.id
+        session.save()
+
+        self.client.post(reverse("comptes:verifier_email"), {"code": code_verif.code})
+
+        eleve.refresh_from_db()
+        self.assertTrue(eleve.parents_lies.filter(pk=nouveau_parent.pk).exists())
+        self.assertFalse(ParentEnAttente.objects.filter(eleve=eleve).exists())
+        self.assertEqual(eleve.telephone_effectif, "70999999")  # repris du parent (voir LiaisonParentEleveTests)
 
 
 class VueListeElevesTests(TestCase):
@@ -657,7 +771,7 @@ class VueAffecterEnseignantTests(TestCase):
         self.client.force_login(self.secretaire)
         reponse = self.client.post(reverse("scolarite:affecter_enseignant"), {
             "enseignant": self.enseignant.id, "classe": self.classe.id, "matiere": "Mathématiques",
-            "poids_devoirs": 40, "poids_interrogations": 40, "poids_bonus": 20,
+            "poids_composition": 50, "poids_devoirs": 25, "poids_interrogations": 15, "poids_bonus": 10,
         })
         self.assertEqual(reponse.status_code, 302)
         self.assertTrue(Affectation.objects.filter(enseignant=self.enseignant, classe=self.classe, matiere="Mathématiques").exists())
@@ -667,7 +781,7 @@ class VueAffecterEnseignantTests(TestCase):
         self.client.force_login(self.secretaire)
         self.client.post(reverse("scolarite:affecter_enseignant"), {
             "enseignant": self.enseignant.id, "classe": self.classe.id, "matiere": "Français",
-            "poids_devoirs": 40, "poids_interrogations": 40, "poids_bonus": 20,
+            "poids_composition": 50, "poids_devoirs": 25, "poids_interrogations": 15, "poids_bonus": 10,
         })
         self.assertEqual(Affectation.objects.filter(enseignant=self.enseignant, classe=self.classe, matiere="Français").count(), 1)
 
@@ -675,7 +789,7 @@ class VueAffecterEnseignantTests(TestCase):
         self.client.force_login(self.secretaire)
         reponse = self.client.post(reverse("scolarite:affecter_enseignant"), {
             "enseignant": self.enseignant.id, "classe": self.classe.id, "matiere": "Histoire",
-            "poids_devoirs": 50, "poids_interrogations": 50, "poids_bonus": 10,
+            "poids_composition": 50, "poids_devoirs": 50, "poids_interrogations": 50, "poids_bonus": 10,
         })
         self.assertEqual(reponse.status_code, 200)
         self.assertFalse(Affectation.objects.filter(enseignant=self.enseignant, classe=self.classe, matiere="Histoire").exists())

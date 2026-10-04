@@ -113,6 +113,9 @@ def verifier_email(request):
                 utilisateur.statut = StatutCompte.EN_ATTENTE_VALIDATION
                 utilisateur.save(update_fields=["email_verifie", "statut"])
                 del request.session["utilisateur_en_verification_id"]
+                if utilisateur.role == Role.PARENT:
+                    from scolarite.models import lier_parents_en_attente
+                    lier_parents_en_attente(utilisateur)
                 enregistrer_action(
                     acteur=utilisateur, action="email_verifie",
                     cible=utilisateur.email, request=request,

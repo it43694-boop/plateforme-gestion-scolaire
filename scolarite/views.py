@@ -11,7 +11,7 @@ from comptes.roles import Role, StatutCompte
 from permissions_matrix.modules import Module
 from scolarite.forms import AffecterEnseignantForm, CreerClasseForm, InscrireEleveForm
 from scolarite.models import (
-    Affectation, AnneeScolaire, Classe, Inscription, TypeDocumentVerifiable, VerificationDocument,
+    Affectation, AnneeScolaire, Classe, Inscription, ParentEnAttente, TypeDocumentVerifiable, VerificationDocument,
     classes_visibles_pour, dossier_complet, eleve_visible_pour, lier_parent_a_eleve, passer_eleve, calculer_total_du,
 )
 
@@ -58,6 +58,9 @@ def inscrire_eleve(request):
             for parent in filter(None, [formulaire.cleaned_data["parent_1"], formulaire.cleaned_data["parent_2"]]):
                 lier_parent_a_eleve(eleve, parent)
 
+            for info in formulaire.cleaned_data["parents_en_attente"]:
+                ParentEnAttente.objects.create(eleve=eleve, **info)
+
             Inscription.objects.create(eleve=eleve, classe=formulaire.cleaned_data["classe"])
 
             enregistrer_action(
@@ -67,11 +70,16 @@ def inscrire_eleve(request):
                 request=request,
             )
 
-        messages.success(
-            request,
-            f"Élève inscrit avec succès. Matricule : {eleve.matricule}. "
-            f"Dossier {'complet' if dossier_complet(eleve) else 'incomplet - vérifiez la date de naissance et le téléphone du parent'}.",
+        message = f"Élève inscrit avec succès. Matricule : {eleve.matricule}."
+        if formulaire.cleaned_data["parents_en_attente"]:
+            message += (
+                " Au moins un parent n'a pas encore de compte : le lien se fera "
+                "automatiquement dès qu'il s'inscrira avec le même email."
+            )
+        message += (
+            f" Dossier {'complet' if dossier_complet(eleve) else 'incomplet - vérifiez la date de naissance et le téléphone du parent'}."
         )
+        messages.success(request, message)
         return redirect("scolarite:inscrire_eleve")
 
     return render(request, "scolarite/inscrire_eleve.html", {"formulaire": formulaire})
@@ -105,7 +113,7 @@ def dossier_eleve(request, matricule):
     contexte = {
         "eleve": eleve, "dossier_complet": dossier_complet(eleve),
         "inscriptions": inscriptions, "inscription_active": inscription_active,
-        "parents": eleve.parents_lies.all(),
+        "parents": eleve.parents_lies.all(), "parents_en_attente": eleve.parents_en_attente.all(),
         "peut_voir_notes": peut_voir_notes, "peut_voir_absences": peut_voir_absences, "peut_voir_finances": peut_voir_finances,
     }
 
@@ -304,6 +312,7 @@ def affecter_enseignant(request):
         else:
             Affectation.objects.create(
                 enseignant=enseignant, classe=classe, matiere=matiere, coefficient=coefficient,
+                poids_composition=formulaire.cleaned_data["poids_composition"],
                 poids_devoirs=formulaire.cleaned_data["poids_devoirs"],
                 poids_interrogations=formulaire.cleaned_data["poids_interrogations"],
                 poids_bonus=formulaire.cleaned_data["poids_bonus"],

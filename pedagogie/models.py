@@ -107,6 +107,7 @@ class NoteHistorique(models.Model):
 
 
 class TypeEvaluation(models.TextChoices):
+    COMPOSITION = "composition", "Composition"
     DEVOIR = "devoir", "Devoir"
     INTERROGATION = "interrogation", "Interrogation"
     BONUS = "bonus", "Bonus"
@@ -173,6 +174,7 @@ def _recalculer_note_trimestre(*, eleve, affectation, trimestre, enregistre_par)
     (ex. bonus) n'a reçu aucune évaluation.
     """
     poids_par_type = {
+        TypeEvaluation.COMPOSITION: affectation.poids_composition,
         TypeEvaluation.DEVOIR: affectation.poids_devoirs,
         TypeEvaluation.INTERROGATION: affectation.poids_interrogations,
         TypeEvaluation.BONUS: affectation.poids_bonus,

@@ -70,6 +70,16 @@
         {% else %}
         <p class="text-muted mb-0">Aucun parent lié.</p>
         {% endif %}
+        {% if parents_en_attente %}
+        <p class="text-muted small mt-3 mb-1">En attente (le lien se fera automatiquement dès inscription du parent avec cet email) :</p>
+        <ul class="mb-0 text-muted small">
+            {% for attente in parents_en_attente %}
+            <li>
+                {% if attente.nom or attente.prenom %}{{ attente.prenom }} {{ attente.nom }} - {% endif %}{{ attente.email }}{% if attente.telephone %} - {{ attente.telephone }}{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
     </div>
 </div>
 

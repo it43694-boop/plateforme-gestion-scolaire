@@ -1,7 +1,9 @@
 from django.contrib import admin
 
 from comptes.admin import EtablissementAdminMixin
-from scolarite.models import AideScolarite, Affectation, AnneeScolaire, Classe, EcheancierFrais, Inscription, TransfertEleve
+from scolarite.models import (
+    AideScolarite, Affectation, AnneeScolaire, Classe, EcheancierFrais, Inscription, ParentEnAttente, TransfertEleve,
+)
 
 
 @admin.register(AnneeScolaire)
@@ -49,6 +51,13 @@ class InscriptionAdmin(EtablissementAdminMixin, admin.ModelAdmin):
     def get_queryset(self, request):
         from scolarite.models import classes_visibles_pour
         return super().get_queryset(request).filter(classe__in=classes_visibles_pour(request.user))
+
+
+@admin.register(ParentEnAttente)
+class ParentEnAttenteAdmin(EtablissementAdminMixin, admin.ModelAdmin):
+    list_display = ["email", "eleve", "nom", "prenom", "telephone", "cree_le"]
+    search_fields = ["email", "nom", "prenom", "eleve__nom", "eleve__prenom", "eleve__matricule"]
+    autocomplete_fields = ["eleve"]
 
 
 @admin.register(AideScolarite)
