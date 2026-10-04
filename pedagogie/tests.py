@@ -413,3 +413,117 @@ class EmploiDuTempsTests(TestCase):
         self.assertEqual(reponse.status_code, 200)
         self.assertEqual(reponse["Content-Type"], "application/pdf")
         self.assertTrue(reponse.content.startswith(b"%PDF"))
+
+
+class GererEmploiDuTempsVueTests(TestCase):
+    """
+    classes_visibles_pour ne restreint un enseignant ou un élève que par
+    établissement, pas par affectation/inscription : gerer_emploi_du_temps
+    et exporter_emploi_du_temps_pdf laissaient donc n'importe quel
+    enseignant modifier le planning de N'IMPORTE QUELLE classe de l'école,
+    et un élève le consulter (via l'URL directe, aucun lien n'y mène pour ce
+    rôle). Même famille de défaut que le module Classes pour l'enseignant
+    (voir la correction précédente) - mais ici, l'action non autorisée
+    écrivait réellement des données (ajout de créneau).
+
+    Cahier des charges : seule la direction crée l'emploi du temps, un
+    enseignant le consulte uniquement, limité à ses propres créneaux.
+    """
+
+    def setUp(self):
+        self.annee, self.classe = creer_contexte_classe()
+        self.autre_classe = Classe.objects.create(nom="4ème année C", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
+        self.enseignant = creer_utilisateur_actif("prof-gerer-edt@example.com", Role.ENSEIGNANT)
+        self.affectation = Affectation.objects.create(enseignant=self.enseignant, classe=self.classe, matiere="Sciences")
+        self.autre_enseignant = creer_utilisateur_actif("autre-prof-gerer-edt@example.com", Role.ENSEIGNANT)
+        self.affectation_autre_prof = Affectation.objects.create(
+            enseignant=self.autre_enseignant, classe=self.classe, matiere="Français",
+        )
+        self.enseignant_sans_affectation = creer_utilisateur_actif("prof-hors-classe-edt@example.com", Role.ENSEIGNANT)
+        self.eleve = creer_utilisateur_actif("eleve-gerer-edt@example.com", Role.ELEVE)
+        Inscription.objects.create(eleve=self.eleve, classe=self.classe)
+
+    def test_enseignant_affecte_ne_voit_jamais_le_formulaire(self):
+        self.client.force_login(self.enseignant)
+        reponse = self.client.get(reverse("pedagogie:gerer_emploi_du_temps", args=[self.classe.id]))
+        self.assertEqual(reponse.status_code, 200)
+        self.assertFalse(reponse.context["peut_gerer"])
+        self.assertIsNone(reponse.context["formulaire"])
+
+    def test_enseignant_ne_peut_pas_ajouter_de_creneau_meme_sur_sa_propre_classe(self):
+        self.client.force_login(self.enseignant)
+        reponse = self.client.post(reverse("pedagogie:gerer_emploi_du_temps", args=[self.classe.id]), {
+            "affectation": self.affectation.id, "jour_semaine": JourSemaine.LUNDI,
+            "heure_debut": "08:00", "heure_fin": "09:00", "salle": "",
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.assertEqual(CreneauEmploiDuTemps.objects.filter(classe=self.classe).count(), 0)
+
+    def test_enseignant_ne_voit_que_ses_propres_creneaux(self):
+        CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=self.affectation, jour_semaine=JourSemaine.LUNDI,
+            heure_debut=datetime.time(8, 0), heure_fin=datetime.time(9, 0),
+        )
+        CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=self.affectation_autre_prof, jour_semaine=JourSemaine.MARDI,
+            heure_debut=datetime.time(10, 0), heure_fin=datetime.time(11, 0),
+        )
+        self.client.force_login(self.enseignant)
+        reponse = self.client.get(reverse("pedagogie:gerer_emploi_du_temps", args=[self.classe.id]))
+        creneaux = reponse.context["creneaux"]
+        self.assertEqual(len(creneaux), 1)
+        self.assertEqual(creneaux[0].affectation.enseignant, self.enseignant)
+
+    def test_direction_voit_et_gere_le_planning_complet(self):
+        CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=self.affectation, jour_semaine=JourSemaine.LUNDI,
+            heure_debut=datetime.time(8, 0), heure_fin=datetime.time(9, 0),
+        )
+        CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=self.affectation_autre_prof, jour_semaine=JourSemaine.MARDI,
+            heure_debut=datetime.time(10, 0), heure_fin=datetime.time(11, 0),
+        )
+        direction = creer_utilisateur_actif("direction-gerer-edt@example.com", Role.FONDATEUR)
+        self.client.force_login(direction)
+        reponse = self.client.get(reverse("pedagogie:gerer_emploi_du_temps", args=[self.classe.id]))
+        self.assertTrue(reponse.context["peut_gerer"])
+        self.assertEqual(len(reponse.context["creneaux"]), 2)
+
+    def test_enseignant_sans_affectation_est_refuse(self):
+        self.client.force_login(self.enseignant_sans_affectation)
+        reponse = self.client.get(reverse("pedagogie:gerer_emploi_du_temps", args=[self.classe.id]))
+        self.assertEqual(reponse.status_code, 403)
+
+    def test_enseignant_sans_affectation_ne_peut_pas_ajouter_de_creneau(self):
+        self.client.force_login(self.enseignant_sans_affectation)
+        reponse = self.client.post(reverse("pedagogie:gerer_emploi_du_temps", args=[self.classe.id]), {
+            "affectation": self.affectation.id, "jour_semaine": JourSemaine.LUNDI,
+            "heure_debut": "08:00", "heure_fin": "09:00", "salle": "",
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.assertEqual(CreneauEmploiDuTemps.objects.filter(classe=self.classe).count(), 0)
+
+    def test_eleve_voit_sa_propre_classe_sans_formulaire(self):
+        self.client.force_login(self.eleve)
+        reponse = self.client.get(reverse("pedagogie:gerer_emploi_du_temps", args=[self.classe.id]))
+        self.assertEqual(reponse.status_code, 200)
+        self.assertFalse(reponse.context["peut_gerer"])
+
+    def test_eleve_ne_voit_pas_une_autre_classe(self):
+        self.client.force_login(self.eleve)
+        reponse = self.client.get(reverse("pedagogie:gerer_emploi_du_temps", args=[self.autre_classe.id]))
+        self.assertEqual(reponse.status_code, 403)
+
+    def test_eleve_ne_peut_pas_ajouter_de_creneau_meme_sur_sa_classe(self):
+        self.client.force_login(self.eleve)
+        reponse = self.client.post(reverse("pedagogie:gerer_emploi_du_temps", args=[self.classe.id]), {
+            "affectation": self.affectation.id, "jour_semaine": JourSemaine.LUNDI,
+            "heure_debut": "08:00", "heure_fin": "09:00", "salle": "",
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.assertEqual(CreneauEmploiDuTemps.objects.filter(classe=self.classe).count(), 0)
+
+    def test_eleve_ne_peut_pas_exporter_une_autre_classe(self):
+        self.client.force_login(self.eleve)
+        reponse = self.client.get(reverse("pedagogie:exporter_emploi_du_temps_pdf", args=[self.autre_classe.id]))
+        self.assertEqual(reponse.status_code, 403)

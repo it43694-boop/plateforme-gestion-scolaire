@@ -15,11 +15,13 @@ from xhtml2pdf import pisa
 from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
 from comptes.models import Utilisateur
-from comptes.roles import Role
+from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
 from pedagogie.forms import CreneauForm, SaisirAbsenceForm, SaisirNoteForm
 from pedagogie.models import Absence, CreneauEmploiDuTemps, JourSemaine, Note, Trimestre, VerificationBulletin, saisir_note
 from permissions_matrix.modules import Module
-from scolarite.models import Affectation, Classe, Inscription, classes_visibles_pour, eleve_visible_pour
+from scolarite.models import (
+    Affectation, Classe, CYCLE_PAR_ROLE_DIRECTION, Inscription, classes_visibles_pour, eleve_visible_pour,
+)
 
 
 def _eleve_visible_pour(utilisateur, eleve) -> bool:
@@ -345,39 +347,90 @@ def historique_absences_eleve(request, matricule):
 # Emploi du temps
 # ---------------------------------------------------------------------------
 
+ROLES_GESTION_TOTALE_EMPLOI_DU_TEMPS = {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL} | {
+    Role.SUPER_ADMINISTRATEUR.value,
+}
+
+
+def _peut_gerer_emploi_du_temps(utilisateur):
+    """
+    Seule la direction crée l'emploi du temps (cahier des charges) : un
+    enseignant le consulte uniquement, jamais ne le modifie - même pour
+    sa propre classe. La direction reste cloisonnée par cycle via
+    classes_visibles_pour.
+    """
+    return utilisateur.role in ROLES_GESTION_TOTALE_EMPLOI_DU_TEMPS or utilisateur.role in CYCLE_PAR_ROLE_DIRECTION
+
+
+def _verifier_classe_visible_emploi_du_temps(utilisateur, classe):
+    """
+    classes_visibles_pour ne restreint un enseignant ou un élève que par
+    établissement, jamais par affectation/inscription : à vérifier ici.
+    """
+    if utilisateur.role == Role.ELEVE.value:
+        visible = Inscription.objects.filter(
+            eleve=utilisateur, classe=classe, statut=Inscription.Statut.EN_COURS,
+        ).exists()
+        if not visible:
+            raise PermissionDenied("Vous ne pouvez consulter que l'emploi du temps de votre propre classe.")
+    elif utilisateur.role == Role.ENSEIGNANT.value:
+        if not Affectation.objects.filter(enseignant=utilisateur, classe=classe).exists():
+            raise PermissionDenied("Vous n'êtes pas affecté à cette classe.")
+
+
+def _creneaux_visibles(utilisateur, classe):
+    """
+    Un enseignant ne voit que les jours/heures qui lui ont été donnés - pas
+    le planning entier de la classe (les autres matières ne le concernent
+    pas). La direction et l'élève voient le planning complet de la classe.
+    """
+    queryset = classe.creneaux.select_related("affectation__enseignant").order_by("jour_semaine", "heure_debut")
+    if utilisateur.role == Role.ENSEIGNANT.value:
+        queryset = queryset.filter(affectation__enseignant=utilisateur)
+    return queryset
+
+
 @module_requis(Module.EMPLOI_DU_TEMPS)
 def gerer_emploi_du_temps(request, classe_id):
     classe = get_object_or_404(classes_visibles_pour(request.user), id=classe_id)
-    formulaire = CreneauForm(request.POST or None, classe=classe)
-    if request.method == "POST":
-        if formulaire.is_valid():
-            try:
-                formulaire.instance.full_clean()
-                formulaire.save()
-            except ValidationError as erreur:
-                messages.error(request, "; ".join(erreur.messages))
-            else:
-                enregistrer_action(
-                    acteur=request.user, action="ajout_creneau_emploi_du_temps",
-                    cible=str(classe), request=request,
-                )
-                messages.success(request, "Créneau ajouté.")
-                return redirect("pedagogie:gerer_emploi_du_temps", classe_id=classe.id)
+    _verifier_classe_visible_emploi_du_temps(request.user, classe)
+    peut_gerer = _peut_gerer_emploi_du_temps(request.user)
 
-    creneaux = list(classe.creneaux.select_related("affectation__enseignant").order_by("jour_semaine", "heure_debut"))
+    formulaire = None
+    if peut_gerer:
+        formulaire = CreneauForm(request.POST or None, classe=classe)
+        if request.method == "POST":
+            if formulaire.is_valid():
+                try:
+                    formulaire.instance.full_clean()
+                    formulaire.save()
+                except ValidationError as erreur:
+                    messages.error(request, "; ".join(erreur.messages))
+                else:
+                    enregistrer_action(
+                        acteur=request.user, action="ajout_creneau_emploi_du_temps",
+                        cible=str(classe), request=request,
+                    )
+                    messages.success(request, "Créneau ajouté.")
+                    return redirect("pedagogie:gerer_emploi_du_temps", classe_id=classe.id)
+    elif request.method == "POST":
+        raise PermissionDenied("Vous n'avez pas le droit de modifier cet emploi du temps.")
+
+    creneaux = list(_creneaux_visibles(request.user, classe))
     jours = [
         {"valeur": valeur, "label": label, "creneaux": [c for c in creneaux if c.jour_semaine == valeur]}
         for valeur, label in JourSemaine.choices
     ]
     return render(request, "pedagogie/emploi_du_temps.html", {
-        "classe": classe, "formulaire": formulaire, "creneaux": creneaux, "jours": jours,
+        "classe": classe, "formulaire": formulaire, "peut_gerer": peut_gerer, "creneaux": creneaux, "jours": jours,
     })
 
 
 @module_requis(Module.EMPLOI_DU_TEMPS)
 def exporter_emploi_du_temps_pdf(request, classe_id):
     classe = get_object_or_404(classes_visibles_pour(request.user), id=classe_id)
-    creneaux = classe.creneaux.select_related("affectation__enseignant").order_by("jour_semaine", "heure_debut")
+    _verifier_classe_visible_emploi_du_temps(request.user, classe)
+    creneaux = _creneaux_visibles(request.user, classe)
     html = render_to_string(
         "pedagogie/emploi_du_temps_pdf.html", {"classe": classe, "creneaux": creneaux}, request=request,
     )

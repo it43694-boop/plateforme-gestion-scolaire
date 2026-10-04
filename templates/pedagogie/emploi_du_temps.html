@@ -10,6 +10,7 @@
     <a href="{% url 'pedagogie:exporter_emploi_du_temps_pdf' classe.id %}" class="btn btn-outline-secondary btn-sm" data-telechargement>Exporter en PDF</a>
 </div>
 <div class="row">
+    {% if peut_gerer %}
     <div class="col-md-4">
         <div class="card">
             <div class="card-body">
@@ -28,7 +29,8 @@
             </div>
         </div>
     </div>
-    <div class="col-md-8">
+    {% endif %}
+    <div class="{% if peut_gerer %}col-md-8{% else %}col-md-12{% endif %}">
         <div class="card">
             <div class="card-body">
                 {% if creneaux %}
