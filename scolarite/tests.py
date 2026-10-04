@@ -687,6 +687,71 @@ class VueAffecterEnseignantTests(TestCase):
         self.assertFalse(Affectation.objects.filter(enseignant=self.enseignant, classe=self.classe).exists())
 
 
+class VueSupprimerAffectationTests(TestCase):
+    """
+    « Supprimer une matière » revient à retirer la ou les affectations qui
+    la composent - il n'existe pas de table Matière séparée (voir
+    liste_matieres : une matière est une vue groupée sur Affectation).
+    """
+
+    def setUp(self):
+        self.annee = creer_annee()
+        self.classe = Classe.objects.create(nom="1ère année A", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
+        self.secretaire = creer_utilisateur_actif("sec-suppr-affect@example.com", Role.SECRETAIRE)
+        self.enseignant = creer_utilisateur_actif("prof-suppr-affect@example.com", Role.ENSEIGNANT)
+        self.affectation = Affectation.objects.create(enseignant=self.enseignant, classe=self.classe, matiere="Mathématiques")
+
+    def test_supprimer_une_affectation_sans_notes(self):
+        self.client.force_login(self.secretaire)
+        reponse = self.client.post(reverse("scolarite:supprimer_affectation", args=[self.affectation.id]))
+        self.assertEqual(reponse.status_code, 302)
+        self.assertFalse(Affectation.objects.filter(id=self.affectation.id).exists())
+
+    def test_refuse_si_des_notes_existent(self):
+        from pedagogie.models import Note, Trimestre
+
+        eleve = creer_utilisateur_actif("eleve-suppr-affect@example.com", Role.ELEVE)
+        Note.objects.create(eleve=eleve, affectation=self.affectation, trimestre=Trimestre.T1, valeur=12)
+        self.client.force_login(self.secretaire)
+        reponse = self.client.post(reverse("scolarite:supprimer_affectation", args=[self.affectation.id]))
+        self.assertEqual(reponse.status_code, 302)
+        self.assertTrue(Affectation.objects.filter(id=self.affectation.id).exists())
+
+    def test_supprimer_une_affectation_supprime_ses_creneaux(self):
+        from pedagogie.models import CreneauEmploiDuTemps, JourSemaine
+
+        CreneauEmploiDuTemps.objects.create(
+            classe=self.classe, affectation=self.affectation, jour_semaine=JourSemaine.LUNDI,
+            heure_debut="08:00", heure_fin="09:00",
+        )
+        self.client.force_login(self.secretaire)
+        self.client.post(reverse("scolarite:supprimer_affectation", args=[self.affectation.id]))
+        self.assertEqual(CreneauEmploiDuTemps.objects.count(), 0)
+
+    def test_affectation_dune_autre_ecole_introuvable(self):
+        from etablissement.models import Etablissement
+        autre_ecole = Etablissement.objects.create(nom="Autre école suppr affect")
+        autre_annee = AnneeScolaire.objects.create(
+            etablissement=autre_ecole, libelle="2026-2027",
+            date_debut=datetime.date(2026, 10, 1), date_fin=datetime.date(2027, 7, 31),
+        )
+        classe_exterieure = Classe.objects.create(nom="Classe externe", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=autre_annee)
+        enseignant_exterieur = creer_utilisateur_actif("prof-exterieur-suppr@example.com", Role.ENSEIGNANT, etablissement=autre_ecole)
+        affectation_exterieure = Affectation.objects.create(
+            enseignant=enseignant_exterieur, classe=classe_exterieure, matiere="Histoire",
+        )
+        self.client.force_login(self.secretaire)
+        reponse = self.client.post(reverse("scolarite:supprimer_affectation", args=[affectation_exterieure.id]))
+        self.assertEqual(reponse.status_code, 404)
+        self.assertTrue(Affectation.objects.filter(id=affectation_exterieure.id).exists())
+
+    def test_un_enseignant_ne_peut_pas_supprimer_une_affectation(self):
+        self.client.force_login(self.enseignant)
+        reponse = self.client.post(reverse("scolarite:supprimer_affectation", args=[self.affectation.id]))
+        self.assertEqual(reponse.status_code, 403)
+        self.assertTrue(Affectation.objects.filter(id=self.affectation.id).exists())
+
+
 class DossierEleveTests(TestCase):
     def setUp(self):
         self.annee = creer_annee()

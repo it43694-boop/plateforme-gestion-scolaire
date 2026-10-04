@@ -314,6 +314,30 @@ def affecter_enseignant(request):
 
 
 @module_requis(Module.CLASSES)
+@require_http_methods(["POST"])
+def supprimer_affectation(request, affectation_id):
+    """
+    Retire un enseignant d'une matière pour une classe. Refuse si des notes
+    ont déjà été saisies pour cette affectation (Note.affectation est en
+    PROTECT, pour ne jamais perdre un historique de notes) ; les créneaux
+    d'emploi du temps associés, eux, disparaissent avec (CASCADE - pure
+    logistique, rien à préserver).
+    """
+    affectation = get_object_or_404(
+        Affectation.objects.select_related("enseignant", "classe"),
+        id=affectation_id, classe__in=classes_visibles_pour(request.user),
+    )
+    description = f"{affectation.matiere or 'Titulaire'} - {affectation.classe} - {affectation.enseignant.nom_complet}"
+    if affectation.notes.exists():
+        messages.error(request, f"Impossible de retirer cette affectation ({description}) : des notes y sont déjà rattachées.")
+        return redirect("scolarite:liste_matieres")
+    affectation.delete()
+    enregistrer_action(acteur=request.user, action="suppression_affectation", cible=description, request=request)
+    messages.success(request, f"Affectation retirée ({description}).")
+    return redirect("scolarite:liste_matieres")
+
+
+@module_requis(Module.CLASSES)
 def passage_de_classe(request, classe_id):
     """
     Passage de classe en fin d'année : pour chaque élève actuellement

@@ -909,6 +909,41 @@ Même périmètre d'accès que les autres actions de gestion des classes
 la Phase 25). Vérifié visuellement (Playwright) : bouton absent sur une
 classe non vide, dialogue de confirmation, suppression effective.
 
+## État du projet : Phase 28 — Emploi du temps : lecture seule pour l'enseignant, suppression d'une matière
+
+Suite à une question sur qui gère l'emploi du temps : confirmation que
+seule la direction doit le créer, un enseignant devant seulement
+consulter ses propres créneaux (cahier des charges). Corrige au passage
+le même défaut que les Phases 25/27 : `classes_visibles_pour` ne
+restreint un enseignant ou un élève que par établissement, pas par
+affectation/inscription - `gerer_emploi_du_temps` laissait donc
+n'importe quel enseignant ajouter des créneaux sur le planning de
+n'importe quelle classe de l'école (même la sienne, ce qui contredisait
+déjà le cahier des charges), et un élève le consulter via l'URL directe.
+
+- Formulaire d'ajout de créneau retiré pour l'enseignant, quelle que
+  soit la classe - seule la direction (cloisonnée par cycle) et les
+  rôles à accès total le voient désormais.
+- Un enseignant qui consulte une classe où il est affecté ne voit que
+  SES propres créneaux (pas tout le planning - les autres matières ne
+  le concernent pas) ; sans aucune affectation dans la classe, accès
+  refusé (403).
+- Un élève reste limité à sa propre classe (Phase 26... correction
+  précédente de cette même session).
+- 8 tests de régression ; vérifié visuellement (Playwright) : la
+  direction voit formulaire + planning complet, l'enseignant voit un
+  planning en lecture seule limité à ses créneaux.
+
+Ajout, au même endroit que la Phase 27, de la suppression d'une
+matière : une matière n'étant qu'un regroupement d'affectations
+enseignant/classe (pas de table dédiée), « supprimer une matière »
+revient à retirer la ligne (enseignant, classe) correspondante depuis
+*Matières*. Refusé si des notes sont déjà rattachées à cette affectation
+(`Note.affectation` en PROTECT) ; les créneaux d'emploi du temps associés
+sont supprimés avec (CASCADE, pure logistique). Même périmètre d'accès
+que les autres actions de gestion des classes (module Classes). 5 tests,
+vérifié visuellement.
+
 ### Ce qui reste ouvert après ces phases
 
 - SMS, WhatsApp et Mobile Money automatisés, tests de charge,

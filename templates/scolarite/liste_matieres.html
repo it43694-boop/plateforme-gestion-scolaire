@@ -15,12 +15,19 @@
     <div class="card-body">
         <h3 class="titre-section titre-sous-section">{{ matiere }}</h3>
         <table class="table mb-0">
-            <thead><tr><th>Classe</th><th>Enseignant</th></tr></thead>
+            <thead><tr><th>Classe</th><th>Enseignant</th><th></th></tr></thead>
             <tbody>
                 {% for affectation in affectations %}
                 <tr>
                     <td>{{ affectation.classe }}</td>
                     <td>{{ affectation.enseignant.nom_complet }}</td>
+                    <td class="text-end">
+                        <form method="post" action="{% url 'scolarite:supprimer_affectation' affectation.id %}" class="d-inline"
+                              data-confirmer="Retirer {{ affectation.enseignant.nom_complet }} de « {{ matiere }} » pour {{ affectation.classe }} ? Impossible si des notes y sont déjà rattachées.">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
+                        </form>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
