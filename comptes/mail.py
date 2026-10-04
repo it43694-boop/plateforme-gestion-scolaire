@@ -1,3 +1,6 @@
+import smtplib
+
+import sentry_sdk
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
@@ -18,7 +21,15 @@ def construire_corps_html(sujet, contenu):
 
 
 def envoyer_email(*, sujet, contenu, expediteur, destinataires):
-    """Envoie immédiatement en développement ou met en file en production."""
+    """
+    Envoie immédiatement en développement ou met en file en production.
+
+    L'envoi synchrone (EMAIL_ASYNC=False) ne doit jamais faire échouer la
+    requête qui l'a déclenché (inscription, mot de passe oublié...) : un
+    serveur SMTP lent ou injoignable ne doit produire qu'un email manquant
+    (l'utilisateur peut toujours demander un renvoi), jamais un 502 - la
+    création du compte, elle, a déjà été validée en base avant cet appel.
+    """
     if settings.EMAIL_ASYNC:
         return EmailOutbox.objects.create(
             sujet=sujet,
@@ -28,4 +39,8 @@ def envoyer_email(*, sujet, contenu, expediteur, destinataires):
         )
     email = EmailMultiAlternatives(sujet, contenu, expediteur, list(destinataires))
     email.attach_alternative(construire_corps_html(sujet, contenu), "text/html")
-    return email.send()
+    try:
+        return email.send()
+    except (smtplib.SMTPException, TimeoutError, OSError):
+        sentry_sdk.capture_exception()
+        return 0

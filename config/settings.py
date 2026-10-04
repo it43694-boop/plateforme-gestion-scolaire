@@ -279,6 +279,11 @@ EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+# Sans timeout, smtplib peut bloquer indéfiniment (serveur SMTP lent/injoignable) :
+# avec EMAIL_ASYNC=False (plan Render gratuit, pas de cron pour une file d'attente),
+# ça bloque le worker gunicorn jusqu'à SON timeout, et Render renvoie un 502 à
+# l'utilisateur - voir comptes.mail.envoyer_email pour le filet de sécurité associé.
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@example.com")
 EMAIL_ASYNC = env.bool("EMAIL_ASYNC", default=False)
 

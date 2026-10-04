@@ -643,6 +643,29 @@ class FileAttenteEmailsTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].subject, "Test sync")
 
+    def test_envoyer_email_synchrone_ne_leve_pas_si_smtp_echoue(self):
+        """
+        Un SMTP lent/injoignable ne doit jamais faire planter la requête qui a
+        déclenché l'email (inscription, mot de passe oublié...) : sur Render en
+        plan gratuit (EMAIL_ASYNC=False, pas de file d'attente possible), une
+        exception ici remontait jusqu'à gunicorn et produisait un 502 pour
+        l'utilisateur, alors que son compte était déjà créé en base.
+        """
+        from unittest.mock import patch
+
+        from comptes.mail import envoyer_email
+
+        with override_settings(EMAIL_ASYNC=False):
+            with patch(
+                "django.core.mail.message.EmailMultiAlternatives.send",
+                side_effect=TimeoutError("SMTP injoignable"),
+            ):
+                resultat = envoyer_email(
+                    sujet="Test échec SMTP", contenu="Contenu", expediteur="test@example.com",
+                    destinataires=["dest@example.com"],
+                )
+        self.assertEqual(resultat, 0)
+
     def test_envoyer_email_mis_en_file_quand_email_async_active(self):
         from comptes.mail import envoyer_email
         from comptes.models import EmailOutbox
