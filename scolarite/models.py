@@ -1,7 +1,7 @@
 import uuid
 
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
@@ -216,6 +216,22 @@ class Affectation(models.Model):
                    "1 par défaut (toutes les matières comptent également) ; augmentez pour une matière "
                    "à plus fort coefficient (ex. Mathématiques, Français).",
     )
+    # Poids de chaque type d'évaluation (devoirs/interrogations/bonus) dans le
+    # calcul de la note finale du trimestre (pedagogie.models.Evaluation) -
+    # propres à cette affectation, pas un réglage unique pour toute l'école,
+    # pour qu'un enseignant adapte le dosage à sa matière.
+    poids_devoirs = models.PositiveSmallIntegerField(
+        default=40, validators=[MaxValueValidator(100)],
+        help_text="Poids des devoirs dans la note finale du trimestre (%).",
+    )
+    poids_interrogations = models.PositiveSmallIntegerField(
+        default=40, validators=[MaxValueValidator(100)],
+        help_text="Poids des interrogations dans la note finale du trimestre (%).",
+    )
+    poids_bonus = models.PositiveSmallIntegerField(
+        default=20, validators=[MaxValueValidator(100)],
+        help_text="Poids du bonus dans la note finale du trimestre (%).",
+    )
 
     class Meta:
         verbose_name = "affectation d'enseignant"
@@ -228,6 +244,8 @@ class Affectation(models.Model):
             raise ValidationError("Seul un utilisateur avec le rôle « enseignant » peut être affecté.")
         if self.enseignant_id and self.classe_id and self.enseignant.etablissement_id != self.classe.annee_scolaire.etablissement_id:
             raise ValidationError("L'enseignant et la classe doivent appartenir au même établissement.")
+        if self.poids_devoirs + self.poids_interrogations + self.poids_bonus != 100:
+            raise ValidationError("Les poids des devoirs, interrogations et bonus doivent totaliser 100%.")
 
     def __str__(self):
         libelle_matiere = self.matiere or "Titulaire"

@@ -302,7 +302,12 @@ def affecter_enseignant(request):
         if Affectation.objects.filter(enseignant=enseignant, classe=classe, matiere=matiere).exists():
             messages.warning(request, "Cet enseignant est déjà affecté à cette classe pour cette matière.")
         else:
-            Affectation.objects.create(enseignant=enseignant, classe=classe, matiere=matiere, coefficient=coefficient)
+            Affectation.objects.create(
+                enseignant=enseignant, classe=classe, matiere=matiere, coefficient=coefficient,
+                poids_devoirs=formulaire.cleaned_data["poids_devoirs"],
+                poids_interrogations=formulaire.cleaned_data["poids_interrogations"],
+                poids_bonus=formulaire.cleaned_data["poids_bonus"],
+            )
             enregistrer_action(
                 acteur=request.user, action="affectation_enseignant",
                 cible=f"{enseignant.nom_complet} - {classe}",

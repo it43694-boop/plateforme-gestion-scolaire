@@ -657,6 +657,7 @@ class VueAffecterEnseignantTests(TestCase):
         self.client.force_login(self.secretaire)
         reponse = self.client.post(reverse("scolarite:affecter_enseignant"), {
             "enseignant": self.enseignant.id, "classe": self.classe.id, "matiere": "Mathématiques",
+            "poids_devoirs": 40, "poids_interrogations": 40, "poids_bonus": 20,
         })
         self.assertEqual(reponse.status_code, 302)
         self.assertTrue(Affectation.objects.filter(enseignant=self.enseignant, classe=self.classe, matiere="Mathématiques").exists())
@@ -666,8 +667,18 @@ class VueAffecterEnseignantTests(TestCase):
         self.client.force_login(self.secretaire)
         self.client.post(reverse("scolarite:affecter_enseignant"), {
             "enseignant": self.enseignant.id, "classe": self.classe.id, "matiere": "Français",
+            "poids_devoirs": 40, "poids_interrogations": 40, "poids_bonus": 20,
         })
         self.assertEqual(Affectation.objects.filter(enseignant=self.enseignant, classe=self.classe, matiere="Français").count(), 1)
+
+    def test_poids_ne_totalisant_pas_100_refuses_par_le_formulaire(self):
+        self.client.force_login(self.secretaire)
+        reponse = self.client.post(reverse("scolarite:affecter_enseignant"), {
+            "enseignant": self.enseignant.id, "classe": self.classe.id, "matiere": "Histoire",
+            "poids_devoirs": 50, "poids_interrogations": 50, "poids_bonus": 10,
+        })
+        self.assertEqual(reponse.status_code, 200)
+        self.assertFalse(Affectation.objects.filter(enseignant=self.enseignant, classe=self.classe, matiere="Histoire").exists())
 
     def test_enseignant_dune_autre_ecole_absent_du_choix(self):
         from etablissement.models import Etablissement
