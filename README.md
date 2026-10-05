@@ -1099,6 +1099,52 @@ mensuelle (20 000 d'inscription + 9 × 5 000) donnant bien un total
 annuel de 65 000, et formulaire d'enregistrement d'un paiement avec
 le nouveau choix Inscription/Versement.
 
+## État du projet : Phase 33 — Formule d'abonnement par cycle, Censeur et Surveillant général
+
+Suite à une question sur la facturation : certaines écoles n'ont que le 1er
+cycle, d'autres vont jusqu'au 2ème cycle, d'autres jusqu'au Lycée - de quoi
+vendre des formules d'abonnement différentes, à condition qu'une école ne
+puisse pas se déclarer « 1er cycle seul » tout en utilisant quand même les
+fonctions du Lycée.
+
+- **`Etablissement.plan`** (1er cycle / 1er et 2ème cycle / tous les
+  cycles) restreint désormais les cycles de classe créables
+  (`scolarite.models.cycles_autorises_pour`, appliqué à la fois dans le
+  formulaire - le cycle non couvert n'apparaît même pas dans la liste - et
+  dans `Classe.clean()`, pour qu'un contournement du formulaire soit aussi
+  refusé) ainsi que les rôles de direction propres à un cycle
+  (`role_autorise_pour_plan`, appliqué dans le formulaire d'attribution de
+  rôle de l'espace développeur).
+- **Modifiable uniquement depuis l'espace plateforme** (le propriétaire de
+  la plateforme, compte superutilisateur Django - jamais l'établissement
+  lui-même) : volontairement absent du formulaire d'identité de
+  l'établissement que le développeur de l'école édite
+  (`ParametresEtablissementForm`), pour qu'une école ne puisse jamais
+  s'auto-attribuer un cycle non souscrit. Un établissement déjà créé
+  démarre sur « tous les cycles » (aucune restriction rétroactive) ;
+  seule une formule changée explicitement par la plateforme restreint
+  ensuite les cycles.
+- **Censeur et Surveillant général** ajoutés comme rôles propres au Lycée,
+  après recherche sur l'organisation réelle d'un lycée malien (décret
+  n°2011-234/P-RM du 12 mai 2011 : *« Le Proviseur est assisté d'un
+  Censeur, d'un Surveillant Général et d'un Econome »* - Proviseur et
+  Econome correspondaient déjà à Directeur du Lycée et Comptable). Le
+  Censeur (adjoint du proviseur, pédagogie et discipline) a un périmètre
+  proche du Directeur du Lycée mais sans la création de classes ni
+  l'édition de l'emploi du temps - réservées à la direction. Le
+  Surveillant général (discipline et assiduité au quotidien) a un
+  périmètre volontairement étroit : élèves, absences, communication.
+  Les deux sont cloisonnés au Lycée comme un directeur de cycle (même
+  mécanisme de visibilité des classes/élèves), et donc eux aussi soumis
+  à la restriction par plan ci-dessus.
+
+Suite complète (420 tests) verte après ces changements. Vérifié de bout en
+bout (navigateur) : une école au plan « 1er cycle » ne voit que ce cycle
+dans le formulaire de création de classe et ne peut pas attribuer les
+rôles Censeur/Directeur du 2ème cycle/Directeur du Lycée, et le
+changement de formule depuis l'espace plateforme se répercute
+immédiatement.
+
 ### Ce qui reste ouvert après ces phases
 
 - SMS, WhatsApp et Mobile Money automatisés, tests de charge,

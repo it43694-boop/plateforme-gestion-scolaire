@@ -128,6 +128,70 @@ class ClasseEtFraisTests(TestCase):
         self.assertIn("EUR", str(cm.exception))
 
 
+class PlanEtablissementTests(TestCase):
+    """
+    Un établissement n'est pas censé pouvoir créer une classe, ni attribuer
+    un rôle de direction de cycle, pour un cycle que son abonnement ne
+    couvre pas (scolarite.models.cycles_autorises_pour/role_autorise_pour_plan).
+    """
+
+    def setUp(self):
+        from etablissement.models import Etablissement, PlanEtablissement
+        self.PlanEtablissement = PlanEtablissement
+        self.etablissement = Etablissement.objects.create(nom="École 1er cycle seul", plan=PlanEtablissement.PREMIER_CYCLE)
+        self.annee = AnneeScolaire.objects.create(
+            etablissement=self.etablissement, libelle="2026-2027",
+            date_debut=datetime.date(2026, 10, 1), date_fin=datetime.date(2027, 7, 31),
+        )
+
+    def test_classe_du_cycle_couvert_acceptee(self):
+        classe = Classe(nom="1ère A", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
+        classe.clean()  # ne doit pas lever d'exception
+
+    def test_classe_hors_abonnement_refusee(self):
+        classe = Classe(nom="8ème A", cycle=Cycle.DEUXIEME_CYCLE, annee_scolaire=self.annee)
+        with self.assertRaises(ValidationError):
+            classe.clean()
+
+    def test_classe_lycee_refusee_hors_abonnement(self):
+        classe = Classe(nom="11ème A", cycle=Cycle.LYCEE, annee_scolaire=self.annee)
+        with self.assertRaises(ValidationError):
+            classe.clean()
+
+    def test_plan_premier_et_deuxieme_cycle_autorise_les_deux_mais_pas_le_lycee(self):
+        self.etablissement.plan = self.PlanEtablissement.PREMIER_ET_DEUXIEME_CYCLE
+        self.etablissement.save(update_fields=["plan"])
+        Classe(nom="8ème B", cycle=Cycle.DEUXIEME_CYCLE, annee_scolaire=self.annee).clean()
+        with self.assertRaises(ValidationError):
+            Classe(nom="11ème B", cycle=Cycle.LYCEE, annee_scolaire=self.annee).clean()
+
+    def test_etablissement_sans_plan_reconnu_autorise_tout(self):
+        from scolarite.models import cycles_autorises_pour
+        self.assertEqual(cycles_autorises_pour(None), set(Cycle.values))
+
+    def test_role_directeur_2eme_cycle_refuse_pour_plan_premier_cycle(self):
+        from scolarite.models import role_autorise_pour_plan
+        self.assertFalse(role_autorise_pour_plan(Role.DIRECTEUR_2EME_CYCLE.value, self.etablissement))
+
+    def test_role_censeur_refuse_pour_plan_premier_cycle(self):
+        from scolarite.models import role_autorise_pour_plan
+        self.assertFalse(role_autorise_pour_plan(Role.CENSEUR.value, self.etablissement))
+
+    def test_role_directeur_1er_cycle_toujours_autorise(self):
+        from scolarite.models import role_autorise_pour_plan
+        self.assertTrue(role_autorise_pour_plan(Role.DIRECTEUR_1ER_CYCLE.value, self.etablissement))
+
+    def test_role_non_cycle_specifique_toujours_autorise(self):
+        from scolarite.models import role_autorise_pour_plan
+        self.assertTrue(role_autorise_pour_plan(Role.SECRETAIRE.value, self.etablissement))
+
+    def test_plan_tous_cycles_autorise_le_censeur(self):
+        from scolarite.models import role_autorise_pour_plan
+        self.etablissement.plan = self.PlanEtablissement.TOUS_CYCLES
+        self.etablissement.save(update_fields=["plan"])
+        self.assertTrue(role_autorise_pour_plan(Role.CENSEUR.value, self.etablissement))
+
+
 class CloisonnementCycleTests(TestCase):
     def setUp(self):
         self.annee = creer_annee()
@@ -174,6 +238,32 @@ class CloisonnementCycleTests(TestCase):
         eleve = creer_utilisateur_actif("eleve-lycee2@example.com", Role.ELEVE)
         Inscription.objects.create(eleve=eleve, classe=self.classe_lycee)
         self.assertFalse(eleve_visible_pour(directeur, eleve))
+
+    def test_censeur_ne_voit_que_le_lycee(self):
+        censeur = creer_utilisateur_actif("censeur@example.com", Role.CENSEUR)
+        visibles = classes_visibles_pour(censeur)
+        self.assertIn(self.classe_lycee, visibles)
+        self.assertNotIn(self.classe_1er, visibles)
+        self.assertNotIn(self.classe_2eme, visibles)
+
+    def test_surveillant_general_ne_voit_que_le_lycee(self):
+        surveillant = creer_utilisateur_actif("surveillant@example.com", Role.SURVEILLANT_GENERAL)
+        visibles = classes_visibles_pour(surveillant)
+        self.assertIn(self.classe_lycee, visibles)
+        self.assertNotIn(self.classe_1er, visibles)
+        self.assertNotIn(self.classe_2eme, visibles)
+
+    def test_censeur_voit_le_dossier_dun_eleve_du_lycee(self):
+        censeur = creer_utilisateur_actif("censeur-dossier@example.com", Role.CENSEUR)
+        eleve = creer_utilisateur_actif("eleve-lycee3@example.com", Role.ELEVE)
+        Inscription.objects.create(eleve=eleve, classe=self.classe_lycee)
+        self.assertTrue(eleve_visible_pour(censeur, eleve))
+
+    def test_surveillant_general_ne_voit_pas_le_dossier_dun_eleve_du_1er_cycle(self):
+        surveillant = creer_utilisateur_actif("surveillant-dossier@example.com", Role.SURVEILLANT_GENERAL)
+        eleve = creer_utilisateur_actif("eleve-1er3@example.com", Role.ELEVE)
+        Inscription.objects.create(eleve=eleve, classe=self.classe_1er)
+        self.assertFalse(eleve_visible_pour(surveillant, eleve))
 
 
 class LiaisonParentEleveTests(TestCase):
@@ -361,6 +451,40 @@ class VueCreerClasseTests(TestCase):
         })
         self.assertEqual(reponse.status_code, 403)
         self.assertFalse(Classe.objects.filter(nom="5ème année F").exists())
+
+
+class VueCreerClasseAbonnementTests(TestCase):
+    """Le cycle d'une classe créée est limité à ceux couverts par l'abonnement de l'établissement."""
+
+    def setUp(self):
+        from etablissement.models import Etablissement, PlanEtablissement
+        from permissions_matrix.models import PermissionMatrix
+        self.etablissement = Etablissement.objects.create(nom="École 1er cycle", plan=PlanEtablissement.PREMIER_CYCLE)
+        PermissionMatrix.seed_pour(self.etablissement)
+        self.annee = AnneeScolaire.objects.create(
+            etablissement=self.etablissement, libelle="2026-2027",
+            date_debut=datetime.date(2026, 10, 1), date_fin=datetime.date(2027, 7, 31),
+        )
+        self.secretaire = creer_utilisateur_actif(
+            "secretaire-abonnement@example.com", Role.SECRETAIRE, etablissement=self.etablissement,
+        )
+
+    def test_cycle_hors_abonnement_absent_du_formulaire(self):
+        self.client.force_login(self.secretaire)
+        reponse = self.client.get(reverse("scolarite:creer_classe"))
+        choix = dict(reponse.context["formulaire"].fields["cycle"].choices)
+        self.assertIn(Cycle.PREMIER_CYCLE, choix)
+        self.assertNotIn(Cycle.DEUXIEME_CYCLE, choix)
+        self.assertNotIn(Cycle.LYCEE, choix)
+
+    def test_creation_hors_abonnement_refusee_cote_serveur(self):
+        self.client.force_login(self.secretaire)
+        reponse = self.client.post(reverse("scolarite:creer_classe"), {
+            "nom": "11ème A", "cycle": Cycle.LYCEE, "annee_scolaire": self.annee.id,
+            "montant_inscription": 30000, "periodicite": Periodicite.TRIMESTRIEL, "montant_periode": 15000,
+        })
+        self.assertEqual(reponse.status_code, 200)  # formulaire réaffiché avec erreur
+        self.assertFalse(Classe.objects.filter(nom="11ème A").exists())
 
 
 class VueSupprimerClasseTests(TestCase):

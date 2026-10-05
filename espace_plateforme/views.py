@@ -9,8 +9,8 @@ from comptes.audit import enregistrer_action
 from comptes.models import Utilisateur
 from comptes.roles import Role, StatutCompte
 from espace_developpeur.forms import ParametresEtablissementForm
-from espace_plateforme.forms import CreerEtablissementForm
-from etablissement.models import Etablissement
+from espace_plateforme.forms import CreerEtablissementForm, ModifierPlanEtablissementForm
+from etablissement.models import Etablissement, PlanEtablissement
 from permissions_matrix.models import PermissionMatrix
 
 # Distinction volontaire : le rôle "développeur" gère SON établissement
@@ -53,7 +53,9 @@ def liste_etablissements(request):
     etablissements = Etablissement.objects.all().order_by("nom")
     for etablissement in etablissements:
         etablissement.nb_comptes = etablissement.utilisateurs.count()
-    return render(request, "espace_plateforme/liste_etablissements.html", {"etablissements": etablissements})
+    return render(request, "espace_plateforme/liste_etablissements.html", {
+        "etablissements": etablissements, "plan_choices": PlanEtablissement.choices,
+    })
 
 
 @est_proprietaire_plateforme
@@ -87,6 +89,25 @@ def creer_etablissement(request):
         )
         return redirect("espace_plateforme:liste_etablissements")
     return render(request, "espace_plateforme/creer_etablissement.html", {"formulaire": formulaire})
+
+
+@est_proprietaire_plateforme
+@require_http_methods(["POST"])
+def modifier_plan(request, etablissement_id):
+    etablissement = get_object_or_404(Etablissement, id=etablissement_id)
+    ancien_plan = etablissement.plan
+    formulaire = ModifierPlanEtablissementForm(request.POST, instance=etablissement)
+    if formulaire.is_valid():
+        formulaire.save()
+        enregistrer_action(
+            acteur=request.user, action="modification_plan_etablissement",
+            cible=etablissement.nom,
+            details={"plan": f"{ancien_plan} -> {etablissement.plan}"}, request=request,
+        )
+        messages.success(request, f"Formule d'abonnement de « {etablissement.nom} » mise à jour.")
+    else:
+        messages.error(request, "Formule d'abonnement invalide.")
+    return redirect("espace_plateforme:liste_etablissements")
 
 
 @est_proprietaire_plateforme

@@ -36,6 +36,23 @@ MATRICE_PAR_DEFAUT = {
         M.NOTES_BULLETINS, M.ABSENCES, M.TESTS_DE_NIVEAU, M.STATISTIQUES,
         M.BIBLIOTHEQUE, M.COMMUNICATION, M.ASSISTANT,
     },
+    # Adjoint du proviseur (décret n°2011-234/P-RM) : périmètre pédagogique
+    # et disciplinaire large, comme le directeur de lycée, mais SANS
+    # M.CLASSES (pas de création de classe - un rôle d'adjoint, pas de
+    # chef d'établissement) ni M.EMPLOI_DU_TEMPS (consultation seule, via
+    # pedagogie._peut_gerer_emploi_du_temps - l'édition reste réservée à
+    # la direction).
+    Role.CENSEUR: {
+        M.ELEVES, M.ENSEIGNANTS, M.EMPLOI_DU_TEMPS, M.SUIVI_DES_COURS,
+        M.NOTES_BULLETINS, M.ABSENCES, M.TESTS_DE_NIVEAU, M.STATISTIQUES,
+        M.COMMUNICATION, M.ASSISTANT,
+    },
+    # Discipline et assiduité au quotidien (décret n°2011-234/P-RM) :
+    # périmètre volontairement étroit, sans accès pédagogique (notes,
+    # bulletins) ni administratif.
+    Role.SURVEILLANT_GENERAL: {
+        M.ELEVES, M.ABSENCES, M.COMMUNICATION, M.ASSISTANT,
+    },
     # Rôle technique réservé : périmètre large, mais jamais la gestion des
     # rôles/matrice, réservée exclusivement au développeur.
     Role.SUPER_ADMINISTRATEUR: set(Module) - {M.ESPACE_DEVELOPPEUR},

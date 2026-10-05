@@ -12,7 +12,7 @@
     <div class="card-body">
         {% if etablissements %}
         <table class="table">
-            <thead><tr><th>Nom</th><th>Comptes</th><th>Statut</th><th>Visible dans l'annuaire</th><th></th></tr></thead>
+            <thead><tr><th>Nom</th><th>Comptes</th><th>Statut</th><th>Formule</th><th>Visible dans l'annuaire</th><th></th></tr></thead>
             <tbody>
                 {% for etablissement in etablissements %}
                 <tr>
@@ -22,6 +22,16 @@
                         <span class="badge {% if etablissement.actif %}bg-success{% else %}bg-danger{% endif %}">
                             {% if etablissement.actif %}Actif{% else %}Désactivé{% endif %}
                         </span>
+                    </td>
+                    <td>
+                        <form method="post" action="{% url 'espace_plateforme:modifier_plan' etablissement.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <select name="plan" class="form-select form-select-sm" onchange="this.form.submit()">
+                                {% for valeur, libelle in plan_choices %}
+                                <option value="{{ valeur }}" {% if valeur == etablissement.plan %}selected{% endif %}>{{ libelle }}</option>
+                                {% endfor %}
+                            </select>
+                        </form>
                     </td>
                     <td>{% if etablissement.visible_dans_annuaire %}Oui{% else %}Non{% endif %}</td>
                     <td class="text-end">

@@ -5,6 +5,21 @@ from django.utils.text import slugify
 from comptes.validators import valider_contenu_fichier, valider_taille_image_2mo
 
 
+class PlanEtablissement(models.TextChoices):
+    """
+    Formule d'abonnement d'un établissement : détermine les cycles dont les
+    classes et les rôles de direction de cycle (y compris Censeur et
+    Surveillant général, propres au Lycée) sont accessibles - sert à
+    facturer différemment une école qui ne couvre que le 1er cycle d'une
+    école qui va jusqu'au Lycée, sans qu'elle puisse s'auto-attribuer un
+    cycle non souscrit (voir PlanEtablissement et scolarite.models.
+    cycles_autorises_pour).
+    """
+    PREMIER_CYCLE = "premier_cycle", "1er cycle"
+    PREMIER_ET_DEUXIEME_CYCLE = "premier_et_deuxieme_cycle", "1er et 2ème cycle"
+    TOUS_CYCLES = "tous_cycles", "Tous les cycles (1er, 2ème, Lycée)"
+
+
 class Etablissement(models.Model):
     """
     Un établissement utilisant la plateforme. Plusieurs établissements
@@ -54,6 +69,13 @@ class Etablissement(models.Model):
         "visible dans l'annuaire public", default=True,
         help_text="Si désactivé, cet établissement n'apparaît pas sur la page d'accueil publique "
                    "(les comptes existants peuvent toujours s'y connecter via un lien direct).",
+    )
+    plan = models.CharField(
+        "formule d'abonnement", max_length=30, choices=PlanEtablissement.choices,
+        default=PlanEtablissement.TOUS_CYCLES,
+        help_text="Cycles couverts par l'abonnement - restreint les cycles de classe créables et les rôles "
+                   "de direction de cycle attribuables. Modifiable uniquement depuis l'espace plateforme, "
+                   "jamais par l'établissement lui-même.",
     )
     cree_le = models.DateTimeField(default=timezone.now, editable=False)
 

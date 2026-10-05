@@ -18,6 +18,8 @@ class Role(models.TextChoices):
     DIRECTEUR_1ER_CYCLE = "directeur_1er_cycle", "Directeur du 1er cycle"
     DIRECTEUR_2EME_CYCLE = "directeur_2eme_cycle", "Directeur du 2ème cycle"
     DIRECTEUR_LYCEE = "directeur_lycee", "Directeur du lycée"
+    CENSEUR = "censeur", "Censeur"
+    SURVEILLANT_GENERAL = "surveillant_general", "Surveillant général"
     SUPER_ADMINISTRATEUR = "super_administrateur", "Super administrateur"
     SECRETAIRE = "secretaire", "Secrétaire"
     COMPTABLE = "comptable", "Comptable"

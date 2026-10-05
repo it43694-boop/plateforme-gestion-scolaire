@@ -6,6 +6,7 @@ from django.db import models
 
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
 from comptes.validators import valider_contenu_fichier, valider_extension_document, valider_taille_fichier_10mo
+from etablissement.models import PlanEtablissement
 
 
 class Cycle(models.TextChoices):
@@ -34,12 +35,64 @@ class Serie(models.TextChoices):
     ARTS_LETTRES = "tal", "Arts et Lettres (TAL)"
 
 
-# Correspondance rôle de direction cloisonné -> cycle qu'il supervise.
+# Correspondance rôle de direction cloisonné -> cycle qu'il supervise. Donne
+# aussi, via classes_visibles_pour et _peut_gerer_emploi_du_temps
+# (pedagogie.views), le pouvoir administratif complet sur ce cycle (créer des
+# classes, modifier l'emploi du temps) - à ne pas confondre avec
+# CYCLE_PAR_ROLE_CLOISONNE ci-dessous, qui ne restreint que la VISIBILITÉ.
 CYCLE_PAR_ROLE_DIRECTION = {
     Role.DIRECTEUR_1ER_CYCLE.value: Cycle.PREMIER_CYCLE.value,
     Role.DIRECTEUR_2EME_CYCLE.value: Cycle.DEUXIEME_CYCLE.value,
     Role.DIRECTEUR_LYCEE.value: Cycle.LYCEE.value,
 }
+
+# Rôles propres au Lycée (décret n°2011-234/P-RM du 12 mai 2011 portant
+# organisation de l'Enseignement Secondaire Général : le Proviseur - ici
+# DIRECTEUR_LYCEE - est assisté d'un Censeur et d'un Surveillant Général).
+# Cloisonnés au Lycée pour la VISIBILITÉ des classes/élèves comme un
+# directeur de cycle, mais volontairement absents de CYCLE_PAR_ROLE_DIRECTION :
+# le Censeur est l'adjoint du proviseur (pédagogie et discipline), pas un
+# administrateur de plein droit, et le Surveillant Général se limite au
+# quotidien disciplinaire - ni l'un ni l'autre ne doit pouvoir créer une
+# classe ou modifier l'emploi du temps (réservé à la direction).
+CYCLE_PAR_ROLE_CLOISONNE = {
+    **CYCLE_PAR_ROLE_DIRECTION,
+    Role.CENSEUR.value: Cycle.LYCEE.value,
+    Role.SURVEILLANT_GENERAL.value: Cycle.LYCEE.value,
+}
+
+# Cycles couverts par chaque formule d'abonnement (etablissement.models.
+# PlanEtablissement) - détermine les cycles de classe créables et, via
+# role_autorise_pour_plan ci-dessous, les rôles de direction de cycle
+# attribuables. Un établissement sans plan reconnu (ne devrait pas arriver,
+# le champ a un défaut) retombe sur tous les cycles plutôt que de bloquer
+# silencieusement une école déjà en service.
+CYCLES_PAR_PLAN = {
+    PlanEtablissement.PREMIER_CYCLE.value: {Cycle.PREMIER_CYCLE.value},
+    PlanEtablissement.PREMIER_ET_DEUXIEME_CYCLE.value: {Cycle.PREMIER_CYCLE.value, Cycle.DEUXIEME_CYCLE.value},
+    PlanEtablissement.TOUS_CYCLES.value: {Cycle.PREMIER_CYCLE.value, Cycle.DEUXIEME_CYCLE.value, Cycle.LYCEE.value},
+}
+
+def cycles_autorises_pour(etablissement) -> set:
+    """Valeurs de cycle (chaînes) couvertes par l'abonnement d'un établissement (voir CYCLES_PAR_PLAN)."""
+    if etablissement is None:
+        return set(Cycle.values)
+    return CYCLES_PAR_PLAN.get(etablissement.plan, set(Cycle.values))
+
+
+def role_autorise_pour_plan(role: str, etablissement) -> bool:
+    """
+    Un rôle de direction propre à un cycle (y compris Censeur/Surveillant
+    général) n'est attribuable que si l'abonnement de l'établissement
+    couvre ce cycle - empêche une école abonnée au 1er cycle seul de
+    s'attribuer quand même un Directeur du Lycée ou un Censeur. Les rôles
+    non cycle-spécifiques (secrétaire, comptable...) ne sont jamais
+    concernés par cette restriction.
+    """
+    cycle_requis = CYCLE_PAR_ROLE_CLOISONNE.get(role)
+    if cycle_requis is None:
+        return True
+    return cycle_requis in cycles_autorises_pour(etablissement)
 
 
 class AnneeScolaire(models.Model):
@@ -149,6 +202,13 @@ class Classe(models.Model):
         super().clean()
         if self.serie and self.cycle != Cycle.LYCEE:
             raise ValidationError("Une série ne s'applique qu'à une classe du cycle Lycée.")
+        if self.cycle and self.annee_scolaire_id:
+            etablissement = self.annee_scolaire.etablissement
+            if self.cycle not in cycles_autorises_pour(etablissement):
+                raise ValidationError(
+                    "L'abonnement de cet établissement ne couvre pas ce cycle - "
+                    "contactez la plateforme pour le faire évoluer."
+                )
 
     @property
     def effectif(self):
@@ -453,12 +513,13 @@ def classes_visibles_pour(utilisateur):
     """
     Retourne le queryset de classes visibles pour un utilisateur donné :
     toujours limité à SON établissement, puis, en plus, cloisonné par
-    cycle pour les directeurs de cycle.
+    cycle pour les directeurs de cycle ainsi que pour le Censeur et le
+    Surveillant général (propres au Lycée - voir CYCLE_PAR_ROLE_CLOISONNE).
     """
     queryset = Classe.objects.filter(
         annee_scolaire__etablissement=utilisateur.etablissement_id,
     ).select_related("annee_scolaire")
-    cycle_impose = CYCLE_PAR_ROLE_DIRECTION.get(utilisateur.role)
+    cycle_impose = CYCLE_PAR_ROLE_CLOISONNE.get(utilisateur.role)
     if cycle_impose:
         return queryset.filter(cycle=cycle_impose)
     return queryset
@@ -550,6 +611,7 @@ def dossier_complet(eleve) -> bool:
 # d'un élève auquel il n'est pas directement lié.
 ROLES_VOIENT_TOUT_ELEVE_DE_LETABLISSEMENT = {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL} | {
     Role.DIRECTEUR_1ER_CYCLE.value, Role.DIRECTEUR_2EME_CYCLE.value, Role.DIRECTEUR_LYCEE.value,
+    Role.CENSEUR.value, Role.SURVEILLANT_GENERAL.value,
     Role.SUPER_ADMINISTRATEUR.value, Role.SECRETAIRE.value,
     Role.COMPTABLE.value, Role.RESPONSABLE_PEDAGOGIQUE.value,
 }

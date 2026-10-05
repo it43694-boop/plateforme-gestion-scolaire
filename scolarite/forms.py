@@ -6,6 +6,7 @@ from comptes.roles import Role
 from scolarite.models import PAS_MONTANT as PAS_MONTANT_PAR_DEFAUT
 from scolarite.models import (
     DEVISE_PAR_DEFAUT, NOMBRE_VERSEMENTS_FIXE, AnneeScolaire, Classe, Cycle, EcheancierFrais, Periodicite, Serie,
+    cycles_autorises_pour,
 )
 
 
@@ -31,6 +32,10 @@ class CreerClasseForm(BootstrapFormMixin, forms.Form):
         self.etablissement = etablissement
         self.pas_montant = getattr(etablissement, "pas_montant", PAS_MONTANT_PAR_DEFAUT)
         self.devise = getattr(etablissement, "code_devise", DEVISE_PAR_DEFAUT)
+        self.cycles_autorises = cycles_autorises_pour(etablissement)
+        self.fields["cycle"].choices = [
+            (valeur, libelle) for valeur, libelle in Cycle.choices if valeur in self.cycles_autorises
+        ]
         for champ in ["montant_inscription", "montant_periode"]:
             self.fields[champ].label = f"{self.fields[champ].label} ({self.devise})"
         self.fields["montant_inscription"].help_text = f"Multiple de {self.pas_montant} {self.devise}."
@@ -43,6 +48,9 @@ class CreerClasseForm(BootstrapFormMixin, forms.Form):
 
     def clean(self):
         cleaned = super().clean()
+        cycle = cleaned.get("cycle")
+        if cycle and cycle not in self.cycles_autorises:
+            self.add_error("cycle", "L'abonnement de votre établissement ne couvre pas ce cycle.")
         for champ in ["montant_inscription", "montant_periode"]:
             valeur = cleaned.get(champ)
             if valeur is not None and valeur % self.pas_montant != 0:

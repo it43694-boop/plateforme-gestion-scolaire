@@ -6,6 +6,19 @@ from comptes.models import Utilisateur
 from etablissement.models import Etablissement
 
 
+class ModifierPlanEtablissementForm(BootstrapFormMixin, forms.ModelForm):
+    """
+    Formule d'abonnement (cycles couverts) d'un établissement - séparée de
+    ParametresEtablissementForm à dessein : ce dernier est aussi utilisé par
+    le développeur de l'établissement lui-même (espace_developpeur), qui ne
+    doit jamais pouvoir s'auto-attribuer un cycle non souscrit.
+    """
+
+    class Meta:
+        model = Etablissement
+        fields = ["plan"]
+
+
 class CreerEtablissementForm(BootstrapFormMixin, forms.Form):
     nom = forms.CharField(label="Nom de l'établissement", max_length=200)
     devise = forms.CharField(label="Devise (facultatif)", max_length=200, required=False)

@@ -140,6 +140,19 @@ class SeedPourTests(TestCase):
         self.assertEqual(nombre_apres_premier_seed, nombre_apres_second_seed)
         self.assertGreater(nombre_apres_premier_seed, 0)
 
+    def test_censeur_et_surveillant_general_nont_pas_lacces_classes(self):
+        """
+        Le Censeur (adjoint du proviseur) et le Surveillant général ne
+        doivent jamais pouvoir créer/administrer une classe - réservé à la
+        direction (DIRECTEUR_LYCEE). Vérifié indépendamment du round-trip
+        générique ci-dessus, car c'est la garantie de sécurité centrale.
+        """
+        etablissement = Etablissement.objects.create(nom="École censeur seed")
+        PermissionMatrix.seed_pour(etablissement)
+        self.assertFalse(PermissionMatrix.a_acces(Role.CENSEUR.value, Module.CLASSES.value, etablissement=etablissement))
+        self.assertFalse(PermissionMatrix.a_acces(Role.SURVEILLANT_GENERAL.value, Module.CLASSES.value, etablissement=etablissement))
+        self.assertFalse(PermissionMatrix.a_acces(Role.SURVEILLANT_GENERAL.value, Module.NOTES_BULLETINS.value, etablissement=etablissement))
+
     def test_seed_pour_ne_cree_aucune_ligne_pour_les_roles_pleins_pouvoirs(self):
         etablissement = Etablissement.objects.create(nom="École pleins pouvoirs seed")
         PermissionMatrix.seed_pour(etablissement)

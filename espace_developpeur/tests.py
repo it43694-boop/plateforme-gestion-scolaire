@@ -98,6 +98,49 @@ class ModifierCompteTests(TestCase):
         self.assertFalse(self.personnel.is_active)
 
 
+class ModifierCompteAbonnementTests(TestCase):
+    """
+    Un rôle de direction propre à un cycle (y compris Censeur/Surveillant
+    général, propres au Lycée) n'est attribuable que si l'abonnement de
+    l'établissement couvre ce cycle - empêche une école abonnée au 1er
+    cycle seul de s'attribuer quand même un rôle du Lycée.
+    """
+
+    def setUp(self):
+        from etablissement.models import Etablissement, PlanEtablissement
+        self.etablissement = Etablissement.objects.create(nom="École 1er cycle seul", plan=PlanEtablissement.PREMIER_CYCLE)
+        self.developpeur = creer_utilisateur_actif("dev-abonnement@example.com", Role.DEVELOPPEUR, etablissement=self.etablissement)
+        self.personnel = creer_utilisateur_actif("personnel-abonnement@example.com", Role.PERSONNEL, etablissement=self.etablissement)
+
+    def test_role_censeur_absent_du_formulaire(self):
+        self.client.force_login(self.developpeur)
+        reponse = self.client.get(reverse("espace_developpeur:modifier_compte", args=[self.personnel.id]))
+        choix = dict(reponse.context["formulaire"].fields["role"].choices)
+        self.assertNotIn(Role.CENSEUR.value, choix)
+        self.assertNotIn(Role.DIRECTEUR_LYCEE.value, choix)
+        self.assertIn(Role.DIRECTEUR_1ER_CYCLE.value, choix)
+
+    def test_attribution_censeur_refusee_cote_serveur(self):
+        self.client.force_login(self.developpeur)
+        reponse = self.client.post(
+            reverse("espace_developpeur:modifier_compte", args=[self.personnel.id]),
+            {"role": Role.CENSEUR.value, "statut": StatutCompte.ACTIF.value},
+        )
+        self.assertEqual(reponse.status_code, 200)  # formulaire invalide, pas de redirection
+        self.personnel.refresh_from_db()
+        self.assertEqual(self.personnel.role, Role.PERSONNEL)
+
+    def test_role_directeur_1er_cycle_toujours_attribuable(self):
+        self.client.force_login(self.developpeur)
+        reponse = self.client.post(
+            reverse("espace_developpeur:modifier_compte", args=[self.personnel.id]),
+            {"role": Role.DIRECTEUR_1ER_CYCLE.value, "statut": StatutCompte.ACTIF.value},
+        )
+        self.assertEqual(reponse.status_code, 302)
+        self.personnel.refresh_from_db()
+        self.assertEqual(self.personnel.role, Role.DIRECTEUR_1ER_CYCLE)
+
+
 class ReinitialiserDeuxFacteursTests(TestCase):
     def setUp(self):
         self.developpeur = creer_utilisateur_actif("dev-2fa-reset@example.com", Role.DEVELOPPEUR)

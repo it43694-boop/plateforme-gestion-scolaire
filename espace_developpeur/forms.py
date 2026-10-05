@@ -3,7 +3,7 @@ from django import forms
 from comptes.forms import BootstrapFormMixin
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role, StatutCompte
 from etablissement.models import Etablissement
-from scolarite.models import AnneeScolaire
+from scolarite.models import AnneeScolaire, role_autorise_pour_plan
 
 # Les rôles à accès total inconditionnel (développeur, fondateur,
 # administrateur général) ne sont jamais attribuables depuis cette interface :
@@ -19,6 +19,24 @@ ROLES_ATTRIBUABLES = [
 class ModifierCompteForm(BootstrapFormMixin, forms.Form):
     role = forms.ChoiceField(label="Rôle", choices=ROLES_ATTRIBUABLES)
     statut = forms.ChoiceField(label="Statut du compte", choices=StatutCompte.choices)
+
+    def __init__(self, *args, etablissement=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.etablissement = etablissement
+        # Un rôle de direction propre à un cycle (Directeur du 2ème cycle/
+        # Lycée, Censeur, Surveillant général) n'est proposé que si
+        # l'abonnement de l'établissement couvre ce cycle - sinon l'école
+        # pourrait s'attribuer un rôle pour un cycle qu'elle ne paie pas.
+        self.fields["role"].choices = [
+            (valeur, libelle) for valeur, libelle in ROLES_ATTRIBUABLES
+            if role_autorise_pour_plan(valeur, etablissement)
+        ]
+
+    def clean_role(self):
+        role = self.cleaned_data["role"]
+        if not role_autorise_pour_plan(role, self.etablissement):
+            raise forms.ValidationError("L'abonnement de votre établissement ne couvre pas ce rôle.")
+        return role
 
 
 class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):

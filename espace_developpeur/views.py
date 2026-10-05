@@ -73,7 +73,7 @@ def modifier_compte(request, utilisateur_id):
     compte = get_object_or_404(Utilisateur, id=utilisateur_id, etablissement=request.user.etablissement)
     est_soi_meme = compte.id == request.user.id
 
-    formulaire = ModifierCompteForm(request.POST or None, initial={
+    formulaire = ModifierCompteForm(request.POST or None, etablissement=request.user.etablissement, initial={
         "role": compte.role, "statut": compte.statut,
     })
     if request.method == "POST" and formulaire.is_valid():

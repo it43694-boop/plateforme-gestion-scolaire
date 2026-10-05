@@ -140,6 +140,48 @@ class ModifierEtablissementParPlateformeTests(TestCase):
         self.assertEqual(self.etablissement.nom, "École à modifier")
 
 
+class ModifierPlanTests(TestCase):
+    """
+    Seul le propriétaire de la plateforme change la formule d'abonnement
+    (cycles couverts) d'un établissement - jamais l'établissement lui-même,
+    pour empêcher une école de s'auto-attribuer un cycle non souscrit.
+    """
+
+    def setUp(self):
+        from etablissement.models import PlanEtablissement
+        self.PlanEtablissement = PlanEtablissement
+        self.proprietaire = creer_utilisateur_actif("owner-plan@example.com", Role.DEVELOPPEUR, is_superuser=True)
+        self.etablissement = Etablissement.objects.create(nom="École à faire évoluer", plan=PlanEtablissement.PREMIER_CYCLE)
+
+    def test_proprietaire_peut_changer_le_plan(self):
+        self.client.force_login(self.proprietaire)
+        reponse = self.client.post(
+            reverse("espace_plateforme:modifier_plan", args=[self.etablissement.id]),
+            {"plan": self.PlanEtablissement.TOUS_CYCLES.value},
+        )
+        self.assertEqual(reponse.status_code, 302)
+        self.etablissement.refresh_from_db()
+        self.assertEqual(self.etablissement.plan, self.PlanEtablissement.TOUS_CYCLES)
+
+    def test_non_superuser_ne_peut_pas_changer_le_plan(self):
+        developpeur = creer_utilisateur_actif(
+            "dev-plan@example.com", Role.DEVELOPPEUR, etablissement=self.etablissement, is_superuser=False,
+        )
+        self.client.force_login(developpeur)
+        self.client.post(
+            reverse("espace_plateforme:modifier_plan", args=[self.etablissement.id]),
+            {"plan": self.PlanEtablissement.TOUS_CYCLES.value},
+        )
+        self.etablissement.refresh_from_db()
+        self.assertEqual(self.etablissement.plan, self.PlanEtablissement.PREMIER_CYCLE)  # inchangé
+
+    def test_parametres_etablissement_developpeur_ne_peut_pas_changer_le_plan(self):
+        """Le formulaire d'identité de l'établissement (espace_developpeur, celui de l'école elle-même) n'expose pas le plan."""
+        from espace_developpeur.forms import ParametresEtablissementForm
+        formulaire = ParametresEtablissementForm(instance=self.etablissement)
+        self.assertNotIn("plan", formulaire.fields)
+
+
 class VoirComptesEtablissementTests(TestCase):
     def setUp(self):
         self.proprietaire = creer_utilisateur_actif("owner-comptes@example.com", Role.DEVELOPPEUR, is_superuser=True)
