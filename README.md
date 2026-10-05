@@ -1005,8 +1005,74 @@ enfant puisse être inscrit - un détour en deux étapes à chaque fois.
   toujours ajustables par affectation. Migration de données incluse
   pour les affectations déjà créées.
 
+## État du projet : Phase 31 — Bulletin conforme au modèle malien réel, recherche par nom pour les paiements, cycles simplifiés
+
+Suite à l'envoi de deux bulletins maliens authentiques (lycée et 2ème
+cycle) et à un retour sur l'utilisabilité des formulaires de paiement :
+
+- **Notation remplacée par le système malien exact.** Les poids
+  composition/devoirs/interrogations/bonus de la Phase 30 (déjà un
+  compromis, faute de formule nationale publiée) sont abandonnés : les
+  deux bulletins réels montrent noir sur blanc deux notes distinctes
+  par matière - la **Note de Classe** (contrôle continu, sur 20) et la
+  **Note de Composition** (examen trimestriel, sur 40, qui compte donc
+  double) - avec la moyenne de la matière calculée par
+  `(classe + composition) ÷ 3`. Formule vérifiée chiffre pour chiffre
+  sur plus de quatre matières du bulletin du Lycée Fatoumata Haidara
+  (ex. Mathématiques : (16,50 + 38,00) ÷ 3 = 18,17 - exact), ainsi que
+  les cinq paliers d'appréciation (Excellent ≥17, Très Bien ≥16, Bien
+  ≥13, Passable ≥10, Insuffisant en dessous). Faute de pouvoir
+  revérifier avec la même certitude chaque chiffre du bulletin de 2ème
+  cycle, la même règle s'applique uniformément à tous les cycles (1er
+  cycle, 2ème cycle, Lycée) plutôt que de risquer une formule
+  différente mal vérifiée. Resaisir une des deux notes ne touche plus
+  l'autre (ex. ajouter la composition une fois l'examen passé sans
+  perdre la note de classe saisie en cours de trimestre). L'ancien
+  système à quatre types d'évaluation (`Evaluation`, `TypeEvaluation`,
+  poids par affectation) est supprimé entièrement, y compris sa
+  migration de données devenue obsolète.
+- **Bulletins (page et PDF) refaits à l'identique de la structure
+  réelle** : un bloc par trimestre avec le tableau Matière / Note de
+  classe / Note de composition / Coefficient / Moyenne / Moyenne
+  coefficiée / Appréciation, une ligne de total (coefficients et
+  moyenne coefficiée), puis la Moyenne obtenue, l'Appréciation du
+  trimestre et les Moyennes la plus forte/la plus faible de la classe
+  à titre de repère - en plus de la moyenne générale et du rang déjà
+  affichés. Vérifié par export PDF réel (élève avec cinq matières,
+  coefficients différents) : tous les calculs, l'alignement et les
+  accents correspondent au document papier.
+- **Recherche par nom pour les paiements.** Enregistrer un paiement de
+  scolarité imposait de connaître le matricule exact de l'élève ;
+  saisir un salaire imposait l'email exact de l'employé - aucun des
+  deux n'est mémorisable. Les deux formulaires ont maintenant un champ
+  de recherche (nom, prénom, matricule pour un élève ; nom, prénom,
+  email pour un employé) avec suggestions cliquables, au lieu d'une
+  saisie à l'aveugle.
+- **Cycles renommés.** « 1er cycle (1ère à 6ème année) » devient
+  simplement « 1er cycle » (et de même pour le 2ème cycle) - le détail
+  des années n'apporte rien à la liste des classes et alourdissait
+  l'affichage.
+- **« Dossier incomplet » : comportement normal, pas un bug.** Ce
+  badge s'affiche tant qu'il manque la date de naissance, le
+  téléphone, ou qu'aucun parent n'est **effectivement lié** au compte
+  de l'élève - un parent seulement renseigné par email en attente
+  (Phase 30) ne suffit pas tant qu'il n'a pas lui-même créé son
+  compte et vérifié son adresse.
+
+Suite complète (397 tests) verte après ces changements, y compris les
+tests réécrits pour la nouvelle signature de `saisir_note` et la
+suppression du système `Evaluation`.
+
 ### Ce qui reste ouvert après ces phases
 
+- **Périodicité des frais de scolarité.** Les classes utilisent encore
+  des tranches fixes (Inscription / Tranche 1 / Tranche 2) alors que
+  les paiements se font en pratique par mois, trimestre ou année selon
+  le choix de l'établissement (9 à 10 paiements mensuels sur l'année
+  scolaire, confirmé) - chantier à part entière, pas encore commencé :
+  `finances/models.py` (`TypeTranche`, `EcheancierFrais`, `Paiement`),
+  `scolarite/models.py` (création de classe), et les PDF/pages qui
+  affichent le statut de paiement.
 - SMS, WhatsApp et Mobile Money automatisés, tests de charge,
   restauration testée uniquement en local, rattrapage, traduction
   bambara : toujours ouverts (voir phases précédentes).

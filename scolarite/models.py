@@ -1,7 +1,7 @@
 import uuid
 
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import MinValueValidator
 from django.db import models
 
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
@@ -14,9 +14,9 @@ class Cycle(models.TextChoices):
     fondamental ; le lycée a été ajouté ensuite sur le même principe -
     seconde à terminale, menant au baccalauréat malien).
     """
-    PREMIER_CYCLE = "1er_cycle", "1er cycle (1ère à 6ème année)"
-    DEUXIEME_CYCLE = "2eme_cycle", "2ème cycle (7ème à 9ème année)"
-    LYCEE = "lycee", "Lycée (10ème à 12ème année)"
+    PREMIER_CYCLE = "1er_cycle", "1er cycle"
+    DEUXIEME_CYCLE = "2eme_cycle", "2ème cycle"
+    LYCEE = "lycee", "Lycée"
 
 
 class Serie(models.TextChoices):
@@ -216,32 +216,6 @@ class Affectation(models.Model):
                    "1 par défaut (toutes les matières comptent également) ; augmentez pour une matière "
                    "à plus fort coefficient (ex. Mathématiques, Français).",
     )
-    # Poids de chaque type d'évaluation (composition/devoirs/interrogations/
-    # bonus) dans le calcul de la note finale du trimestre
-    # (pedagogie.models.Evaluation) - propres à cette affectation, pas un
-    # réglage unique pour toute l'école, pour qu'un enseignant adapte le
-    # dosage à sa matière. Défauts choisis pour refléter la pratique
-    # observée au Mali (pas de formule nationale unique publiée) : la
-    # composition trimestrielle reste l'évaluation dominante - c'est elle
-    # qui conditionne le passage en classe supérieure - devoirs et
-    # interrogations ne pèsent qu'en appoint.
-    poids_composition = models.PositiveSmallIntegerField(
-        default=50, validators=[MaxValueValidator(100)],
-        help_text="Poids de la composition trimestrielle dans la note finale (%).",
-    )
-    poids_devoirs = models.PositiveSmallIntegerField(
-        default=25, validators=[MaxValueValidator(100)],
-        help_text="Poids des devoirs dans la note finale du trimestre (%).",
-    )
-    poids_interrogations = models.PositiveSmallIntegerField(
-        default=15, validators=[MaxValueValidator(100)],
-        help_text="Poids des interrogations dans la note finale du trimestre (%).",
-    )
-    poids_bonus = models.PositiveSmallIntegerField(
-        default=10, validators=[MaxValueValidator(100)],
-        help_text="Poids du bonus dans la note finale du trimestre (%).",
-    )
-
     class Meta:
         verbose_name = "affectation d'enseignant"
         verbose_name_plural = "affectations d'enseignants"
@@ -253,11 +227,6 @@ class Affectation(models.Model):
             raise ValidationError("Seul un utilisateur avec le rôle « enseignant » peut être affecté.")
         if self.enseignant_id and self.classe_id and self.enseignant.etablissement_id != self.classe.annee_scolaire.etablissement_id:
             raise ValidationError("L'enseignant et la classe doivent appartenir au même établissement.")
-        poids_total = self.poids_composition + self.poids_devoirs + self.poids_interrogations + self.poids_bonus
-        if poids_total != 100:
-            raise ValidationError(
-                "Les poids de la composition, des devoirs, des interrogations et du bonus doivent totaliser 100%.",
-            )
 
     def __str__(self):
         libelle_matiere = self.matiere or "Titulaire"

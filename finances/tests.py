@@ -263,34 +263,52 @@ class VuesFinancesAccesTests(TestCase):
         self.assertEqual(len(reponse.context["paiements"]), 25)
         self.assertTrue(reponse.context["page_obj"].has_next())
 
-    def test_apercu_json_renvoie_le_nom_de_leleve(self):
+    def test_recherche_eleve_json_par_nom(self):
+        eleve_nomme = creer_utilisateur_actif("eleve-nomme-recherche@example.com", Role.ELEVE)
+        eleve_nomme.nom, eleve_nomme.prenom = "Keita", "Awa"
+        eleve_nomme.save(update_fields=["nom", "prenom"])
+        Inscription.objects.create(eleve=eleve_nomme, classe=self.classe)
         self.client.force_login(self.comptable)
-        reponse = self.client.get(reverse("finances:rechercher_eleve_json"), {"matricule": self.eleve.matricule})
-        self.assertEqual(reponse.json(), {"trouve": True, "nom_complet": self.eleve.nom_complet})
+        reponse = self.client.get(reverse("finances:rechercher_eleve_json"), {"q": "Keita"})
+        resultats = reponse.json()["resultats"]
+        self.assertEqual(len(resultats), 1)
+        self.assertEqual(resultats[0]["matricule"], eleve_nomme.matricule)
 
-    def test_apercu_json_matricule_inconnu(self):
+    def test_recherche_eleve_json_par_matricule(self):
         self.client.force_login(self.comptable)
-        reponse = self.client.get(reverse("finances:rechercher_eleve_json"), {"matricule": "00000000"})
-        self.assertEqual(reponse.json(), {"trouve": False})
+        reponse = self.client.get(reverse("finances:rechercher_eleve_json"), {"q": self.eleve.matricule})
+        resultats = reponse.json()["resultats"]
+        self.assertEqual(len(resultats), 1)
+        self.assertEqual(resultats[0]["matricule"], self.eleve.matricule)
 
-    def test_page_enregistrement_affiche_le_nom_via_parametre_get(self):
+    def test_recherche_eleve_json_aucun_resultat(self):
         self.client.force_login(self.comptable)
-        reponse = self.client.get(reverse("finances:enregistrer_paiement"), {"matricule": self.eleve.matricule})
-        self.assertContains(reponse, self.eleve.nom_complet)
+        reponse = self.client.get(reverse("finances:rechercher_eleve_json"), {"q": "Inconnu"})
+        self.assertEqual(reponse.json(), {"resultats": []})
 
-    def test_apercu_json_employe_renvoie_le_nom(self):
-        enseignant = creer_utilisateur_actif("prof-apercu@example.com", Role.ENSEIGNANT)
+    def test_recherche_eleve_json_terme_trop_court_ignore(self):
         self.client.force_login(self.comptable)
-        reponse = self.client.get(reverse("finances:rechercher_employe_json"), {"email": enseignant.email})
-        self.assertEqual(reponse.json(), {
-            "trouve": True, "nom_complet": enseignant.nom_complet, "role": enseignant.get_role_display(),
-        })
+        reponse = self.client.get(reverse("finances:rechercher_eleve_json"), {"q": "A"})
+        self.assertEqual(reponse.json(), {"resultats": []})
 
-    def test_page_saisie_salaire_affiche_le_nom_via_parametre_get(self):
-        enseignant = creer_utilisateur_actif("prof-apercu2@example.com", Role.ENSEIGNANT)
+    def test_recherche_employe_json_par_nom(self):
+        enseignant = creer_utilisateur_actif("prof-recherche@example.com", Role.ENSEIGNANT)
+        enseignant.nom, enseignant.prenom = "Coulibaly", "Seydou"
+        enseignant.save(update_fields=["nom", "prenom"])
         self.client.force_login(self.comptable)
-        reponse = self.client.get(reverse("finances:saisir_salaire"), {"email": enseignant.email})
-        self.assertContains(reponse, enseignant.nom_complet)
+        reponse = self.client.get(reverse("finances:rechercher_employe_json"), {"q": "Coulibaly"})
+        resultats = reponse.json()["resultats"]
+        self.assertEqual(len(resultats), 1)
+        self.assertEqual(resultats[0]["email"], enseignant.email)
+
+    def test_recherche_employe_json_exclut_les_eleves(self):
+        eleve_nomme = creer_utilisateur_actif("eleve-exclu-recherche@example.com", Role.ELEVE)
+        eleve_nomme.nom, eleve_nomme.prenom = "Diarra", "Mamadou"
+        eleve_nomme.save(update_fields=["nom", "prenom"])
+        Inscription.objects.create(eleve=eleve_nomme, classe=self.classe)
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("finances:rechercher_employe_json"), {"q": "Diarra"})
+        self.assertEqual(reponse.json(), {"resultats": []})
 
     def test_recu_pdf_genere_un_vrai_pdf(self):
         inscription = Inscription.objects.get(eleve=self.eleve)

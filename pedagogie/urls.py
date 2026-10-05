@@ -8,7 +8,6 @@ urlpatterns = [
     path("suivi-des-cours/", views.suivi_des_cours, name="suivi_des_cours"),
     path("mes-classes/", views.mes_classes, name="mes_classes"),
     path("notes/affectation/<int:affectation_id>/saisir/", views.saisir_note_vue, name="saisir_note"),
-    path("notes/evaluation/<int:evaluation_id>/supprimer/", views.supprimer_evaluation_vue, name="supprimer_evaluation"),
     path("notes/bulletin/<str:matricule>/", views.bulletin_eleve, name="bulletin_eleve"),
     path("notes/bulletin/<str:matricule>/export-pdf/", views.exporter_bulletin_pdf, name="exporter_bulletin_pdf"),
     path("bulletin/verifier/<uuid:jeton>/", views.verifier_bulletin, name="verifier_bulletin"),

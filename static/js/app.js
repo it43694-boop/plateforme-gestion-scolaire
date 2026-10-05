@@ -62,6 +62,63 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    // Recherche avec suggestions (ex. choisir un élève par nom plutôt que de
+    // devoir déjà connaître son matricule par cœur - voir finances/saisir
+    // un paiement/un salaire). Générique : n'importe quel champ texte avec
+    // data-recherche-url devient une recherche en direct, le résultat choisi
+    // remplit le champ caché data-recherche-cible.
+    document.querySelectorAll("[data-recherche-url]").forEach(function (champRecherche) {
+        var cible = document.getElementById(champRecherche.dataset.rechercheCible);
+        var conteneurResultats = champRecherche.parentElement.querySelector("[data-recherche-resultats]");
+        if (!cible || !conteneurResultats) return;
+        var cleAffichage = champRecherche.dataset.rechercheAffichage;
+        var cleValeur = champRecherche.dataset.rechercheValeur;
+        var delai;
+
+        function masquerResultats() {
+            conteneurResultats.style.display = "none";
+            conteneurResultats.innerHTML = "";
+        }
+
+        champRecherche.addEventListener("input", function () {
+            clearTimeout(delai);
+            cible.value = "";
+            var terme = champRecherche.value.trim();
+            if (terme.length < 2) { masquerResultats(); return; }
+            delai = setTimeout(function () {
+                fetch(champRecherche.dataset.rechercheUrl + "?q=" + encodeURIComponent(terme))
+                    .then(function (r) { return r.json(); })
+                    .then(function (donnees) {
+                        conteneurResultats.innerHTML = "";
+                        if (!donnees.resultats.length) {
+                            var vide = document.createElement("div");
+                            vide.className = "recherche-resultat-vide";
+                            vide.textContent = "Aucun résultat.";
+                            conteneurResultats.appendChild(vide);
+                            conteneurResultats.style.display = "block";
+                            return;
+                        }
+                        donnees.resultats.forEach(function (item) {
+                            var ligne = document.createElement("button");
+                            ligne.type = "button";
+                            ligne.className = "recherche-resultat-item";
+                            ligne.textContent = item[cleAffichage];
+                            ligne.addEventListener("click", function () {
+                                cible.value = item[cleValeur];
+                                champRecherche.value = item[cleAffichage];
+                                masquerResultats();
+                            });
+                            conteneurResultats.appendChild(ligne);
+                        });
+                        conteneurResultats.style.display = "block";
+                    });
+            }, 300);
+        });
+        document.addEventListener("click", function (evenement) {
+            if (evenement.target !== champRecherche) masquerResultats();
+        });
+    });
+
     document.querySelectorAll(".annuaire-item").forEach(function (bouton) {
         bouton.addEventListener("click", function () {
             document.querySelectorAll(".annuaire-panneau").forEach(function (p) { p.style.display = "none"; });

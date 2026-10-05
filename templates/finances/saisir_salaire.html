@@ -10,63 +10,33 @@
 </div>
 <div class="card mw-480">
     <div class="card-body">
-        {% if employe_apercu %}
-        <div class="alert alert-success" id="apercu-employe">
-            Employé trouvé : <strong>{{ employe_apercu.nom_complet }}</strong> ({{ employe_apercu.get_role_display }})
-        </div>
-        {% elif email_recherche %}
-        <div class="alert alert-warning" id="apercu-employe">Aucun compte trouvé avec cet email.</div>
-        {% else %}
-        <div class="alert alert-secondary masque-initial" id="apercu-employe"></div>
-        {% endif %}
-
-        <noscript>
-            <form method="get" class="d-flex gap-2 mb-3">
-                <input type="email" name="email" value="{{ email_recherche }}" class="form-control" placeholder="Email de l'employé">
-                <button type="submit" class="btn btn-outline-secondary">Rechercher</button>
-            </form>
-        </noscript>
-
         <form method="post" novalidate>
             {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label" for="recherche-employe">Employé</label>
+                <div class="recherche-conteneur">
+                    <input type="text" id="recherche-employe" class="form-control" autocomplete="off"
+                           placeholder="Rechercher par nom ou email..."
+                           data-recherche-url="{% url 'finances:rechercher_employe_json' %}"
+                           data-recherche-cible="{{ formulaire.email_employe.id_for_label }}"
+                           data-recherche-affichage="nom_complet" data-recherche-valeur="email">
+                    <div class="recherche-resultats" data-recherche-resultats></div>
+                </div>
+                {{ formulaire.email_employe }}
+                {% for erreur in formulaire.email_employe.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            </div>
             {% for champ in formulaire %}
+                {% if champ.name != "email_employe" %}
                 <div class="mb-3">
                     <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
                     {{ champ }}
                     {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
                     {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
                 </div>
+                {% endif %}
             {% endfor %}
             <button type="submit" class="btn btn-primary w-100">Enregistrer</button>
         </form>
     </div>
 </div>
-
-<script nonce="{{ request.csp_nonce }}">
-(function () {
-    var champEmail = document.getElementById("{{ formulaire.email_employe.id_for_label }}");
-    var apercu = document.getElementById("apercu-employe");
-    if (!champEmail) return;
-    var delai;
-    champEmail.addEventListener("input", function () {
-        clearTimeout(delai);
-        var valeur = champEmail.value.trim();
-        if (!valeur) { apercu.style.display = "none"; return; }
-        delai = setTimeout(function () {
-            fetch("{% url 'finances:rechercher_employe_json' %}?email=" + encodeURIComponent(valeur))
-                .then(function (r) { return r.json(); })
-                .then(function (donnees) {
-                    apercu.style.display = "block";
-                    if (donnees.trouve) {
-                        apercu.className = "alert alert-success";
-                        apercu.innerHTML = "Employé trouvé : <strong>" + donnees.nom_complet + "</strong> (" + donnees.role + ")";
-                    } else {
-                        apercu.className = "alert alert-warning";
-                        apercu.textContent = "Aucun compte trouvé avec cet email.";
-                    }
-                });
-        }, 350);
-    });
-})();
-</script>
 {% endblock %}

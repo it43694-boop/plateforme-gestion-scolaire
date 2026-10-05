@@ -2,23 +2,15 @@ from django.contrib import admin
 
 from comptes.admin import EtablissementAdminMixin
 from pedagogie.models import (
-    Absence, CreneauEmploiDuTemps, Evaluation, Note, NoteHistorique, PresencePersonnel, VerificationBulletin,
+    Absence, CreneauEmploiDuTemps, Note, NoteHistorique, PresencePersonnel, VerificationBulletin,
 )
 
 
 @admin.register(Note)
 class NoteAdmin(EtablissementAdminMixin, admin.ModelAdmin):
-    list_display = ["eleve", "affectation", "trimestre", "valeur", "modifie_le"]
+    list_display = ["eleve", "affectation", "trimestre", "note_classe", "note_composition", "valeur", "modifie_le"]
     list_filter = ["trimestre", "affectation__classe"]
     search_fields = ["eleve__nom", "eleve__prenom", "eleve__matricule"]
-    autocomplete_fields = ["eleve", "affectation"]
-
-
-@admin.register(Evaluation)
-class EvaluationAdmin(EtablissementAdminMixin, admin.ModelAdmin):
-    list_display = ["eleve", "affectation", "type_evaluation", "trimestre", "valeur", "saisie_le"]
-    list_filter = ["type_evaluation", "trimestre", "affectation__classe"]
-    search_fields = ["eleve__nom", "eleve__prenom", "eleve__matricule", "libelle"]
     autocomplete_fields = ["eleve", "affectation"]
 
 

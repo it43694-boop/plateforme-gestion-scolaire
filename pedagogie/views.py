@@ -17,10 +17,10 @@ from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
 from comptes.models import Utilisateur
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
-from pedagogie.forms import CreneauForm, SaisirAbsenceForm, SaisirEvaluationForm
+from pedagogie.forms import CreneauForm, SaisirAbsenceForm, SaisirNoteForm
 from pedagogie.models import (
-    Absence, CreneauEmploiDuTemps, Evaluation, JourSemaine, Note, Trimestre, VerificationBulletin,
-    saisir_evaluation, supprimer_evaluation,
+    Absence, CreneauEmploiDuTemps, JourSemaine, Note, Trimestre, VerificationBulletin,
+    appreciation_pour, saisir_note,
 )
 from permissions_matrix.modules import Module
 from scolarite.models import (
@@ -106,12 +106,6 @@ def mes_classes(request):
 
 @module_requis(Module.NOTES_BULLETINS)
 def saisir_note_vue(request, affectation_id):
-    """
-    Un enseignant saisit des évaluations individuelles (devoirs,
-    interrogations, bonus) plutôt qu'une note finale directement : la note
-    du trimestre (Note, affichée sur le bulletin) se recalcule
-    automatiquement à chaque ajout/suppression - voir pedagogie.models.
-    """
     affectation = get_object_or_404(
         Affectation,
         id=affectation_id,
@@ -120,58 +114,44 @@ def saisir_note_vue(request, affectation_id):
     if request.user.role == Role.ENSEIGNANT and affectation.enseignant_id != request.user.id:
         raise PermissionDenied("Vous n'êtes pas l'enseignant affecté à cette matière pour cette classe.")
 
-    formulaire = SaisirEvaluationForm(request.POST or None, affectation=affectation)
+    formulaire = SaisirNoteForm(request.POST or None, affectation=affectation)
     if request.method == "POST" and formulaire.is_valid():
         eleve = Utilisateur.objects.get(matricule=formulaire.cleaned_data["matricule_eleve"], role=Role.ELEVE)
         try:
-            saisir_evaluation(
+            saisir_note(
                 eleve=eleve, affectation=affectation,
                 trimestre=formulaire.cleaned_data["trimestre"],
-                type_evaluation=formulaire.cleaned_data["type_evaluation"],
-                libelle=formulaire.cleaned_data["libelle"],
-                valeur=formulaire.cleaned_data["valeur"], enseignant=request.user,
+                note_classe=formulaire.cleaned_data["note_classe"],
+                note_composition=formulaire.cleaned_data["note_composition"],
+                enseignant=request.user,
             )
         except ValidationError as erreur:
             messages.error(request, "; ".join(erreur.messages))
         else:
             enregistrer_action(
-                acteur=request.user, action="saisie_evaluation",
-                cible=f"{eleve.matricule} - {affectation}",
-                details={"type": formulaire.cleaned_data["type_evaluation"]}, request=request,
+                acteur=request.user, action="saisie_note",
+                cible=f"{eleve.matricule} - {affectation}", request=request,
             )
-            messages.success(request, f"Évaluation enregistrée pour {eleve.nom_complet}.")
+            messages.success(request, f"Note enregistrée pour {eleve.nom_complet}.")
         return redirect("pedagogie:saisir_note", affectation_id=affectation.id)
 
-    evaluations_existantes = Evaluation.objects.filter(affectation=affectation).select_related("eleve")
+    notes_existantes = Note.objects.filter(affectation=affectation).select_related("eleve")
     return render(request, "pedagogie/saisir_note.html", {
-        "formulaire": formulaire, "affectation": affectation, "evaluations_existantes": evaluations_existantes,
+        "formulaire": formulaire, "affectation": affectation, "notes_existantes": notes_existantes,
     })
-
-
-@module_requis(Module.NOTES_BULLETINS)
-@require_http_methods(["POST"])
-def supprimer_evaluation_vue(request, evaluation_id):
-    evaluation = get_object_or_404(
-        Evaluation.objects.select_related("eleve", "affectation"),
-        id=evaluation_id, affectation__classe__in=classes_visibles_pour(request.user),
-    )
-    affectation_id = evaluation.affectation_id
-    description = f"{evaluation.eleve.matricule} - {evaluation.affectation}"
-    try:
-        supprimer_evaluation(evaluation=evaluation, enseignant=request.user)
-    except ValidationError as erreur:
-        raise PermissionDenied("; ".join(erreur.messages))
-    enregistrer_action(acteur=request.user, action="suppression_evaluation", cible=description, request=request)
-    messages.success(request, "Évaluation supprimée.")
-    return redirect("pedagogie:saisir_note", affectation_id=affectation_id)
 
 
 def _calculer_bulletin(eleve, inscription=None):
     """
-    Moyennes pondérées par le coefficient de chaque matière
-    (scolarite.models.Affectation.coefficient, 1 par défaut - avec tous les
-    coefficients à 1, le résultat est identique à une moyenne arithmétique
-    simple, donc inchangé pour toutes les données existantes).
+    Format conforme à un bulletin malien réel (vérifié sur des bulletins
+    authentiques, lycée et fondamental) : pour chaque trimestre, un bloc
+    avec une ligne par matière (note de classe, note de composition,
+    coefficient, moyenne, moyenne coefficiée, appréciation), un total de
+    coefficients/moyenne coefficiée, la moyenne obtenue par l'élève, et
+    les moyennes la plus forte/la plus faible de la classe à titre de
+    repère. La moyenne générale (tous trimestres confondus) reste
+    pondérée par le coefficient de chaque matière
+    (scolarite.models.Affectation.coefficient, 1 par défaut).
     """
     notes = Note.objects.filter(eleve=eleve)
     if inscription:
@@ -183,15 +163,40 @@ def _calculer_bulletin(eleve, inscription=None):
         notes_par_trimestre.setdefault(note.trimestre, []).append(note)
 
     moyennes_par_trimestre = []
+    bulletins_trimestre = []
     total_pondere_general, poids_general = 0, 0
     for trimestre_valeur, trimestre_label in Trimestre.choices:
         notes_du_trimestre = notes_par_trimestre.get(trimestre_valeur)
         if not notes_du_trimestre:
             continue
+
+        lignes = [
+            {
+                "matiere": note.affectation.matiere or "Titulaire",
+                "note_classe": note.note_classe,
+                "note_composition": note.note_composition,
+                "coefficient": note.affectation.coefficient,
+                "moyenne": note.valeur,
+                "moyenne_coefficiee": round(note.valeur * note.affectation.coefficient, 2),
+                "appreciation": appreciation_pour(note.valeur),
+            }
+            for note in notes_du_trimestre
+        ]
         total_pondere = sum(n.valeur * n.affectation.coefficient for n in notes_du_trimestre)
         poids = sum(n.affectation.coefficient for n in notes_du_trimestre)
-        moyenne = total_pondere / poids
-        moyennes_par_trimestre.append({"trimestre": trimestre_label, "moyenne": round(moyenne, 2)})
+        moyenne = round(total_pondere / poids, 2)
+
+        moyenne_plus_forte, moyenne_plus_faible = (None, None)
+        if inscription:
+            moyenne_plus_forte, moyenne_plus_faible = _moyennes_extremes_classe(inscription.classe, trimestre_valeur)
+
+        bulletins_trimestre.append({
+            "trimestre": trimestre_label, "lignes": lignes,
+            "total_coefficients": poids, "total_moyenne_coefficiee": round(total_pondere, 2),
+            "moyenne": moyenne, "appreciation": appreciation_pour(moyenne),
+            "moyenne_plus_forte": moyenne_plus_forte, "moyenne_plus_faible": moyenne_plus_faible,
+        })
+        moyennes_par_trimestre.append({"trimestre": trimestre_label, "moyenne": moyenne})
         total_pondere_general += total_pondere
         poids_general += poids
 
@@ -202,9 +207,35 @@ def _calculer_bulletin(eleve, inscription=None):
         rang, effectif_classe = _calculer_classement(inscription)
 
     return {
-        "notes": notes, "moyennes_par_trimestre": moyennes_par_trimestre, "moyenne_generale": moyenne_generale,
+        "notes": notes, "bulletins_trimestre": bulletins_trimestre,
+        "moyennes_par_trimestre": moyennes_par_trimestre, "moyenne_generale": moyenne_generale,
         "rang": rang, "effectif_classe": effectif_classe,
     }
+
+
+def _moyennes_generales_par_eleve(classe, eleves_ids, trimestre=None):
+    """
+    Moyenne générale pondérée (par coefficient de matière) de chaque
+    élève d'une classe, sur un trimestre donné ou tous confondus - calcul
+    partagé par _calculer_classement (rang d'un élève précis) et
+    _moyennes_extremes_classe (plus forte/plus faible moyenne, affichées
+    sur le bulletin).
+    """
+    from django.db.models import DecimalField, ExpressionWrapper, F, Sum
+
+    notes = Note.objects.filter(affectation__classe=classe, eleve_id__in=eleves_ids)
+    if trimestre:
+        notes = notes.filter(trimestre=trimestre)
+    lignes = notes.values("eleve_id").annotate(
+        total_pondere=Sum(
+            ExpressionWrapper(
+                F("valeur") * F("affectation__coefficient"),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            ),
+        ),
+        poids=Sum("affectation__coefficient"),
+    )
+    return {ligne["eleve_id"]: ligne["total_pondere"] / ligne["poids"] for ligne in lignes if ligne["poids"]}
 
 
 def _calculer_classement(inscription):
@@ -214,8 +245,6 @@ def _calculer_classement(inscription):
     Ex-aequo : même rang pour une moyenne identique (convention de
     classement par compétition - 1, 2, 2, 4).
     """
-    from django.db.models import DecimalField, ExpressionWrapper, F, Sum
-
     eleves_classe = set(
         Inscription.objects.filter(
             classe=inscription.classe, statut=Inscription.Statut.EN_COURS,
@@ -224,29 +253,26 @@ def _calculer_classement(inscription):
     if not eleves_classe:
         return None, None
 
-    lignes = (
-        Note.objects.filter(affectation__classe=inscription.classe, eleve_id__in=eleves_classe)
-        .values("eleve_id")
-        .annotate(
-            total_pondere=Sum(
-                ExpressionWrapper(
-                    F("valeur") * F("affectation__coefficient"),
-                    output_field=DecimalField(max_digits=12, decimal_places=2),
-                ),
-            ),
-            poids=Sum("affectation__coefficient"),
-        )
-    )
-    moyennes = {
-        ligne["eleve_id"]: ligne["total_pondere"] / ligne["poids"]
-        for ligne in lignes if ligne["poids"]
-    }
+    moyennes = _moyennes_generales_par_eleve(inscription.classe, eleves_classe)
     if inscription.eleve_id not in moyennes:
         return None, len(eleves_classe)
 
     classement = sorted(moyennes.values(), reverse=True)
     rang = classement.index(moyennes[inscription.eleve_id]) + 1
     return rang, len(eleves_classe)
+
+
+def _moyennes_extremes_classe(classe, trimestre):
+    """Moyenne générale la plus forte et la plus faible de la classe pour un trimestre, affichées sur le bulletin à titre de repère."""
+    eleves_classe = set(
+        Inscription.objects.filter(classe=classe, statut=Inscription.Statut.EN_COURS).values_list("eleve_id", flat=True)
+    )
+    if not eleves_classe:
+        return None, None
+    moyennes = list(_moyennes_generales_par_eleve(classe, eleves_classe, trimestre=trimestre).values())
+    if not moyennes:
+        return None, None
+    return round(max(moyennes), 2), round(min(moyennes), 2)
 
 
 @module_requis(Module.NOTES_BULLETINS)

@@ -803,6 +803,25 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 }
 
 /* -------------------------------------------------------------------- */
+/* Recherche avec suggestions (sélection d'un élève/employé par nom)     */
+/* -------------------------------------------------------------------- */
+
+.recherche-conteneur { position: relative; }
+.recherche-resultats {
+  display: none;
+  position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--paper-000); border: 1px solid var(--line-300); border-radius: var(--rayon-controle);
+  box-shadow: 0 8px 24px rgba(18, 32, 61, 0.12);
+  max-height: 260px; overflow-y: auto;
+}
+.recherche-resultat-item {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  padding: 0.55rem 0.8rem; font-size: 0.92rem; color: var(--texte-principal); cursor: pointer;
+}
+.recherche-resultat-item:hover, .recherche-resultat-item:focus { background: var(--paper-050); }
+.recherche-resultat-vide { padding: 0.55rem 0.8rem; font-size: 0.88rem; color: var(--ink-500); }
+
+/* -------------------------------------------------------------------- */
 /* États vides                                                           */
 /* -------------------------------------------------------------------- */
 

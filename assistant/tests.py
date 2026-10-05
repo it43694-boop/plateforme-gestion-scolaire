@@ -33,7 +33,7 @@ class AssistantTests(TestCase):
         self.inscription = Inscription.objects.create(eleve=self.eleve, classe=self.classe)
         self.enseignant = creer_utilisateur_actif("prof-assist@example.com", Role.ENSEIGNANT)
         self.affectation = Affectation.objects.create(enseignant=self.enseignant, classe=self.classe, matiere="SVT")
-        saisir_note(eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1, valeur=14, enseignant=self.enseignant)
+        saisir_note(eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1, note_classe=14, enseignant=self.enseignant)
         self.comptable = creer_utilisateur_actif("comptable-assist@example.com", Role.COMPTABLE)
         enregistrer_paiement(
             eleve=self.eleve, inscription=self.inscription, tranche=TypeTranche.TRANCHE_1,
@@ -371,14 +371,14 @@ class AlertesTableauDeBordTests(TestCase):
         self.inscription_risque = Inscription.objects.create(eleve=self.eleve_risque, classe=self.classe)
         saisir_note(
             eleve=self.eleve_risque, affectation=self.affectation, trimestre=Trimestre.T1,
-            valeur=8, enseignant=self.enseignant,
+            note_classe=8, enseignant=self.enseignant,
         )
 
         self.eleve_ok = creer_utilisateur_actif("eleve-ok@example.com", Role.ELEVE)
         self.inscription_ok = Inscription.objects.create(eleve=self.eleve_ok, classe=self.classe)
         saisir_note(
             eleve=self.eleve_ok, affectation=self.affectation, trimestre=Trimestre.T1,
-            valeur=15, enseignant=self.enseignant,
+            note_classe=15, enseignant=self.enseignant,
         )
 
         self.comptable = creer_utilisateur_actif("comptable-alertes@example.com", Role.COMPTABLE)
@@ -438,7 +438,7 @@ class AlertesTableauDeBordTests(TestCase):
         Inscription.objects.create(eleve=autre_eleve_risque, classe=autre_classe)
         saisir_note(
             eleve=autre_eleve_risque, affectation=autre_affectation, trimestre=Trimestre.T1,
-            valeur=5, enseignant=autre_enseignant,
+            note_classe=5, enseignant=autre_enseignant,
         )
 
         alertes = construire_alertes(self.enseignant)

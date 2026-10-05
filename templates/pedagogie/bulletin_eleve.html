@@ -5,7 +5,7 @@
 <div class="page-header">
     <div class="page-header-titre">
         <div class="page-header-icone or">{% icone "pedagogie" 24 %}</div>
-        <div><h1>{{ eleve.nom_complet }}</h1><p>Matricule : {{ eleve.matricule }}</p></div>
+        <div><h1>{{ eleve.nom_complet }}</h1><p>Matricule : {{ eleve.matricule }}{% if inscription %} — {{ inscription.classe }}{% endif %}</p></div>
     </div>
     <div class="entete-actions">
         <a href="{% url 'pedagogie:exporter_bulletin_pdf' eleve.matricule %}" class="btn btn-outline-secondary btn-sm" data-telechargement>Exporter en PDF</a>
@@ -23,38 +23,80 @@
     </div>
 </div>
 
-{% if moyennes_par_trimestre %}
-<div class="row g-3 mb-1">
-    {% for ligne in moyennes_par_trimestre %}
-    <div class="col-6 col-md-4">
-        <div class="card"><div class="card-body mini-stat">
-            <div class="mini-stat-label">{{ ligne.trimestre }}</div>
-            <div class="mini-stat-valeur">{{ ligne.moyenne }}/20</div>
-        </div></div>
+{% if bulletins_trimestre %}
+    {% for bulletin in bulletins_trimestre %}
+    <div class="card mt-3">
+        <div class="card-body">
+            <p class="titre-section">{{ bulletin.trimestre }}</p>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Matière</th>
+                            <th class="text-end">Note de classe /20</th>
+                            <th class="text-end">Note de composition /40</th>
+                            <th class="text-end">Coeff.</th>
+                            <th class="text-end">Moyenne</th>
+                            <th class="text-end">Moy. coefficiée</th>
+                            <th>Appréciation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ligne in bulletin.lignes %}
+                        <tr>
+                            <td>{{ ligne.matiere }}</td>
+                            <td class="text-end montant-val">{{ ligne.note_classe|default:"—" }}</td>
+                            <td class="text-end montant-val">{{ ligne.note_composition|default:"—" }}</td>
+                            <td class="text-end montant-val">{{ ligne.coefficient }}</td>
+                            <td class="text-end montant-val">{{ ligne.moyenne }}</td>
+                            <td class="text-end montant-val">{{ ligne.moyenne_coefficiee }}</td>
+                            <td>{{ ligne.appreciation }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td><strong>Total</strong></td>
+                            <td></td>
+                            <td></td>
+                            <td class="text-end montant-val"><strong>{{ bulletin.total_coefficients }}</strong></td>
+                            <td></td>
+                            <td class="text-end montant-val"><strong>{{ bulletin.total_moyenne_coefficiee }}</strong></td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="row g-3 mt-2">
+                <div class="col-6 col-md-3">
+                    <div class="mini-stat-label">Moyenne obtenue</div>
+                    <div class="mini-stat-valeur">{{ bulletin.moyenne }}/20</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="mini-stat-label">Appréciation</div>
+                    <div class="mini-stat-valeur">{{ bulletin.appreciation }}</div>
+                </div>
+                {% if bulletin.moyenne_plus_forte %}
+                <div class="col-6 col-md-3">
+                    <div class="mini-stat-label">Moyenne la plus forte</div>
+                    <div class="mini-stat-valeur">{{ bulletin.moyenne_plus_forte }}/20</div>
+                </div>
+                {% endif %}
+                {% if bulletin.moyenne_plus_faible %}
+                <div class="col-6 col-md-3">
+                    <div class="mini-stat-label">Moyenne la plus faible</div>
+                    <div class="mini-stat-valeur">{{ bulletin.moyenne_plus_faible }}/20</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
     {% endfor %}
-</div>
-{% endif %}
-
+{% else %}
 <div class="card mt-3">
     <div class="card-body">
-        {% if notes %}
-        <table class="table">
-            <thead><tr><th>Matière</th><th>Coeff.</th><th>Trimestre</th><th class="text-end">Note</th></tr></thead>
-            <tbody>
-                {% for note in notes %}
-                <tr>
-                    <td>{{ note.affectation.matiere|default:"Titulaire" }}</td>
-                    <td>{{ note.affectation.coefficient }}</td>
-                    <td>{{ note.get_trimestre_display }}</td>
-                    <td class="text-end montant-val">{{ note.valeur }}/20</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
         <div class="etat-vide"><p>Aucune note enregistrée pour le moment.</p></div>
-        {% endif %}
     </div>
 </div>
+{% endif %}
 {% endblock %}

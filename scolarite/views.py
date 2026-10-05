@@ -312,10 +312,6 @@ def affecter_enseignant(request):
         else:
             Affectation.objects.create(
                 enseignant=enseignant, classe=classe, matiere=matiere, coefficient=coefficient,
-                poids_composition=formulaire.cleaned_data["poids_composition"],
-                poids_devoirs=formulaire.cleaned_data["poids_devoirs"],
-                poids_interrogations=formulaire.cleaned_data["poids_interrogations"],
-                poids_bonus=formulaire.cleaned_data["poids_bonus"],
             )
             enregistrer_action(
                 acteur=request.user, action="affectation_enseignant",

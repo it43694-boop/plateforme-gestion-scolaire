@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block titre %}Saisir une évaluation{% endblock %}
+{% block titre %}Saisir une note{% endblock %}
 {% block contenu %}
 <div class="page-header">
     <div>
         <h1>{{ affectation }}</h1>
-        <p>Devoirs, interrogations et bonus se combinent automatiquement en une note finale par trimestre (poids définis sur cette affectation).</p>
+        <p>Resaisir une note de classe ou de composition la corrige. La moyenne de la matière se calcule automatiquement : (classe + composition) ÷ 3.</p>
     </div>
 </div>
 <div class="row">
@@ -29,30 +29,24 @@
     <div class="col-md-7">
         <div class="card">
             <div class="card-body">
-                <p class="titre-section">Évaluations déjà saisies</p>
-                {% if evaluations_existantes %}
+                <p class="titre-section">Notes déjà saisies</p>
+                {% if notes_existantes %}
                 <table class="table">
-                    <thead><tr><th>Élève</th><th>Type</th><th>Trimestre</th><th class="text-end">Note</th><th></th></tr></thead>
+                    <thead><tr><th>Élève</th><th>Trimestre</th><th class="text-end">Classe/20</th><th class="text-end">Compo/40</th><th class="text-end">Moyenne</th></tr></thead>
                     <tbody>
-                        {% for evaluation in evaluations_existantes %}
+                        {% for note in notes_existantes %}
                         <tr>
-                            <td>{{ evaluation.eleve.nom_complet }}</td>
-                            <td>{{ evaluation.get_type_evaluation_display }}{% if evaluation.libelle %} · {{ evaluation.libelle }}{% endif %}</td>
-                            <td>{{ evaluation.get_trimestre_display }}</td>
-                            <td class="text-end montant-val">{{ evaluation.valeur }}/20</td>
-                            <td class="text-end">
-                                <form method="post" action="{% url 'pedagogie:supprimer_evaluation' evaluation.id %}" class="d-inline"
-                                      data-confirmer="Supprimer cette évaluation ({{ evaluation.get_type_evaluation_display }}, {{ evaluation.eleve.nom_complet }}) ?">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
-                                </form>
-                            </td>
+                            <td>{{ note.eleve.nom_complet }}</td>
+                            <td>{{ note.get_trimestre_display }}</td>
+                            <td class="text-end montant-val">{{ note.note_classe|default:"—" }}</td>
+                            <td class="text-end montant-val">{{ note.note_composition|default:"—" }}</td>
+                            <td class="text-end montant-val">{{ note.valeur }}/20</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
                 {% else %}
-                <div class="etat-vide"><p>Aucune évaluation saisie pour le moment.</p></div>
+                <div class="etat-vide"><p>Aucune note saisie pour le moment.</p></div>
                 {% endif %}
             </div>
         </div>

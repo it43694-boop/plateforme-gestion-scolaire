@@ -30,15 +30,31 @@ def _est_direction(utilisateur) -> bool:
 
 @module_requis(Module.FINANCES)
 def rechercher_eleve_json(request):
-    """Recherche en direct (JS) du nom d'un élève par matricule, pour l'aperçu avant paiement."""
+    """
+    Recherche en direct (JS) d'élèves par nom, prénom ou matricule - pour
+    les sélectionner sans avoir à déjà connaître leur matricule par cœur
+    (voir le champ de recherche sur la page d'enregistrement d'un paiement).
+    """
+    from django.db.models import Q
     from django.http import JsonResponse
-    matricule = request.GET.get("matricule", "").strip()
-    eleve = Utilisateur.objects.filter(
-        matricule=matricule, role=Role.ELEVE, etablissement=request.user.etablissement,
-    ).first()
-    if not eleve:
-        return JsonResponse({"trouve": False})
-    return JsonResponse({"trouve": True, "nom_complet": eleve.nom_complet})
+    from scolarite.models import Inscription, classes_visibles_pour
+
+    terme = request.GET.get("q", "").strip()
+    if len(terme) < 2:
+        return JsonResponse({"resultats": []})
+    eleves = Utilisateur.objects.filter(
+        role=Role.ELEVE, etablissement=request.user.etablissement,
+        inscriptions__classe__in=classes_visibles_pour(request.user),
+        inscriptions__statut=Inscription.Statut.EN_COURS,
+    ).filter(
+        Q(nom__icontains=terme) | Q(prenom__icontains=terme) | Q(matricule__icontains=terme),
+    ).distinct().order_by("nom", "prenom")[:10]
+    return JsonResponse({
+        "resultats": [
+            {"matricule": e.matricule, "nom_complet": f"{e.nom_complet} ({e.matricule})"}
+            for e in eleves
+        ],
+    })
 
 
 @module_requis(Module.FINANCES)
@@ -112,15 +128,7 @@ def suivi_paiements(request):
 
 @module_requis(Module.FINANCES)
 def enregistrer_paiement_vue(request):
-    matricule_recherche = request.GET.get("matricule", "").strip()
-    eleve_apercu = None
-    if matricule_recherche:
-        eleve_apercu = Utilisateur.objects.filter(
-            matricule=matricule_recherche, role=Role.ELEVE, etablissement=request.user.etablissement,
-        ).first()
-
-    initial = {"matricule_eleve": matricule_recherche} if matricule_recherche else None
-    formulaire = EnregistrerPaiementForm(request.POST or None, etablissement=request.user.etablissement, initial=initial)
+    formulaire = EnregistrerPaiementForm(request.POST or None, etablissement=request.user.etablissement)
     if request.method == "POST" and formulaire.is_valid():
         paiement = enregistrer_paiement(
             eleve=formulaire.cleaned_data["eleve"],
@@ -138,9 +146,7 @@ def enregistrer_paiement_vue(request):
         )
         messages.success(request, f"Paiement enregistré. Référence : {paiement.reference}")
         return redirect("finances:liste_paiements")
-    return render(request, "finances/enregistrer_paiement.html", {
-        "formulaire": formulaire, "eleve_apercu": eleve_apercu, "matricule_recherche": matricule_recherche,
-    })
+    return render(request, "finances/enregistrer_paiement.html", {"formulaire": formulaire})
 
 
 @module_requis(Module.FINANCES)
@@ -214,26 +220,33 @@ def supprimer_paiement_vue(request, paiement_id):
 
 @module_requis(Module.SALAIRES)
 def rechercher_employe_json(request):
-    """Recherche en direct (JS) du nom d'un employé par email, pour l'aperçu avant saisie de salaire."""
+    """
+    Recherche en direct (JS) d'employés par nom, prénom ou email - pour les
+    sélectionner sans avoir à déjà connaître leur email par cœur (voir le
+    champ de recherche sur la page de saisie d'un salaire).
+    """
+    from django.db.models import Q
     from django.http import JsonResponse
-    email = request.GET.get("email", "").strip()
-    employe = Utilisateur.objects.filter(email__iexact=email, etablissement=request.user.etablissement).first()
-    if not employe:
-        return JsonResponse({"trouve": False})
-    return JsonResponse({"trouve": True, "nom_complet": employe.nom_complet, "role": employe.get_role_display()})
+
+    terme = request.GET.get("q", "").strip()
+    if len(terme) < 2:
+        return JsonResponse({"resultats": []})
+    employes = Utilisateur.objects.filter(
+        etablissement=request.user.etablissement,
+    ).exclude(role=Role.ELEVE).filter(
+        Q(nom__icontains=terme) | Q(prenom__icontains=terme) | Q(email__icontains=terme),
+    ).order_by("nom", "prenom")[:10]
+    return JsonResponse({
+        "resultats": [
+            {"email": e.email, "nom_complet": f"{e.nom_complet} ({e.get_role_display()})"}
+            for e in employes
+        ],
+    })
 
 
 @module_requis(Module.SALAIRES)
 def saisir_salaire_vue(request):
-    email_recherche = request.GET.get("email", "").strip()
-    employe_apercu = None
-    if email_recherche:
-        employe_apercu = Utilisateur.objects.filter(
-            email__iexact=email_recherche, etablissement=request.user.etablissement,
-        ).first()
-
-    initial = {"email_employe": email_recherche} if email_recherche else None
-    formulaire = SaisirSalaireForm(request.POST or None, etablissement=request.user.etablissement, initial=initial)
+    formulaire = SaisirSalaireForm(request.POST or None, etablissement=request.user.etablissement)
     if request.method == "POST" and formulaire.is_valid():
         salaire = Salaire.objects.create(
             employe=formulaire.cleaned_data["employe"],
@@ -248,9 +261,7 @@ def saisir_salaire_vue(request):
         )
         messages.success(request, "Salaire enregistré (en attente de paiement).")
         return redirect("finances:liste_salaires")
-    return render(request, "finances/saisir_salaire.html", {
-        "formulaire": formulaire, "employe_apercu": employe_apercu, "email_recherche": email_recherche,
-    })
+    return render(request, "finances/saisir_salaire.html", {"formulaire": formulaire})
 
 
 @module_requis(Module.SALAIRES)

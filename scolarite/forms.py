@@ -71,23 +71,6 @@ class AffecterEnseignantForm(BootstrapFormMixin, forms.Form):
         label="Coefficient", min_value=1, initial=1, required=False,
         help_text="Poids de cette matière dans la moyenne du bulletin. 1 = compte comme les autres.",
     )
-    poids_composition = forms.IntegerField(
-        label="Poids de la composition (%)", min_value=0, max_value=100, initial=50,
-        help_text="Par défaut, la composition trimestrielle domine (pratique courante au Mali), "
-                   "devoirs et interrogations ne pèsent qu'en appoint - ajustable par matière.",
-    )
-    poids_devoirs = forms.IntegerField(
-        label="Poids des devoirs (%)", min_value=0, max_value=100, initial=25,
-    )
-    poids_interrogations = forms.IntegerField(
-        label="Poids des interrogations (%)", min_value=0, max_value=100, initial=15,
-    )
-    poids_bonus = forms.IntegerField(
-        label="Poids du bonus (%)", min_value=0, max_value=100, initial=10,
-        help_text="Les quatre poids ci-dessus doivent totaliser 100% - ils déterminent comment "
-                   "composition, devoirs, interrogations et bonus se combinent pour donner la note "
-                   "finale du trimestre.",
-    )
 
     def __init__(self, *args, etablissement=None, classes_disponibles=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -96,14 +79,6 @@ class AffecterEnseignantForm(BootstrapFormMixin, forms.Form):
         ).order_by("nom", "prenom")
         if classes_disponibles is not None:
             self.fields["classe"].queryset = classes_disponibles
-
-    def clean(self):
-        cleaned = super().clean()
-        poids = ["poids_composition", "poids_devoirs", "poids_interrogations", "poids_bonus"]
-        if all(cleaned.get(champ) is not None for champ in poids):
-            if sum(cleaned[champ] for champ in poids) != 100:
-                self.add_error("poids_bonus", "Les quatre poids doivent totaliser 100%.")
-        return cleaned
 
 
 class InscrireEleveForm(BootstrapFormMixin, forms.Form):

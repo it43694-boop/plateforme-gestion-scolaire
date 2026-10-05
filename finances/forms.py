@@ -8,7 +8,7 @@ from scolarite.models import Inscription
 
 
 class EnregistrerPaiementForm(BootstrapFormMixin, forms.Form):
-    matricule_eleve = forms.CharField(label="Matricule de l'élève")
+    matricule_eleve = forms.CharField(label="Élève", widget=forms.HiddenInput())
     tranche = forms.ChoiceField(label="Tranche", choices=TypeTranche.choices)
     montant = forms.IntegerField(label="Montant", min_value=1)
     mode_paiement = forms.ChoiceField(label="Mode de paiement", choices=ModePaiement.choices)
@@ -51,7 +51,7 @@ class CorrigerPaiementForm(BootstrapFormMixin, forms.Form):
 
 
 class SaisirSalaireForm(BootstrapFormMixin, forms.Form):
-    email_employe = forms.EmailField(label="Email de l'employé")
+    email_employe = forms.EmailField(label="Employé", widget=forms.HiddenInput())
     periode = forms.CharField(
         label="Période", help_text="Format AAAA-MM, exemple : 2026-10",
         widget=forms.TextInput(attrs={"placeholder": "2026-10"}),

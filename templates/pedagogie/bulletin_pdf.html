@@ -18,12 +18,25 @@
     p.matricule { color: #55607A; margin: 0; font-size: 10px; }
     hr.separateur { border: none; border-top: 1.5px solid #B98B2E; margin: 10px 0 16px; }
 
-    table.notes { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    table.notes { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
     table.notes th {
-        background-color: #12203D; color: #ffffff; padding: 6px 8px; text-align: left; font-size: 10px;
+        background-color: #12203D; color: #ffffff; padding: 5px 7px; text-align: left; font-size: 9.5px;
     }
-    table.notes td { padding: 6px 8px; border-bottom: 1px solid #DEE1E6; }
+    table.notes td { padding: 5px 7px; border-bottom: 1px solid #DEE1E6; font-size: 10px; }
+    table.notes tfoot td { border-top: 1.5px solid #12203D; border-bottom: none; font-weight: bold; }
     td.numerique, th.numerique { text-align: right; }
+
+    p.titre-trimestre {
+        font-size: 12px; font-weight: bold; color: #12203D; margin: 16px 0 6px;
+        border-bottom: 1.5px solid #B98B2E; padding-bottom: 3px;
+    }
+
+    table.recap { width: 100%; margin-bottom: 6px; }
+    table.recap td {
+        padding: 4px 8px; border: none; font-size: 10px; vertical-align: top; width: 25%;
+    }
+    table.recap .libelle { color: #55607A; display: block; }
+    table.recap .valeur { font-size: 13px; font-weight: bold; color: #12203D; }
 
     .bloc-moyenne {
         margin-top: 10px; padding: 10px 14px; background-color: #F8F1DF;
@@ -71,34 +84,60 @@
 
     <br>
 
+    {% for bulletin in bulletins_trimestre %}
+    <p class="titre-trimestre">{{ bulletin.trimestre }}</p>
     <table class="notes">
         <thead>
-            <tr><th>Matière</th><th class="numerique">Coeff.</th><th>Trimestre</th><th class="numerique">Note / 20</th></tr>
+            <tr>
+                <th>Matière</th>
+                <th class="numerique">Classe /20</th>
+                <th class="numerique">Compo. /40</th>
+                <th class="numerique">Coeff.</th>
+                <th class="numerique">Moyenne</th>
+                <th class="numerique">Moy. coef.</th>
+                <th>Appréciation</th>
+            </tr>
         </thead>
         <tbody>
-            {% for note in notes %}
+            {% for ligne in bulletin.lignes %}
             <tr>
-                <td>{{ note.affectation.matiere|default:"Titulaire" }}</td>
-                <td class="numerique">{{ note.affectation.coefficient }}</td>
-                <td>{{ note.get_trimestre_display }}</td>
-                <td class="numerique">{{ note.valeur }}</td>
+                <td>{{ ligne.matiere }}</td>
+                <td class="numerique">{{ ligne.note_classe|default:"—" }}</td>
+                <td class="numerique">{{ ligne.note_composition|default:"—" }}</td>
+                <td class="numerique">{{ ligne.coefficient }}</td>
+                <td class="numerique">{{ ligne.moyenne }}</td>
+                <td class="numerique">{{ ligne.moyenne_coefficiee }}</td>
+                <td>{{ ligne.appreciation }}</td>
             </tr>
-            {% empty %}
-            <tr><td colspan="4">Aucune note enregistrée.</td></tr>
             {% endfor %}
         </tbody>
+        <tfoot>
+            <tr>
+                <td>Total</td>
+                <td></td>
+                <td></td>
+                <td class="numerique">{{ bulletin.total_coefficients }}</td>
+                <td></td>
+                <td class="numerique">{{ bulletin.total_moyenne_coefficiee }}</td>
+                <td></td>
+            </tr>
+        </tfoot>
     </table>
-
-    {% if moyennes_par_trimestre %}
-    <table class="notes">
-        <thead><tr><th>Trimestre</th><th class="numerique">Moyenne / 20</th></tr></thead>
-        <tbody>
-            {% for ligne in moyennes_par_trimestre %}
-            <tr><td>{{ ligne.trimestre }}</td><td class="numerique">{{ ligne.moyenne }}</td></tr>
-            {% endfor %}
-        </tbody>
+    <table class="recap">
+        <tr>
+            <td><span class="libelle">Moyenne obtenue</span><span class="valeur">{{ bulletin.moyenne }}/20</span></td>
+            <td><span class="libelle">Appréciation</span><span class="valeur">{{ bulletin.appreciation }}</span></td>
+            {% if bulletin.moyenne_plus_forte %}
+            <td><span class="libelle">Moyenne la plus forte</span><span class="valeur">{{ bulletin.moyenne_plus_forte }}/20</span></td>
+            {% endif %}
+            {% if bulletin.moyenne_plus_faible %}
+            <td><span class="libelle">Moyenne la plus faible</span><span class="valeur">{{ bulletin.moyenne_plus_faible }}/20</span></td>
+            {% endif %}
+        </tr>
     </table>
-    {% endif %}
+    {% empty %}
+    <p>Aucune note enregistrée.</p>
+    {% endfor %}
 
     {% if moyenne_generale %}
     <div class="bloc-moyenne">
