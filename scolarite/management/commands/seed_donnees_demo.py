@@ -6,7 +6,7 @@ from comptes.models import Utilisateur
 from comptes.roles import Role, StatutCompte
 from etablissement.models import Etablissement
 from permissions_matrix.models import PermissionMatrix
-from scolarite.models import AnneeScolaire, Affectation, Classe, Cycle, EcheancierFrais, Serie
+from scolarite.models import AnneeScolaire, Affectation, Classe, Cycle, EcheancierFrais, Periodicite, Serie
 
 
 class Command(BaseCommand):
@@ -38,20 +38,23 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Année scolaire : {annee} ({'créée' if cree else 'existante'})"))
 
         classes_demo = [
-            ("1ère année A", Cycle.PREMIER_CYCLE, "", 15000, 15000, 15000),
-            ("6ème année A", Cycle.PREMIER_CYCLE, "", 20000, 20000, 20000),
-            ("7ème année A", Cycle.DEUXIEME_CYCLE, "", 25000, 25000, 25000),
-            ("9ème année A", Cycle.DEUXIEME_CYCLE, "", 30000, 25000, 25000),
-            ("10ème année A", Cycle.LYCEE, "", 35000, 30000, 30000),
-            ("12ème année A", Cycle.LYCEE, Serie.SCIENCES_EXACTES, 35000, 30000, 30000),
+            ("1ère année A", Cycle.PREMIER_CYCLE, "", 15000, 15000),
+            ("6ème année A", Cycle.PREMIER_CYCLE, "", 20000, 20000),
+            ("7ème année A", Cycle.DEUXIEME_CYCLE, "", 25000, 25000),
+            ("9ème année A", Cycle.DEUXIEME_CYCLE, "", 30000, 25000),
+            ("10ème année A", Cycle.LYCEE, "", 35000, 30000),
+            ("12ème année A", Cycle.LYCEE, Serie.SCIENCES_EXACTES, 35000, 30000),
         ]
-        for nom, cycle, serie, insc, t1, t2 in classes_demo:
+        for nom, cycle, serie, insc, montant_trimestre in classes_demo:
             classe, cree = Classe.objects.get_or_create(
                 nom=nom, annee_scolaire=annee, defaults={"cycle": cycle, "serie": serie},
             )
             EcheancierFrais.objects.get_or_create(
                 classe=classe,
-                defaults={"montant_inscription": insc, "montant_tranche_1": t1, "montant_tranche_2": t2},
+                defaults={
+                    "montant_inscription": insc, "periodicite": Periodicite.TRIMESTRIEL,
+                    "montant_periode": montant_trimestre, "nombre_versements": 3,
+                },
             )
             self.stdout.write(f"  Classe : {classe} ({'créée' if cree else 'existante'})")
 

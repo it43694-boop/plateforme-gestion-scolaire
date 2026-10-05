@@ -36,7 +36,7 @@ class AssistantTests(TestCase):
         saisir_note(eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1, note_classe=14, enseignant=self.enseignant)
         self.comptable = creer_utilisateur_actif("comptable-assist@example.com", Role.COMPTABLE)
         enregistrer_paiement(
-            eleve=self.eleve, inscription=self.inscription, tranche=TypeTranche.TRANCHE_1,
+            eleve=self.eleve, inscription=self.inscription, tranche=TypeTranche.VERSEMENT,
             montant=15000, mode_paiement="especes", enregistre_par=self.comptable,
         )
 
@@ -110,7 +110,7 @@ class SerialisationDonneesIATests(TestCase):
         comptable = creer_utilisateur_actif("comptable-ia@example.com", Role.COMPTABLE)
         enregistrer_paiement(
             eleve=self.eleve, inscription=Inscription.objects.get(eleve=self.eleve),
-            tranche=TypeTranche.TRANCHE_1, montant=15000, mode_paiement="especes",
+            tranche=TypeTranche.VERSEMENT, montant=15000, mode_paiement="especes",
             enregistre_par=comptable,
         )
         from finances.models import Paiement
@@ -142,7 +142,7 @@ class AssistantModeGeneratifTests(TestCase):
         self.comptable = creer_utilisateur_actif("comptable-ia2@example.com", Role.COMPTABLE)
         enregistrer_paiement(
             eleve=self.eleve, inscription=Inscription.objects.get(eleve=self.eleve),
-            tranche=TypeTranche.TRANCHE_1, montant=20000, mode_paiement="especes",
+            tranche=TypeTranche.VERSEMENT, montant=20000, mode_paiement="especes",
             enregistre_par=self.comptable,
         )
 
@@ -351,7 +351,7 @@ class AlertesTableauDeBordTests(TestCase):
         from django.core.cache import cache
         from finances.models import TypeTranche as TT
         from finances.models import enregistrer_paiement as creer_paiement
-        from scolarite.models import EcheancierFrais
+        from scolarite.models import EcheancierFrais, Periodicite
 
         cache.clear()  # évite qu'une synthèse IA mise en cache fuite d'un test à l'autre
         aujourdhui = datetime.date.today()
@@ -361,7 +361,7 @@ class AlertesTableauDeBordTests(TestCase):
         )
         self.classe = Classe.objects.create(nom="Classe Alertes", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
         EcheancierFrais.objects.create(
-            classe=self.classe, montant_inscription=10000, montant_tranche_1=10000, montant_tranche_2=10000,
+            classe=self.classe, montant_inscription=10000, periodicite=Periodicite.ANNUEL, montant_periode=20000, nombre_versements=1,
         )
 
         self.enseignant = creer_utilisateur_actif("prof-alertes@example.com", Role.ENSEIGNANT)
@@ -385,7 +385,7 @@ class AlertesTableauDeBordTests(TestCase):
         creer_paiement(
             eleve=self.eleve_ok, inscription=self.inscription_ok, tranche=TT.INSCRIPTION,
             montant=30000, mode_paiement="especes", enregistre_par=self.comptable,
-        )  # eleve_ok paie tout (10000+10000+10000) -> aucun impayé
+        )  # eleve_ok paie tout (10000 inscription + 20000 annuel) -> aucun impayé
         # eleve_risque ne paie rien -> impayé, et l'année est à 200/300e -> seuil 40% dépassé
 
         self.fondateur = creer_utilisateur_actif("fondateur-alertes@example.com", Role.FONDATEUR)

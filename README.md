@@ -1063,16 +1063,44 @@ Suite complète (397 tests) verte après ces changements, y compris les
 tests réécrits pour la nouvelle signature de `saisir_note` et la
 suppression du système `Evaluation`.
 
+## État du projet : Phase 32 — Périodicité des frais de scolarité (mensuel/trimestriel/annuel)
+
+Suite à la Phase 31 : les classes utilisaient encore des tranches fixes
+(Inscription / Tranche 1 / Tranche 2) alors que les paiements se font
+en pratique par mois, par trimestre ou en une fois selon le choix de
+l'établissement.
+
+- **`EcheancierFrais` remplace les deux tranches par une périodicité.**
+  Les frais d'inscription restent inchangés (demandé explicitement) ;
+  `montant_tranche_1`/`montant_tranche_2` sont remplacés par
+  `periodicite` (Mensuel / Trimestriel / Annuel) et `montant_periode`
+  (le montant par mois, par trimestre ou pour l'année selon le choix).
+  Le nombre de versements est fixé automatiquement par la périodicité
+  (3 pour trimestriel, 1 pour annuel) sauf pour le mensuel, où l'école
+  choisit 9 ou 10 versements sur l'année scolaire (confirmé). Le
+  calcul du total dû (`calculer_total_du`, utilisé par le suivi des
+  paiements, les alertes impayés et le dossier élève) n'a pas changé -
+  il ne dépend que de `EcheancierFrais.total_annuel`.
+- **Migration de données sans impact sur les soldes déjà calculés.**
+  Les échéanciers déjà créés (deux tranches) sont fusionnés en un
+  versement annuel unique dont le montant est la somme des deux
+  anciennes tranches - le total dû par élève, et donc chaque solde déjà
+  affiché, reste rigoureusement identique après la migration.
+  Vérifié : les six classes de démonstration existantes ont conservé
+  leur `total_annuel` exact après migration.
+- **`TypeTranche` simplifié à deux choix** (Inscription / Versement de
+  scolarité) sur le reçu de paiement - les anciens libellés « Tranche
+  1 »/« Tranche 2 » n'avaient plus de sens une fois la périodicité
+  détachée d'un nombre de tranches fixe.
+
+Suite complète (397 tests) verte après ces changements. Vérifié de
+bout en bout (navigateur) : création d'une classe en périodicité
+mensuelle (20 000 d'inscription + 9 × 5 000) donnant bien un total
+annuel de 65 000, et formulaire d'enregistrement d'un paiement avec
+le nouveau choix Inscription/Versement.
+
 ### Ce qui reste ouvert après ces phases
 
-- **Périodicité des frais de scolarité.** Les classes utilisent encore
-  des tranches fixes (Inscription / Tranche 1 / Tranche 2) alors que
-  les paiements se font en pratique par mois, trimestre ou année selon
-  le choix de l'établissement (9 à 10 paiements mensuels sur l'année
-  scolaire, confirmé) - chantier à part entière, pas encore commencé :
-  `finances/models.py` (`TypeTranche`, `EcheancierFrais`, `Paiement`),
-  `scolarite/models.py` (création de classe), et les PDF/pages qui
-  affichent le statut de paiement.
 - SMS, WhatsApp et Mobile Money automatisés, tests de charge,
   restauration testée uniquement en local, rattrapage, traduction
   bambara : toujours ouverts (voir phases précédentes).

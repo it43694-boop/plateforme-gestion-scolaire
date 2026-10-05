@@ -65,8 +65,7 @@ class ModePaiement(models.TextChoices):
 
 class TypeTranche(models.TextChoices):
     INSCRIPTION = "inscription", "Inscription"
-    TRANCHE_1 = "tranche_1", "Tranche 1"
-    TRANCHE_2 = "tranche_2", "Tranche 2"
+    VERSEMENT = "versement", "Versement de scolarité"
 
 
 class Paiement(models.Model):

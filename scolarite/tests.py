@@ -11,7 +11,7 @@ from django.urls import reverse
 from comptes.models import Utilisateur
 from comptes.roles import Role, StatutCompte
 from scolarite.models import (
-    Affectation, AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription, ParentEnAttente, Serie,
+    Affectation, AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription, ParentEnAttente, Periodicite, Serie,
     TypeDocumentVerifiable, VerificationDocument,
     classes_visibles_pour, dossier_complet, eleve_visible_pour, lier_parent_a_eleve,
 )
@@ -87,20 +87,20 @@ class ClasseEtFraisTests(TestCase):
         classe = Classe.objects.create(nom="1ère année A", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
         with self.assertRaises(ValidationError):
             EcheancierFrais.objects.create(
-                classe=classe, montant_inscription=12345, montant_tranche_1=10000, montant_tranche_2=10000,
+                classe=classe, montant_inscription=12345, periodicite=Periodicite.ANNUEL, montant_periode=20000, nombre_versements=1,
             )
 
     def test_frais_eleves_acceptes_sans_plafond(self):
         classe = Classe.objects.create(nom="1ère année B", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
         frais = EcheancierFrais.objects.create(
-            classe=classe, montant_inscription=100000, montant_tranche_1=50000, montant_tranche_2=50000,
+            classe=classe, montant_inscription=100000, periodicite=Periodicite.ANNUEL, montant_periode=100000, nombre_versements=1,
         )
         self.assertEqual(frais.montant_inscription, 100000)
 
     def test_frais_valides_acceptes(self):
         classe = Classe.objects.create(nom="1ère année C", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
         frais = EcheancierFrais.objects.create(
-            classe=classe, montant_inscription=30000, montant_tranche_1=15000, montant_tranche_2=15000,
+            classe=classe, montant_inscription=30000, periodicite=Periodicite.ANNUEL, montant_periode=30000, nombre_versements=1,
         )
         self.assertEqual(frais.total_annuel, 60000)
 
@@ -116,14 +116,14 @@ class ClasseEtFraisTests(TestCase):
 
         # Multiple de 100 (le pas de CET établissement) mais pas de 5000 : accepté.
         frais = EcheancierFrais.objects.create(
-            classe=classe_valide, montant_inscription=300, montant_tranche_1=200, montant_tranche_2=200,
+            classe=classe_valide, montant_inscription=300, periodicite=Periodicite.ANNUEL, montant_periode=400, nombre_versements=1,
         )
         self.assertEqual(frais.total_annuel, 700)
 
         # Pas multiple de 100 : refusé, avec le message qui porte la devise de l'établissement.
         with self.assertRaises(ValidationError) as cm:
             EcheancierFrais.objects.create(
-                classe=classe_invalide, montant_inscription=250, montant_tranche_1=200, montant_tranche_2=200,
+                classe=classe_invalide, montant_inscription=250, periodicite=Periodicite.ANNUEL, montant_periode=400, nombre_versements=1,
             )
         self.assertIn("EUR", str(cm.exception))
 
@@ -303,7 +303,7 @@ class VueCreerClasseTests(TestCase):
         self.client.force_login(self.secretaire)
         reponse = self.client.post(reverse("scolarite:creer_classe"), {
             "nom": "5ème année C", "cycle": Cycle.PREMIER_CYCLE, "annee_scolaire": self.annee.id,
-            "montant_inscription": 30000, "montant_tranche_1": 15000, "montant_tranche_2": 15000,
+            "montant_inscription": 30000, "periodicite": Periodicite.TRIMESTRIEL, "montant_periode": 15000,
         })
         self.assertEqual(reponse.status_code, 302)
         classe = Classe.objects.get(nom="5ème année C")
@@ -314,7 +314,7 @@ class VueCreerClasseTests(TestCase):
         reponse = self.client.post(reverse("scolarite:creer_classe"), {
             "nom": "Terminale A", "cycle": Cycle.LYCEE, "serie": Serie.SCIENCES_EXACTES,
             "annee_scolaire": self.annee.id,
-            "montant_inscription": 30000, "montant_tranche_1": 15000, "montant_tranche_2": 15000,
+            "montant_inscription": 30000, "periodicite": Periodicite.TRIMESTRIEL, "montant_periode": 15000,
         })
         self.assertEqual(reponse.status_code, 302)
         classe = Classe.objects.get(nom="Terminale A")
@@ -325,7 +325,7 @@ class VueCreerClasseTests(TestCase):
         reponse = self.client.post(reverse("scolarite:creer_classe"), {
             "nom": "5ème année D", "cycle": Cycle.PREMIER_CYCLE, "serie": Serie.SCIENCES_EXACTES,
             "annee_scolaire": self.annee.id,
-            "montant_inscription": 30000, "montant_tranche_1": 15000, "montant_tranche_2": 15000,
+            "montant_inscription": 30000, "periodicite": Periodicite.TRIMESTRIEL, "montant_periode": 15000,
         })
         self.assertEqual(reponse.status_code, 200)  # formulaire réaffiché avec erreur
         self.assertFalse(Classe.objects.filter(nom="5ème année D").exists())
@@ -334,7 +334,7 @@ class VueCreerClasseTests(TestCase):
         self.client.force_login(self.secretaire)
         reponse = self.client.post(reverse("scolarite:creer_classe"), {
             "nom": "5ème année D", "cycle": Cycle.PREMIER_CYCLE, "annee_scolaire": self.annee.id,
-            "montant_inscription": 12345, "montant_tranche_1": 15000, "montant_tranche_2": 15000,
+            "montant_inscription": 12345, "periodicite": Periodicite.TRIMESTRIEL, "montant_periode": 15000,
         })
         self.assertFalse(Classe.objects.filter(nom="5ème année D").exists())
 
@@ -343,7 +343,7 @@ class VueCreerClasseTests(TestCase):
         self.client.force_login(self.secretaire)
         self.client.post(reverse("scolarite:creer_classe"), {
             "nom": "5ème année E", "cycle": Cycle.PREMIER_CYCLE, "annee_scolaire": self.annee.id,
-            "montant_inscription": 30000, "montant_tranche_1": 15000, "montant_tranche_2": 15000,
+            "montant_inscription": 30000, "periodicite": Periodicite.TRIMESTRIEL, "montant_periode": 15000,
         })
         self.assertEqual(Classe.objects.filter(nom="5ème année E").count(), 1)
 
@@ -357,7 +357,7 @@ class VueCreerClasseTests(TestCase):
         self.client.force_login(enseignant)
         reponse = self.client.post(reverse("scolarite:creer_classe"), {
             "nom": "5ème année F", "cycle": Cycle.PREMIER_CYCLE, "annee_scolaire": self.annee.id,
-            "montant_inscription": 30000, "montant_tranche_1": 15000, "montant_tranche_2": 15000,
+            "montant_inscription": 30000, "periodicite": Periodicite.TRIMESTRIEL, "montant_periode": 15000,
         })
         self.assertEqual(reponse.status_code, 403)
         self.assertFalse(Classe.objects.filter(nom="5ème année F").exists())
@@ -871,7 +871,7 @@ class DossierEleveTests(TestCase):
         self.annee = creer_annee()
         self.classe = Classe.objects.create(nom="5ème année A", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
         EcheancierFrais.objects.create(
-            classe=self.classe, montant_inscription=10000, montant_tranche_1=10000, montant_tranche_2=10000,
+            classe=self.classe, montant_inscription=10000, periodicite=Periodicite.ANNUEL, montant_periode=20000, nombre_versements=1,
         )
         self.direction = creer_utilisateur_actif("direction-dossier@example.com", Role.FONDATEUR)
         self.eleve = creer_utilisateur_actif("eleve-dossier@example.com", Role.ELEVE)

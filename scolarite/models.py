@@ -155,9 +155,27 @@ class Classe(models.Model):
         return self.inscriptions.filter(statut=Inscription.Statut.EN_COURS).count()
 
 
+class Periodicite(models.TextChoices):
+    MENSUEL = "mensuel", "Mensuel"
+    TRIMESTRIEL = "trimestriel", "Trimestriel"
+    ANNUEL = "annuel", "Annuel"
+
+
+# Nombre de versements (hors inscription) fixé par la périodicité - seul le
+# mensuel se négocie école par école (9 ou 10 sur l'année scolaire) ;
+# trimestriel et annuel découlent directement du calendrier scolaire.
+NOMBRE_VERSEMENTS_FIXE = {
+    Periodicite.TRIMESTRIEL: 3,
+    Periodicite.ANNUEL: 1,
+}
+
+
 class EcheancierFrais(models.Model):
     """
-    Frais de scolarité en 3 tranches pour une classe donnée.
+    Frais de scolarité pour une classe donnée : des frais d'inscription
+    (versés une fois) et un montant par période, répété sur l'année selon
+    la périodicité choisie par l'établissement - les paiements se font en
+    pratique par mois, par trimestre ou en une fois selon l'école.
     Saisie par pas de montant (5000 par défaut, configurable par
     établissement via Etablissement.pas_montant), sans plafond (chaque
     établissement fixe librement ses propres tarifs).
@@ -165,8 +183,15 @@ class EcheancierFrais(models.Model):
 
     classe = models.OneToOneField(Classe, on_delete=models.CASCADE, related_name="echeancier")
     montant_inscription = models.PositiveIntegerField()
-    montant_tranche_1 = models.PositiveIntegerField()
-    montant_tranche_2 = models.PositiveIntegerField()
+    periodicite = models.CharField(max_length=20, choices=Periodicite.choices, default=Periodicite.TRIMESTRIEL)
+    montant_periode = models.PositiveIntegerField(
+        help_text="Montant par mois, par trimestre ou pour l'année selon la périodicité choisie.",
+    )
+    nombre_versements = models.PositiveSmallIntegerField(
+        default=3,
+        help_text="Nombre de versements (hors inscription) sur l'année scolaire : 9 ou 10 pour le "
+                   "mensuel ; fixé automatiquement à 3 pour le trimestriel et 1 pour l'annuel.",
+    )
 
     class Meta:
         verbose_name = "échéancier de frais"
@@ -183,9 +208,14 @@ class EcheancierFrais(models.Model):
 
     def clean(self):
         super().clean()
+        if self.periodicite in NOMBRE_VERSEMENTS_FIXE:
+            self.nombre_versements = NOMBRE_VERSEMENTS_FIXE[self.periodicite]
+        elif self.periodicite == Periodicite.MENSUEL and self.nombre_versements not in (9, 10):
+            raise ValidationError({"nombre_versements": "Un échéancier mensuel compte 9 ou 10 versements."})
+
         pas, devise = self._pas_et_devise()
         erreurs = {}
-        for champ in ["montant_inscription", "montant_tranche_1", "montant_tranche_2"]:
+        for champ in ["montant_inscription", "montant_periode"]:
             valeur = getattr(self, champ, None)
             if valeur is not None and valeur % pas != 0:
                 erreurs[champ] = f"Doit être un multiple de {pas} {devise}."
@@ -198,7 +228,16 @@ class EcheancierFrais(models.Model):
 
     @property
     def total_annuel(self):
-        return self.montant_inscription + self.montant_tranche_1 + self.montant_tranche_2
+        return self.montant_inscription + self.montant_periode * self.nombre_versements
+
+    @property
+    def libelle_periode(self):
+        """Libellé d'un versement périodique (hors inscription), utilisé pour les reçus de paiement."""
+        return {
+            Periodicite.MENSUEL: "Mensualité",
+            Periodicite.TRIMESTRIEL: "Trimestre",
+            Periodicite.ANNUEL: "Année",
+        }[self.periodicite]
 
 
 class Affectation(models.Model):

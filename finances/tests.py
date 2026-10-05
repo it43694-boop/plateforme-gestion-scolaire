@@ -11,7 +11,7 @@ from finances.models import (
     corriger_paiement, enregistrer_paiement, marquer_salaire_paye,
     supprimer_paiement, supprimer_salaire,
 )
-from scolarite.models import AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription
+from scolarite.models import AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription, Periodicite
 
 
 def creer_utilisateur_actif(email, role, **kwargs):
@@ -42,7 +42,7 @@ class CascadePaiementCaisseTests(TestCase):
 
     def test_paiement_cree_automatiquement_une_ligne_de_caisse(self):
         paiement = enregistrer_paiement(
-            eleve=self.eleve, inscription=self.inscription, tranche=TypeTranche.TRANCHE_1,
+            eleve=self.eleve, inscription=self.inscription, tranche=TypeTranche.VERSEMENT,
             montant=15000, mode_paiement="especes", enregistre_par=self.comptable,
         )
         mouvement = paiement.mouvement_caisse
@@ -66,7 +66,7 @@ class CascadePaiementCaisseTests(TestCase):
             montant=5000, mode_paiement="especes", enregistre_par=self.comptable,
         )
         p2 = enregistrer_paiement(
-            eleve=self.eleve, inscription=self.inscription, tranche=TypeTranche.TRANCHE_1,
+            eleve=self.eleve, inscription=self.inscription, tranche=TypeTranche.VERSEMENT,
             montant=5000, mode_paiement="especes", enregistre_par=self.comptable,
         )
         self.assertEqual(p1.reference, f"REC-{annee}-000001")
@@ -102,7 +102,7 @@ class CascadePaiementCaisseTests(TestCase):
 
     def test_correction_paiement_repercutee_sur_la_caisse(self):
         paiement = enregistrer_paiement(
-            eleve=self.eleve, inscription=self.inscription, tranche=TypeTranche.TRANCHE_1,
+            eleve=self.eleve, inscription=self.inscription, tranche=TypeTranche.VERSEMENT,
             montant=15000, mode_paiement="especes", enregistre_par=self.comptable,
         )
         corriger_paiement(paiement=paiement, montant=18000, mode_paiement="mobile_money", acteur=self.comptable)
@@ -112,7 +112,7 @@ class CascadePaiementCaisseTests(TestCase):
 
     def test_suppression_paiement_reservee_a_la_direction(self):
         paiement = enregistrer_paiement(
-            eleve=self.eleve, inscription=self.inscription, tranche=TypeTranche.TRANCHE_2,
+            eleve=self.eleve, inscription=self.inscription, tranche=TypeTranche.VERSEMENT,
             montant=15000, mode_paiement="especes", enregistre_par=self.comptable,
         )
         with self.assertRaises(ValidationError):
@@ -121,7 +121,7 @@ class CascadePaiementCaisseTests(TestCase):
     def test_suppression_par_direction_annule_paiement_et_caisse_sans_effacer(self):
         fondateur = creer_utilisateur_actif("fondateur-fin@example.com", Role.FONDATEUR)
         paiement = enregistrer_paiement(
-            eleve=self.eleve, inscription=self.inscription, tranche=TypeTranche.TRANCHE_2,
+            eleve=self.eleve, inscription=self.inscription, tranche=TypeTranche.VERSEMENT,
             montant=15000, mode_paiement="especes", enregistre_par=self.comptable,
         )
         reference_caisse = paiement.mouvement_caisse.reference
@@ -230,7 +230,7 @@ class VuesFinancesAccesTests(TestCase):
     def test_comptable_peut_enregistrer_un_paiement_via_la_vue(self):
         self.client.force_login(self.comptable)
         reponse = self.client.post(reverse("finances:enregistrer_paiement"), {
-            "matricule_eleve": self.eleve.matricule, "tranche": TypeTranche.TRANCHE_1,
+            "matricule_eleve": self.eleve.matricule, "tranche": TypeTranche.VERSEMENT,
             "montant": 15000, "mode_paiement": "especes",
         })
         self.assertEqual(reponse.status_code, 302)
@@ -244,7 +244,7 @@ class VuesFinancesAccesTests(TestCase):
     def test_suppression_refusee_en_http_pour_non_direction(self):
         paiement = enregistrer_paiement(
             eleve=self.eleve, inscription=Inscription.objects.get(eleve=self.eleve),
-            tranche=TypeTranche.TRANCHE_1, montant=15000, mode_paiement="especes",
+            tranche=TypeTranche.VERSEMENT, montant=15000, mode_paiement="especes",
             enregistre_par=self.comptable,
         )
         self.client.force_login(self.comptable)
@@ -255,7 +255,7 @@ class VuesFinancesAccesTests(TestCase):
         inscription = Inscription.objects.get(eleve=self.eleve)
         for _ in range(30):
             enregistrer_paiement(
-                eleve=self.eleve, inscription=inscription, tranche=TypeTranche.TRANCHE_1,
+                eleve=self.eleve, inscription=inscription, tranche=TypeTranche.VERSEMENT,
                 montant=1000, mode_paiement="especes", enregistre_par=self.comptable,
             )
         self.client.force_login(self.comptable)
@@ -313,7 +313,7 @@ class VuesFinancesAccesTests(TestCase):
     def test_recu_pdf_genere_un_vrai_pdf(self):
         inscription = Inscription.objects.get(eleve=self.eleve)
         paiement = enregistrer_paiement(
-            eleve=self.eleve, inscription=inscription, tranche=TypeTranche.TRANCHE_1,
+            eleve=self.eleve, inscription=inscription, tranche=TypeTranche.VERSEMENT,
             montant=15000, mode_paiement="especes", enregistre_par=self.comptable,
         )
         self.client.force_login(self.comptable)
@@ -329,7 +329,7 @@ class VuesFinancesAccesTests(TestCase):
         autre_comptable = creer_utilisateur_actif("comptable-autre-recu@example.com", Role.COMPTABLE, etablissement=autre_ecole)
         inscription = Inscription.objects.get(eleve=self.eleve)
         paiement = enregistrer_paiement(
-            eleve=self.eleve, inscription=inscription, tranche=TypeTranche.TRANCHE_1,
+            eleve=self.eleve, inscription=inscription, tranche=TypeTranche.VERSEMENT,
             montant=15000, mode_paiement="especes", enregistre_par=self.comptable,
         )
         self.client.force_login(autre_comptable)
@@ -370,11 +370,11 @@ class IsolationInterEtablissementsTests(TestCase):
         self.comptable_b = creer_utilisateur_actif("comptable-b@example.com", Role.COMPTABLE, etablissement=self.ecole_b)
 
         self.paiement_a = enregistrer_paiement(
-            eleve=self.eleve_a, inscription=self.inscription_a, tranche=TypeTranche.TRANCHE_1,
+            eleve=self.eleve_a, inscription=self.inscription_a, tranche=TypeTranche.VERSEMENT,
             montant=15000, mode_paiement="especes", enregistre_par=self.comptable_a,
         )
         self.paiement_b = enregistrer_paiement(
-            eleve=self.eleve_b, inscription=self.inscription_b, tranche=TypeTranche.TRANCHE_1,
+            eleve=self.eleve_b, inscription=self.inscription_b, tranche=TypeTranche.VERSEMENT,
             montant=25000, mode_paiement="especes", enregistre_par=self.comptable_b,
         )
 
@@ -392,7 +392,7 @@ class IsolationInterEtablissementsTests(TestCase):
     def test_comptable_ne_peut_pas_enregistrer_un_paiement_pour_un_eleve_dune_autre_ecole(self):
         self.client.force_login(self.comptable_a)
         reponse = self.client.post(reverse("finances:enregistrer_paiement"), {
-            "matricule_eleve": self.eleve_b.matricule, "tranche": TypeTranche.TRANCHE_1,
+            "matricule_eleve": self.eleve_b.matricule, "tranche": TypeTranche.VERSEMENT,
             "montant": 15000, "mode_paiement": "especes",
         })
         self.assertContains(reponse, "Aucun élève trouvé avec ce matricule")
@@ -432,7 +432,7 @@ class SuiviPaiementsTests(TestCase):
     def setUp(self):
         self.annee, self.classe = creer_annee_et_classe()
         self.echeancier = EcheancierFrais.objects.create(
-            classe=self.classe, montant_inscription=10000, montant_tranche_1=10000, montant_tranche_2=10000,
+            classe=self.classe, montant_inscription=10000, periodicite=Periodicite.ANNUEL, montant_periode=20000, nombre_versements=1,
         )
         self.comptable = creer_utilisateur_actif("comptable-suivi@example.com", Role.COMPTABLE)
 
@@ -443,11 +443,11 @@ class SuiviPaiementsTests(TestCase):
             montant=10000, mode_paiement="especes", enregistre_par=self.comptable,
         )
         enregistrer_paiement(
-            eleve=self.eleve_paye, inscription=inscription_paye, tranche=TypeTranche.TRANCHE_1,
+            eleve=self.eleve_paye, inscription=inscription_paye, tranche=TypeTranche.VERSEMENT,
             montant=10000, mode_paiement="especes", enregistre_par=self.comptable,
         )
         enregistrer_paiement(
-            eleve=self.eleve_paye, inscription=inscription_paye, tranche=TypeTranche.TRANCHE_2,
+            eleve=self.eleve_paye, inscription=inscription_paye, tranche=TypeTranche.VERSEMENT,
             montant=10000, mode_paiement="especes", enregistre_par=self.comptable,
         )
 
@@ -547,7 +547,7 @@ class RelancerImpayesTests(TestCase):
         self.call_command = call_command
         self.annee, self.classe = creer_annee_et_classe()
         self.echeancier = EcheancierFrais.objects.create(
-            classe=self.classe, montant_inscription=10000, montant_tranche_1=10000, montant_tranche_2=10000,
+            classe=self.classe, montant_inscription=10000, periodicite=Periodicite.ANNUEL, montant_periode=20000, nombre_versements=1,
         )
         self.comptable = creer_utilisateur_actif("comptable-relance@example.com", Role.COMPTABLE)
 
@@ -586,7 +586,7 @@ class RelancerImpayesTests(TestCase):
         )
         eleve.parents_lies.add(parent)
         inscription = Inscription.objects.create(eleve=eleve, classe=self.classe)
-        for tranche, montant in [(TypeTranche.INSCRIPTION, 10000), (TypeTranche.TRANCHE_1, 10000), (TypeTranche.TRANCHE_2, 10000)]:
+        for tranche, montant in [(TypeTranche.INSCRIPTION, 10000), (TypeTranche.VERSEMENT, 10000), (TypeTranche.VERSEMENT, 10000)]:
             enregistrer_paiement(
                 eleve=eleve, inscription=inscription, tranche=tranche,
                 montant=montant, mode_paiement="especes", enregistre_par=self.comptable,

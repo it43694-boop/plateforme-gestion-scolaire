@@ -81,7 +81,7 @@ class StatistiquesFinancesTests(TestCase):
             montant=30000, mode_paiement="especes", enregistre_par=comptable,
         )
         enregistrer_paiement(
-            eleve=eleve, inscription=inscription, tranche=TypeTranche.TRANCHE_1,
+            eleve=eleve, inscription=inscription, tranche=TypeTranche.VERSEMENT,
             montant=15000, mode_paiement="especes", enregistre_par=comptable,
         )
 
@@ -117,7 +117,7 @@ class ExportsCsvTests(TestCase):
         eleve = Utilisateur.objects.get(email="eleve-csv-m@example.com")
         inscription = Inscription.objects.get(eleve=eleve)
         enregistrer_paiement(
-            eleve=eleve, inscription=inscription, tranche=TypeTranche.TRANCHE_1,
+            eleve=eleve, inscription=inscription, tranche=TypeTranche.VERSEMENT,
             montant=12000, mode_paiement="especes", enregistre_par=comptable,
         )
         self.client.force_login(comptable)

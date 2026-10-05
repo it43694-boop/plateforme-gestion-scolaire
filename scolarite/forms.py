@@ -4,7 +4,9 @@ from comptes.forms import BootstrapFormMixin
 from comptes.models import Sexe, Utilisateur
 from comptes.roles import Role
 from scolarite.models import PAS_MONTANT as PAS_MONTANT_PAR_DEFAUT
-from scolarite.models import DEVISE_PAR_DEFAUT, AnneeScolaire, Classe, Cycle, EcheancierFrais, Serie
+from scolarite.models import (
+    DEVISE_PAR_DEFAUT, NOMBRE_VERSEMENTS_FIXE, AnneeScolaire, Classe, Cycle, EcheancierFrais, Periodicite, Serie,
+)
 
 
 class CreerClasseForm(BootstrapFormMixin, forms.Form):
@@ -16,23 +18,32 @@ class CreerClasseForm(BootstrapFormMixin, forms.Form):
     )
     annee_scolaire = forms.ModelChoiceField(label="Année scolaire", queryset=AnneeScolaire.objects.none())
     montant_inscription = forms.IntegerField(label="Frais d'inscription", min_value=0)
-    montant_tranche_1 = forms.IntegerField(label="Tranche 1", min_value=0)
-    montant_tranche_2 = forms.IntegerField(label="Tranche 2", min_value=0)
+    periodicite = forms.ChoiceField(label="Périodicité des paiements", choices=Periodicite.choices)
+    montant_periode = forms.IntegerField(label="Montant par période", min_value=0)
+    nombre_versements = forms.IntegerField(
+        label="Nombre de versements (mensuel uniquement)", min_value=1, required=False,
+        help_text="Laisser vide sauf pour le mensuel : 9 ou 10 versements sur l'année scolaire. "
+                   "Fixé automatiquement à 3 pour le trimestriel et 1 pour l'annuel.",
+    )
 
     def __init__(self, *args, etablissement=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.etablissement = etablissement
         self.pas_montant = getattr(etablissement, "pas_montant", PAS_MONTANT_PAR_DEFAUT)
         self.devise = getattr(etablissement, "code_devise", DEVISE_PAR_DEFAUT)
-        for champ in ["montant_inscription", "montant_tranche_1", "montant_tranche_2"]:
+        for champ in ["montant_inscription", "montant_periode"]:
             self.fields[champ].label = f"{self.fields[champ].label} ({self.devise})"
         self.fields["montant_inscription"].help_text = f"Multiple de {self.pas_montant} {self.devise}."
+        self.fields["montant_periode"].help_text = (
+            f"Multiple de {self.pas_montant} {self.devise}. Par mois, par trimestre ou pour l'année "
+            "selon la périodicité choisie ci-dessus."
+        )
         self.fields["annee_scolaire"].queryset = AnneeScolaire.objects.filter(etablissement=etablissement)
         self.fields["annee_scolaire"].initial = AnneeScolaire.active(etablissement)
 
     def clean(self):
         cleaned = super().clean()
-        for champ in ["montant_inscription", "montant_tranche_1", "montant_tranche_2"]:
+        for champ in ["montant_inscription", "montant_periode"]:
             valeur = cleaned.get(champ)
             if valeur is not None and valeur % self.pas_montant != 0:
                 self.add_error(champ, f"Doit être un multiple de {self.pas_montant} {self.devise}.")
@@ -42,6 +53,9 @@ class CreerClasseForm(BootstrapFormMixin, forms.Form):
             self.add_error("nom", "Une classe porte déjà ce nom pour cette année scolaire.")
         if cleaned.get("serie") and cleaned.get("cycle") != Cycle.LYCEE:
             self.add_error("serie", "Une série ne s'applique qu'à une classe du cycle Lycée.")
+        periodicite = cleaned.get("periodicite")
+        if periodicite == Periodicite.MENSUEL and cleaned.get("nombre_versements") not in (9, 10):
+            self.add_error("nombre_versements", "Un échéancier mensuel compte 9 ou 10 versements.")
         return cleaned
 
     def save(self):
@@ -49,11 +63,13 @@ class CreerClasseForm(BootstrapFormMixin, forms.Form):
             nom=self.cleaned_data["nom"], cycle=self.cleaned_data["cycle"],
             serie=self.cleaned_data["serie"], annee_scolaire=self.cleaned_data["annee_scolaire"],
         )
+        periodicite = self.cleaned_data["periodicite"]
         EcheancierFrais.objects.create(
             classe=classe,
             montant_inscription=self.cleaned_data["montant_inscription"],
-            montant_tranche_1=self.cleaned_data["montant_tranche_1"],
-            montant_tranche_2=self.cleaned_data["montant_tranche_2"],
+            periodicite=periodicite,
+            montant_periode=self.cleaned_data["montant_periode"],
+            nombre_versements=NOMBRE_VERSEMENTS_FIXE.get(periodicite) or self.cleaned_data["nombre_versements"],
         )
         return classe
 
