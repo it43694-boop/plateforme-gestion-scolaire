@@ -428,6 +428,110 @@ class IsolationInterEtablissementsTests(TestCase):
         self.assertContains(reponse, "Aucun compte trouvé avec cet email")
 
 
+class IsolationParentPaiementsTests(TestCase):
+    """
+    Correctif de sécurité : un parent n'a accès au module Finances que pour
+    suivre le solde de SES enfants (suivi_paiements était déjà cloisonné
+    ainsi), mais liste_paiements, exporter_recu_paiement_pdf,
+    corriger_paiement_vue, enregistrer_paiement_vue et rechercher_eleve_json
+    ne vérifiaient que l'accès au module, pas le lien parent-élève - un
+    parent authentifié pouvait donc voir, télécharger, corriger ou créer
+    les paiements de n'importe quel élève de l'école, pas seulement les
+    siens. Reproduit ici avec deux familles de la MÊME école (contrairement
+    à IsolationInterEtablissementsTests, qui teste deux écoles).
+    """
+
+    def setUp(self):
+        self.annee, self.classe = creer_annee_et_classe()
+        self.comptable = creer_utilisateur_actif("comptable-isolation-parent@example.com", Role.COMPTABLE)
+
+        self.eleve_a = creer_utilisateur_actif("eleve-famille-a@example.com", Role.ELEVE)
+        self.inscription_a = Inscription.objects.create(eleve=self.eleve_a, classe=self.classe)
+        self.parent_a = creer_utilisateur_actif(
+            "parent-famille-a@example.com", Role.PARENT, telephone="70300001", profession="X",
+        )
+        self.eleve_a.parents_lies.add(self.parent_a)
+
+        self.eleve_b = creer_utilisateur_actif("eleve-famille-b@example.com", Role.ELEVE)
+        self.inscription_b = Inscription.objects.create(eleve=self.eleve_b, classe=self.classe)
+        self.parent_b = creer_utilisateur_actif(
+            "parent-famille-b@example.com", Role.PARENT, telephone="70300002", profession="X",
+        )
+        self.eleve_b.parents_lies.add(self.parent_b)
+
+        self.paiement_a = enregistrer_paiement(
+            eleve=self.eleve_a, inscription=self.inscription_a, tranche=TypeTranche.VERSEMENT,
+            montant=15000, mode_paiement="especes", enregistre_par=self.comptable,
+        )
+        self.paiement_b = enregistrer_paiement(
+            eleve=self.eleve_b, inscription=self.inscription_b, tranche=TypeTranche.VERSEMENT,
+            montant=25000, mode_paiement="especes", enregistre_par=self.comptable,
+        )
+
+    def test_parent_ne_voit_que_les_paiements_de_son_enfant(self):
+        self.client.force_login(self.parent_a)
+        reponse = self.client.get(reverse("finances:liste_paiements"))
+        identifiants = [p.id for p in reponse.context["paiements"]]
+        self.assertIn(self.paiement_a.id, identifiants)
+        self.assertNotIn(self.paiement_b.id, identifiants)
+
+    def test_comptable_voit_les_paiements_des_deux_familles(self):
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("finances:liste_paiements"))
+        identifiants = [p.id for p in reponse.context["paiements"]]
+        self.assertIn(self.paiement_a.id, identifiants)
+        self.assertIn(self.paiement_b.id, identifiants)
+
+    def test_parent_peut_telecharger_le_recu_de_son_enfant(self):
+        self.client.force_login(self.parent_a)
+        reponse = self.client.get(reverse("finances:exporter_recu_paiement_pdf", args=[self.paiement_a.id]))
+        self.assertEqual(reponse.status_code, 200)
+
+    def test_parent_ne_peut_pas_telecharger_le_recu_dun_autre_enfant(self):
+        self.client.force_login(self.parent_a)
+        reponse = self.client.get(reverse("finances:exporter_recu_paiement_pdf", args=[self.paiement_b.id]))
+        self.assertEqual(reponse.status_code, 403)
+
+    def test_parent_ne_peut_pas_enregistrer_un_paiement(self):
+        self.client.force_login(self.parent_a)
+        reponse = self.client.get(reverse("finances:enregistrer_paiement"))
+        self.assertEqual(reponse.status_code, 403)
+        reponse = self.client.post(reverse("finances:enregistrer_paiement"), {
+            "matricule_eleve": self.eleve_a.matricule, "tranche": TypeTranche.VERSEMENT,
+            "montant": 5000, "mode_paiement": "especes",
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.assertEqual(Paiement.objects.filter(eleve=self.eleve_a).count(), 1)  # inchangé
+
+    def test_parent_ne_peut_pas_corriger_un_paiement_meme_de_son_enfant(self):
+        self.client.force_login(self.parent_a)
+        reponse = self.client.get(reverse("finances:corriger_paiement", args=[self.paiement_a.id]))
+        self.assertEqual(reponse.status_code, 403)
+        reponse = self.client.post(reverse("finances:corriger_paiement", args=[self.paiement_a.id]), {
+            "montant": 99999, "mode_paiement": "especes",
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.paiement_a.refresh_from_db()
+        self.assertEqual(self.paiement_a.montant, 15000)  # inchangé
+
+    def test_parent_ne_peut_pas_rechercher_des_eleves(self):
+        self.client.force_login(self.parent_a)
+        reponse = self.client.get(reverse("finances:rechercher_eleve_json"), {"q": "famille"})
+        self.assertEqual(reponse.status_code, 403)
+
+    def test_comptable_peut_toujours_enregistrer_et_corriger(self):
+        """Non-régression : le correctif ne doit pas bloquer la comptabilité elle-même."""
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("finances:enregistrer_paiement"))
+        self.assertEqual(reponse.status_code, 200)
+        reponse = self.client.post(reverse("finances:corriger_paiement", args=[self.paiement_a.id]), {
+            "montant": 18000, "mode_paiement": "especes",
+        })
+        self.assertEqual(reponse.status_code, 302)
+        self.paiement_a.refresh_from_db()
+        self.assertEqual(self.paiement_a.montant, 18000)
+
+
 class SuiviPaiementsTests(TestCase):
     def setUp(self):
         self.annee, self.classe = creer_annee_et_classe()

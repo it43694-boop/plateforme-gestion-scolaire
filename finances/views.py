@@ -24,6 +24,18 @@ def _est_direction(utilisateur) -> bool:
     return utilisateur.role in {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL}
 
 
+def _peut_gerer_les_paiements(utilisateur) -> bool:
+    """
+    Enregistrer un paiement, le corriger, ou rechercher un élève par nom
+    pour ce faire sont des actions administratives (comptabilité/
+    direction) : un parent a accès au module Finances uniquement pour
+    suivre le solde de SES enfants (suivi_paiements, liste_paiements,
+    reçu PDF - tous cloisonnés via eleve_visible_pour), jamais pour agir
+    sur le paiement d'un élève, même le sien.
+    """
+    return utilisateur.role == Role.COMPTABLE.value or _est_direction(utilisateur)
+
+
 # ---------------------------------------------------------------------------
 # Finances (paiements de scolarité)
 # ---------------------------------------------------------------------------
@@ -34,7 +46,13 @@ def rechercher_eleve_json(request):
     Recherche en direct (JS) d'élèves par nom, prénom ou matricule - pour
     les sélectionner sans avoir à déjà connaître leur matricule par cœur
     (voir le champ de recherche sur la page d'enregistrement d'un paiement).
+    Réservé à la comptabilité/direction : sert uniquement à enregistrer un
+    paiement, une action qu'un parent n'a jamais le droit de faire (voir
+    _peut_gerer_les_paiements) - sinon la liste des élèves de l'école
+    entière lui serait exposée, pas seulement les siens.
     """
+    if not _peut_gerer_les_paiements(request.user):
+        raise PermissionDenied("Vous n'avez pas accès à cette recherche.")
     from django.db.models import Q
     from django.http import JsonResponse
     from scolarite.models import Inscription, classes_visibles_pour
@@ -128,6 +146,8 @@ def suivi_paiements(request):
 
 @module_requis(Module.FINANCES)
 def enregistrer_paiement_vue(request):
+    if not _peut_gerer_les_paiements(request.user):
+        raise PermissionDenied("Vous n'avez pas le droit d'enregistrer un paiement.")
     formulaire = EnregistrerPaiementForm(request.POST or None, etablissement=request.user.etablissement)
     if request.method == "POST" and formulaire.is_valid():
         paiement = enregistrer_paiement(
@@ -151,9 +171,13 @@ def enregistrer_paiement_vue(request):
 
 @module_requis(Module.FINANCES)
 def exporter_recu_paiement_pdf(request, paiement_id):
+    from scolarite.models import eleve_visible_pour
+
     paiement = get_object_or_404(
         Paiement, id=paiement_id, est_supprime=False, etablissement=request.user.etablissement,
     )
+    if not eleve_visible_pour(request.user, paiement.eleve):
+        raise PermissionDenied("Vous n'avez pas accès à ce reçu.")
     html = render_to_string("finances/recu_paiement_pdf.html", {"paiement": paiement}, request=request)
 
     reponse = HttpResponse(content_type="application/pdf")
@@ -169,14 +193,19 @@ def liste_paiements(request):
     paiements = Paiement.objects.filter(
         est_supprime=False, etablissement=request.user.etablissement,
     ).select_related("eleve", "inscription__classe")
+    if request.user.role == Role.PARENT:
+        paiements = paiements.filter(eleve__parents_lies=request.user)
     page_obj = Paginator(paiements, 25).get_page(request.GET.get("page"))
     return render(request, "finances/liste_paiements.html", {
         "page_obj": page_obj, "paiements": page_obj.object_list, "est_direction": _est_direction(request.user),
+        "peut_gerer_les_paiements": _peut_gerer_les_paiements(request.user),
     })
 
 
 @module_requis(Module.FINANCES)
 def corriger_paiement_vue(request, paiement_id):
+    if not _peut_gerer_les_paiements(request.user):
+        raise PermissionDenied("Vous n'avez pas le droit de corriger un paiement.")
     paiement = get_object_or_404(
         Paiement, id=paiement_id, est_supprime=False, etablissement=request.user.etablissement,
     )

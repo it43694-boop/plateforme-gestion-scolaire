@@ -10,7 +10,9 @@
             <p>Chaque paiement crée automatiquement sa ligne dans le registre de Caisse.</p>
         </div>
     </div>
+    {% if peut_gerer_les_paiements %}
     <a href="{% url 'finances:enregistrer_paiement' %}" class="btn btn-primary btn-sm">Enregistrer un paiement</a>
+    {% endif %}
 </div>
 <div class="card">
     <div class="card-body">
@@ -30,7 +32,9 @@
                     <td>{{ paiement.date_paiement|date:"d/m/Y H:i" }}</td>
                     <td class="text-end">
                         <a href="{% url 'finances:exporter_recu_paiement_pdf' paiement.id %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Reçu PDF</a>
+                        {% if peut_gerer_les_paiements %}
                         <a href="{% url 'finances:corriger_paiement' paiement.id %}" class="btn btn-sm btn-outline-secondary">Corriger</a>
+                        {% endif %}
                         {% if est_direction %}
                         <form method="post" action="{% url 'finances:supprimer_paiement' paiement.id %}" class="d-inline" data-confirmer="Supprimer ce paiement de {{ paiement.eleve.nom_complet }} ({{ paiement.montant }} {{ etablissement.code_devise|default:"FCFA" }}) ? Cette action est irréversible.">
                             {% csrf_token %}
@@ -45,7 +49,9 @@
         {% else %}
         <div class="etat-vide">
             <p>Aucun paiement enregistré pour le moment.</p>
+            {% if peut_gerer_les_paiements %}
             <a href="{% url 'finances:enregistrer_paiement' %}" class="btn btn-primary btn-sm">Enregistrer le premier paiement</a>
+            {% endif %}
         </div>
         {% endif %}
         {% include "_pagination.html" %}

@@ -1145,11 +1145,58 @@ rôles Censeur/Directeur du 2ème cycle/Directeur du Lycée, et le
 changement de formule depuis l'espace plateforme se répercute
 immédiatement.
 
+## État du projet : Phase 34 — Correctif de sécurité : un parent voyait les paiements de toute l'école
+
+Suite à un audit demandé sur les fuites de données possibles dans
+l'application : un parent, qui a légitimement accès au module Finances
+pour suivre le solde de ses propres enfants, pouvait en réalité accéder
+aux paiements de **n'importe quel élève** de l'établissement.
+
+- **Cause.** `suivi_paiements` (la page normalement utilisée par un
+  parent) filtre bien par `eleve__parents_lies=request.user`, mais cinq
+  autres vues de `finances/views.py` - `liste_paiements`,
+  `exporter_recu_paiement_pdf`, `corriger_paiement_vue`,
+  `enregistrer_paiement_vue`, `rechercher_eleve_json` - ne vérifiaient
+  que l'accès au *module* Finances (partagé avec la comptabilité), pas
+  le lien parent-élève. Un parent authentifié pouvait donc voir, dans la
+  liste brute des paiements, les montants et références de toutes les
+  familles, télécharger le reçu de n'importe quel paiement, et même en
+  **créer un faux** ou en **corriger un existant** pour un élève qui
+  n'est pas le sien.
+- **Correctif.** `liste_paiements` et `exporter_recu_paiement_pdf`
+  restent accessibles à un parent mais strictement cloisonnés à ses
+  propres enfants (même logique que `suivi_paiements`, et
+  `eleve_visible_pour` déjà utilisée ailleurs dans l'application) ;
+  `enregistrer_paiement_vue`, `corriger_paiement_vue` et
+  `rechercher_eleve_json` sont désormais réservées à la comptabilité/
+  direction - un parent n'a jamais de raison d'agir sur un paiement,
+  même le sien. Les boutons correspondants disparaissent aussi de
+  l'interface pour un parent, pas seulement les routes.
+- **Repéré par relecture systématique**, pas par un incident réel :
+  toutes les autres zones de l'application vérifiées (pédagogie,
+  messagerie, assistant IA, bibliothèque) appliquent déjà correctement
+  `eleve_visible_pour`/`classes_visibles_pour`. Un accès en écriture un
+  peu trop large dans la bibliothèque (un élève peut y déposer des
+  documents, pas seulement le bibliothécaire) a aussi été relevé mais
+  laissé en l'état, jugé mineur.
+
+Suite complète (428 tests) verte après ce correctif, avec 8 nouveaux
+tests reproduisant précisément la fuite (deux familles de la même école,
+chacune ne voyant/pouvant agir que sur son propre enfant) pour qu'elle
+ne puisse pas réapparaître sans faire échouer la suite. Vérifié de bout
+en bout (navigateur) : un parent connecté voit désormais uniquement le
+paiement de son enfant dans la liste, sans les boutons Enregistrer/
+Corriger, et un accès direct à l'URL d'enregistrement d'un paiement
+renvoie bien une erreur 403.
+
 ### Ce qui reste ouvert après ces phases
 
-- SMS, WhatsApp et Mobile Money automatisés, tests de charge,
+- SMS et WhatsApp : automatisation volontairement non construite, geré
+  manuellement par choix. Mobile Money automatisé, tests de charge,
   restauration testée uniquement en local, rattrapage, traduction
   bambara : toujours ouverts (voir phases précédentes).
+- Accès en écriture à la bibliothèque un peu trop large (voir Phase 34
+  ci-dessus) : mineur, pas corrigé.
 
 ## Sauvegardes locales (base de données et médias)
 
