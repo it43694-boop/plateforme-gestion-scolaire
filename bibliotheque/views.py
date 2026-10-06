@@ -2,13 +2,14 @@ import io
 import zipfile
 
 from django.contrib import messages
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
+from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
 from comptes.validators import EXTENSIONS_DOCUMENT_AUTORISEES
 from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
@@ -20,21 +21,38 @@ MAX_FICHIERS_PAR_IMPORT = 200
 MAX_TAILLE_FICHIER_OCTETS = 10 * 1024 * 1024
 MAX_TAILLE_TOTALE_OCTETS = 100 * 1024 * 1024
 
+# Un enseignant ou un élève a accès au module Bibliothèque pour CONSULTER
+# le catalogue, pas pour y déposer des documents au nom de l'établissement -
+# réservé au personnel qui la gère (bibliothécaire, direction).
+ROLES_GESTION_BIBLIOTHEQUE = {
+    Role.BIBLIOTHECAIRE.value, Role.DIRECTEUR_1ER_CYCLE.value,
+    Role.DIRECTEUR_2EME_CYCLE.value, Role.DIRECTEUR_LYCEE.value,
+    Role.SUPER_ADMINISTRATEUR.value,
+} | {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL}
+
+
+def _peut_gerer_la_bibliotheque(utilisateur) -> bool:
+    return utilisateur.role in ROLES_GESTION_BIBLIOTHEQUE
+
 
 @module_requis(Module.BIBLIOTHEQUE)
 def liste_documents(request):
+    peut_gerer = _peut_gerer_la_bibliotheque(request.user)
     documents = Document.objects.filter(etablissement=request.user.etablissement)
     page_obj = Paginator(documents, 25).get_page(request.GET.get("page"))
     return render(request, "bibliotheque/liste_documents.html", {
         "page_obj": page_obj, "documents": page_obj.object_list,
-        "formulaire_ajout": AjouterDocumentForm(),
-        "formulaire_import": ImporterZipForm(),
+        "formulaire_ajout": AjouterDocumentForm() if peut_gerer else None,
+        "formulaire_import": ImporterZipForm() if peut_gerer else None,
+        "peut_gerer": peut_gerer,
     })
 
 
 @module_requis(Module.BIBLIOTHEQUE)
 @require_http_methods(["POST"])
 def ajouter_document(request):
+    if not _peut_gerer_la_bibliotheque(request.user):
+        raise PermissionDenied("Vous n'avez pas le droit d'ajouter un document à la bibliothèque.")
     formulaire = AjouterDocumentForm(request.POST, request.FILES)
     if formulaire.is_valid():
         document = formulaire.save(commit=False)
@@ -51,6 +69,8 @@ def ajouter_document(request):
 @module_requis(Module.BIBLIOTHEQUE)
 @require_http_methods(["POST"])
 def importer_zip(request):
+    if not _peut_gerer_la_bibliotheque(request.user):
+        raise PermissionDenied("Vous n'avez pas le droit d'importer des documents dans la bibliothèque.")
     formulaire = ImporterZipForm(request.POST, request.FILES)
     if not formulaire.is_valid():
         messages.error(request, "Import invalide : " + str(formulaire.errors))

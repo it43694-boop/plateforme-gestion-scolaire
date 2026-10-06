@@ -58,6 +58,37 @@ class AccesFailClosedTests(TestCase):
         )
         self.assertTrue(PermissionMatrix.a_acces(Role.SECRETAIRE.value, Module.ELEVES.value, etablissement=etablissement))
 
+    def test_deux_lignes_historiques_sans_etablissement_ne_font_pas_planter_a_acces(self):
+        """
+        SQL ne considère pas deux NULL comme égaux : unique_together
+        ("etablissement", "role", "module") ne peut donc pas empêcher deux
+        lignes « historiques » (etablissement=None) pour le même rôle/
+        module - déjà arrivé en pratique sur une base reconstruite depuis
+        zéro (migrations de données successives y ajoutant chacune une
+        ligne). a_acces() doit répondre, pas lever MultipleObjectsReturned.
+        """
+        # Repart de zéro pour ce couple rôle/module : le seed historique y a
+        # déjà une ligne (etablissement=None, comme toute ligne « globale »
+        # antérieure au multi-établissement) - le bug ne se manifeste que
+        # lorsque plusieurs lignes existent ET s'accordent sur la même
+        # valeur, comme deux migrations de données redondantes l'ont
+        # vraiment produit pour (directeur_lycee, bibliotheque).
+        PermissionMatrix.objects.filter(
+            role=Role.BIBLIOTHECAIRE.value, module=Module.STATISTIQUES.value, etablissement=None,
+        ).delete()
+        PermissionMatrix.objects.create(
+            etablissement=None, role=Role.BIBLIOTHECAIRE.value, module=Module.STATISTIQUES.value, autorise=True,
+        )
+        PermissionMatrix.objects.create(
+            etablissement=None, role=Role.BIBLIOTHECAIRE.value, module=Module.STATISTIQUES.value, autorise=True,
+        )
+        self.assertEqual(
+            PermissionMatrix.objects.filter(
+                role=Role.BIBLIOTHECAIRE.value, module=Module.STATISTIQUES.value, etablissement=None,
+            ).count(), 2,
+        )
+        self.assertTrue(PermissionMatrix.a_acces(Role.BIBLIOTHECAIRE.value, Module.STATISTIQUES.value, etablissement=None))
+
 
 class CloisonnementParEtablissementTests(TestCase):
     """

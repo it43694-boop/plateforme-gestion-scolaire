@@ -47,8 +47,19 @@ def _envoyer_notifications(annonce):
     )
 
 
+ROLES_PUBLICATION_ANNONCE_INTERDITE = {Role.PARENT.value, Role.ELEVE.value}
+
+
 @module_requis(Module.COMMUNICATION)
 def publier_annonce(request):
+    """
+    Un parent ou un élève a accès au module Communication pour RECEVOIR
+    les annonces et échanger avec un enseignant (messagerie), jamais pour
+    publier au nom de l'établissement - seul le personnel (direction,
+    secrétariat, enseignant restreint à sa classe) le peut.
+    """
+    if request.user.role in ROLES_PUBLICATION_ANNONCE_INTERDITE:
+        raise PermissionDenied("Vous n'avez pas le droit de publier une annonce.")
     portees_disponibles = list(Portee) if request.user.role != Role.ENSEIGNANT else [Portee.MA_CLASSE]
     classes_disponibles = classes_visibles_pour(request.user)
 
@@ -86,7 +97,10 @@ def liste_annonces(request):
         classes_des_enfants = request.user.enfants_lies.values_list("inscriptions__classe_id", flat=True)
         annonces = annonces.filter(Q(portee=Portee.TOUTE_ECOLE) | Q(classe_ciblee__in=classes_des_enfants))
     page_obj = Paginator(annonces, 15).get_page(request.GET.get("page"))
-    return render(request, "communication/liste_annonces.html", {"page_obj": page_obj, "annonces": page_obj.object_list})
+    return render(request, "communication/liste_annonces.html", {
+        "page_obj": page_obj, "annonces": page_obj.object_list,
+        "peut_publier": request.user.role not in ROLES_PUBLICATION_ANNONCE_INTERDITE,
+    })
 
 
 # ---------------------------------------------------------------------------

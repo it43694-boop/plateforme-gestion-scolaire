@@ -76,6 +76,35 @@ class PubierAnnonceTests(TestCase):
         self.assertIn(self.eleve.email, destinataires)
         self.assertIn(self.parent.email, destinataires)
 
+    def test_parent_ne_peut_pas_publier_une_annonce(self):
+        """
+        Correctif de sécurité : un parent a accès au module Communication
+        pour RECEVOIR les annonces et échanger avec un enseignant, pas
+        pour publier au nom de l'établissement - publier_annonce ne
+        distinguait pas ce cas (seul l'enseignant était restreint).
+        """
+        self.client.force_login(self.parent)
+        reponse = self.client.get(reverse("communication:publier_annonce"))
+        self.assertEqual(reponse.status_code, 403)
+        reponse = self.client.post(reverse("communication:publier_annonce"), {
+            "titre": "Fausse annonce", "contenu": "Envoyée par un parent", "portee": Portee.TOUTE_ECOLE,
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.assertEqual(Annonce.objects.count(), 0)
+
+    def test_eleve_ne_peut_pas_publier_une_annonce(self):
+        self.client.force_login(self.eleve)
+        reponse = self.client.post(reverse("communication:publier_annonce"), {
+            "titre": "Fausse annonce", "contenu": "Envoyée par un élève", "portee": Portee.TOUTE_ECOLE,
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.assertEqual(Annonce.objects.count(), 0)
+
+    def test_bouton_publier_absent_pour_un_parent(self):
+        self.client.force_login(self.parent)
+        reponse = self.client.get(reverse("communication:liste_annonces"))
+        self.assertNotContains(reponse, "Publier une annonce")
+
     def test_eleve_ne_voit_pas_une_annonce_dune_autre_classe(self):
         autre_classe = Classe.objects.create(nom="6ème année C", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
         Annonce.objects.create(

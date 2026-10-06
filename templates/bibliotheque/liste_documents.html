@@ -10,6 +10,7 @@
     <a href="{% url 'bibliotheque:exporter_zip' %}" class="btn btn-outline-secondary btn-sm" data-telechargement>Exporter toute la bibliothèque (.zip)</a>
 </div>
 <div class="row">
+    {% if peut_gerer %}
     <div class="col-md-4">
         <div class="card mb-3">
             <div class="card-body">
@@ -42,7 +43,8 @@
             </div>
         </div>
     </div>
-    <div class="col-md-8">
+    {% endif %}
+    <div class="{% if peut_gerer %}col-md-8{% else %}col-12{% endif %}">
         <div class="card">
             <div class="card-body">
                 {% if documents %}

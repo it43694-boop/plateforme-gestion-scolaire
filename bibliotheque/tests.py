@@ -84,6 +84,62 @@ class BibliothequeTests(TestCase):
         self.assertEqual(reponse.status_code, 403)
 
 
+class GestionBibliothequeRoleTests(TestCase):
+    """
+    Correctif de sécurité : un enseignant ou un élève a accès au module
+    Bibliothèque pour CONSULTER le catalogue, pas pour y déposer des
+    documents au nom de l'établissement - réservé au personnel qui la
+    gère (bibliothécaire, direction).
+    """
+
+    def setUp(self):
+        self.enseignant = creer_utilisateur_actif("prof-gestion-bib@example.com", Role.ENSEIGNANT)
+        self.eleve = creer_utilisateur_actif("eleve-gestion-bib@example.com", Role.ELEVE)
+        self.directeur = creer_utilisateur_actif("dir-gestion-bib@example.com", Role.DIRECTEUR_LYCEE)
+
+    def test_enseignant_ne_peut_pas_ajouter_un_document(self):
+        self.client.force_login(self.enseignant)
+        fichier = SimpleUploadedFile("cours.pdf", b"contenu pdf factice")
+        reponse = self.client.post(reverse("bibliotheque:ajouter_document"), {
+            "titre": "Cours ajouté par un enseignant", "description": "", "fichier": fichier,
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.assertEqual(Document.objects.count(), 0)
+
+    def test_eleve_ne_peut_pas_ajouter_un_document(self):
+        self.client.force_login(self.eleve)
+        fichier = SimpleUploadedFile("cours.pdf", b"contenu pdf factice")
+        reponse = self.client.post(reverse("bibliotheque:ajouter_document"), {
+            "titre": "Cours ajouté par un élève", "description": "", "fichier": fichier,
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.assertEqual(Document.objects.count(), 0)
+
+    def test_eleve_ne_peut_pas_importer_une_archive(self):
+        self.client.force_login(self.eleve)
+        contenu_zip = creer_zip_en_memoire({"livre1.pdf": b"contenu 1"})
+        archive = SimpleUploadedFile("archive.zip", contenu_zip, content_type="application/zip")
+        reponse = self.client.post(reverse("bibliotheque:importer_zip"), {"archive": archive})
+        self.assertEqual(reponse.status_code, 403)
+        self.assertEqual(Document.objects.count(), 0)
+
+    def test_eleve_peut_toujours_consulter_le_catalogue(self):
+        self.client.force_login(self.eleve)
+        reponse = self.client.get(reverse("bibliotheque:liste_documents"))
+        self.assertEqual(reponse.status_code, 200)
+        self.assertIsNone(reponse.context["formulaire_ajout"])
+        self.assertFalse(reponse.context["peut_gerer"])
+
+    def test_directeur_peut_ajouter_un_document(self):
+        self.client.force_login(self.directeur)
+        fichier = SimpleUploadedFile("cours.pdf", b"contenu pdf factice")
+        reponse = self.client.post(reverse("bibliotheque:ajouter_document"), {
+            "titre": "Cours ajouté par la direction", "description": "", "fichier": fichier,
+        })
+        self.assertEqual(reponse.status_code, 302)
+        self.assertEqual(Document.objects.count(), 1)
+
+
 class IsolationBibliothequeTests(TestCase):
     def test_bibliothecaire_ne_voit_que_les_documents_de_son_ecole(self):
         from etablissement.models import Etablissement

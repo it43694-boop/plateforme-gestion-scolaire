@@ -7,7 +7,9 @@
         <div class="page-header-icone vert">{% icone "cloche" 24 %}</div>
         <div><h1>Annonces</h1></div>
     </div>
+    {% if peut_publier %}
     <a href="{% url 'communication:publier_annonce' %}" class="btn btn-primary btn-sm">Publier une annonce</a>
+    {% endif %}
 </div>
 {% for annonce in annonces %}
 <div class="card mb-3">

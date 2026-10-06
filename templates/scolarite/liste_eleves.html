@@ -10,7 +10,9 @@
             <p>{{ page_obj.paginator.count }} élève{{ page_obj.paginator.count|pluralize }} inscrit{{ page_obj.paginator.count|pluralize }}.</p>
         </div>
     </div>
+    {% if peut_inscrire %}
     <a href="{% url 'scolarite:inscrire_eleve' %}" class="btn btn-primary btn-sm">Inscrire un élève</a>
+    {% endif %}
 </div>
 
 <form method="get" class="mb-3 mw-320">
@@ -49,7 +51,9 @@
         {% else %}
         <div class="etat-vide">
             <p>Aucun élève inscrit pour le moment.</p>
+            {% if peut_inscrire %}
             <a href="{% url 'scolarite:inscrire_eleve' %}" class="btn btn-primary btn-sm">Inscrire le premier élève</a>
+            {% endif %}
         </div>
         {% endif %}
         {% include "_pagination.html" %}

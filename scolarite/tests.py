@@ -571,6 +571,32 @@ class VueInscrireEleveTests(TestCase):
         eleve = Utilisateur.objects.get(role=Role.ELEVE, prenom="Fanta")
         self.assertEqual(eleve.matricule, "MALI-2026-001")
 
+    def test_parent_ne_peut_pas_inscrire_un_eleve(self):
+        """
+        Correctif de sécurité : un parent a accès au module Élèves pour
+        consulter le dossier de son enfant, pas pour en créer un nouveau -
+        le lien était pourtant affiché dans son propre menu (sidebar).
+        """
+        self.client.force_login(self.parent)
+        reponse = self.client.get(reverse("scolarite:inscrire_eleve"))
+        self.assertEqual(reponse.status_code, 403)
+        reponse = self.client.post(reverse("scolarite:inscrire_eleve"), {
+            "prenom": "Faux", "nom": "Eleve", "sexe": "M", "date_naissance": "2016-05-20",
+            "classe": self.classe.id, "parent_email_1": self.parent.email, "parent_email_2": "",
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.assertFalse(Utilisateur.objects.filter(role=Role.ELEVE, prenom="Faux").exists())
+
+    def test_lien_inscrire_un_eleve_absent_du_menu_pour_un_parent(self):
+        self.client.force_login(self.parent)
+        reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"), follow=True)
+        self.assertNotContains(reponse, "Inscrire un élève")
+
+    def test_bouton_inscrire_absent_de_la_page_eleves_pour_un_parent(self):
+        self.client.force_login(self.parent)
+        reponse = self.client.get(reverse("scolarite:liste_eleves"))
+        self.assertNotContains(reponse, "Inscrire un élève")
+
     def test_matricule_manuel_deja_utilise_refuse(self):
         self.client.force_login(self.secretaire)
         self.client.post(reverse("scolarite:inscrire_eleve"), {
@@ -726,6 +752,19 @@ class VueListeElevesTests(TestCase):
     def test_directeur_de_cycle_ne_voit_que_son_cycle(self):
         directeur_2eme = creer_utilisateur_actif("dir2-liste-eleves@example.com", Role.DIRECTEUR_2EME_CYCLE)
         self.client.force_login(directeur_2eme)
+        reponse = self.client.get(reverse("scolarite:liste_eleves"))
+        eleves = [i.eleve for i in reponse.context["inscriptions"]]
+        self.assertEqual(eleves, [self.eleve_2])
+
+    def test_parent_ne_voit_que_ses_enfants(self):
+        """
+        Correctif de sécurité : liste_eleves ne filtrait pas par parent,
+        contrairement à sa vue sœur recherche_globale (qui, elle, l'a
+        toujours fait) - un parent voyait donc tous les élèves de l'école.
+        """
+        parent = creer_utilisateur_actif("parent-liste-eleves@example.com", Role.PARENT, telephone="+22370000098")
+        self.eleve_2.parents_lies.add(parent)
+        self.client.force_login(parent)
         reponse = self.client.get(reverse("scolarite:liste_eleves"))
         eleves = [i.eleve for i in reponse.context["inscriptions"]]
         self.assertEqual(eleves, [self.eleve_2])

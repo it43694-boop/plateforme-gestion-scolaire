@@ -46,14 +46,20 @@ class PermissionMatrix(models.Model):
         """
         Point d'entrée unique pour vérifier un accès. À utiliser partout
         dans l'application plutôt que de coder les règles en dur.
+
+        Filtre puis prend la première ligne plutôt qu'un get() : avec
+        etablissement=None, SQL ne considère pas deux NULL comme égaux,
+        donc unique_together ("etablissement", "role", "module") ne peut
+        pas empêcher deux lignes "historiques" (sans établissement) pour
+        le même rôle/module - un get() lèverait alors MultipleObjectsReturned
+        au lieu de répondre simplement par l'autorisation trouvée.
         """
         if role in {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL}:
             return True
-        try:
-            regle = cls.objects.get(role=role, module=module, etablissement=etablissement)
-            return regle.autorise
-        except cls.DoesNotExist:
-            return False
+        return bool(
+            cls.objects.filter(role=role, module=module, etablissement=etablissement)
+            .values_list("autorise", flat=True).first()
+        )
 
     @classmethod
     def modules_autorises(cls, role: str, etablissement=None) -> list[str]:

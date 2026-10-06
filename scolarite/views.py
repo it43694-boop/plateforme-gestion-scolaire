@@ -17,9 +17,17 @@ from scolarite.models import (
 
 DOMAINE_EMAIL_AUTO_ELEVE = "eleves.local"
 
+# Un parent ou un élève a accès au module Élèves pour consulter son
+# propre dossier (ou celui de son enfant), jamais pour en créer un
+# nouveau - réservé au personnel (direction, secrétariat).
+ROLES_INSCRIPTION_ELEVE_INTERDITE = {Role.PARENT.value, Role.ELEVE.value}
+
 
 @module_requis(Module.ELEVES)
 def inscrire_eleve(request):
+    from django.core.exceptions import PermissionDenied
+    if request.user.role in ROLES_INSCRIPTION_ELEVE_INTERDITE:
+        raise PermissionDenied("Vous n'avez pas le droit d'inscrire un élève.")
     from django.db import transaction
 
     classes_disponibles = classes_visibles_pour(request.user)
@@ -260,6 +268,8 @@ def liste_eleves(request):
     inscriptions = Inscription.objects.filter(
         classe__in=classes, statut=Inscription.Statut.EN_COURS,
     ).select_related("eleve", "classe", "classe__annee_scolaire").order_by("classe__nom", "eleve__nom")
+    if request.user.role == Role.PARENT:
+        inscriptions = inscriptions.filter(eleve__parents_lies=request.user)
     if classe_id:
         inscriptions = inscriptions.filter(classe_id=classe_id)
 
@@ -269,6 +279,7 @@ def liste_eleves(request):
         "classes": classes, "classe_id": classe_id,
         "peut_voir_bulletin": PermissionMatrix.a_acces(request.user.role, "notes_bulletins", etablissement=request.user.etablissement),
         "peut_voir_absences": PermissionMatrix.a_acces(request.user.role, "absences", etablissement=request.user.etablissement),
+        "peut_inscrire": request.user.role not in ROLES_INSCRIPTION_ELEVE_INTERDITE,
     })
 
 

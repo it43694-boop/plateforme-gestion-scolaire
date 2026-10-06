@@ -58,7 +58,8 @@ def navigation(request):
     eleves_classes = []
     if "eleves" in modules_autorises:
         eleves_classes.append({"label": "Élèves", "url": "scolarite:liste_eleves"})
-        eleves_classes.append({"label": "Inscrire un élève", "url": "scolarite:inscrire_eleve"})
+        if role not in {Role.PARENT.value, Role.ELEVE.value}:
+            eleves_classes.append({"label": "Inscrire un élève", "url": "scolarite:inscrire_eleve"})
     if "classes" in modules_autorises:
         eleves_classes.append({"label": "Classes", "url": "scolarite:liste_classes"})
         eleves_classes.append({"label": "Matières", "url": "scolarite:liste_matieres"})

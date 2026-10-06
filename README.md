@@ -1189,14 +1189,57 @@ paiement de son enfant dans la liste, sans les boutons Enregistrer/
 Corriger, et un accès direct à l'URL d'enregistrement d'un paiement
 renvoie bien une erreur 403.
 
+## État du projet : Phase 35 — Suite de l'audit de sécurité : quatre fuites supplémentaires corrigées
+
+En poursuivant l'audit de la Phase 34 sur le reste de l'application, même
+schéma de bug retrouvé à quatre autres endroits : un module de permission
+accordé à un rôle pour un usage de LECTURE restreinte (son propre dossier,
+consulter un catalogue...) sans que la vue distingue ce rôle d'un rôle
+d'ADMINISTRATION ayant le même module pour un usage plus large.
+
+- **Bibliothèque.** Un enseignant ou un élève (accès au module pour
+  consulter le catalogue) pouvait déposer des documents au nom de
+  l'établissement via `ajouter_document`/`importer_zip`, aucune vérification
+  de rôle au-delà du module. Désormais réservé au bibliothécaire et à la
+  direction ; les formulaires de dépôt disparaissent aussi de la page pour
+  les autres.
+- **Liste des élèves.** `liste_eleves` ne filtrait pas par parent,
+  contrairement à sa vue sœur `recherche_globale` (qui l'a toujours fait) :
+  un parent voyait tous les élèves de l'école, pas seulement les siens. Le
+  bouton « Inscrire un élève » était même affiché dans son propre menu et
+  directement sur la page - un parent ou un élève pouvait donc créer de
+  nouveaux comptes élèves. Les deux sont corrigés : liste cloisonnée au(x)
+  enfant(s) du parent, inscription réservée au personnel.
+- **Annonces.** Le cas le plus sérieux : `publier_annonce` ne restreignait
+  que l'enseignant (à sa classe) ; un parent ou un élève, qui n'a le module
+  Communication que pour RECEVOIR les annonces et échanger avec un
+  enseignant, pouvait en réalité publier une annonce à « Toute l'école »,
+  déclenchant un email à tout le monde - avec un bouton « Publier une
+  annonce » directement visible sur la page qu'il consulte normalement.
+  Publication désormais réservée au personnel.
+- **Robustesse de `PermissionMatrix.a_acces`.** Trouvé en écrivant les
+  tests du correctif bibliothèque, sans rapport avec une fuite : sur une
+  base reconstruite depuis zéro (migrations de données successives),
+  `role="directeur_lycee"` pouvait avoir deux lignes de permission
+  « historiques » (`etablissement=None`) pour le même module - SQL ne
+  considère pas deux NULL comme égaux, `unique_together` ne peut donc pas
+  l'empêcher. La vérification utilisait `.get()`, qui plantait
+  (`MultipleObjectsReturned`) au lieu de simplement répondre ; remplacé par
+  un `.filter().first()` qui tolère les doublons.
+
+Suite complète (441 tests) verte après ces quatre correctifs, avec un
+nouveau test par scénario reproduisant exactement la fuite trouvée (accès
+direct ET visibilité du bouton dans la page, pas seulement la route).
+Vérifié de bout en bout (navigateur) : un parent et un élève ne voient
+plus aucun des boutons concernés, et un accès direct aux URLs renvoie
+bien une erreur 403.
+
 ### Ce qui reste ouvert après ces phases
 
 - SMS et WhatsApp : automatisation volontairement non construite, geré
   manuellement par choix. Mobile Money automatisé, tests de charge,
   restauration testée uniquement en local, rattrapage, traduction
   bambara : toujours ouverts (voir phases précédentes).
-- Accès en écriture à la bibliothèque un peu trop large (voir Phase 34
-  ci-dessus) : mineur, pas corrigé.
 
 ## Sauvegardes locales (base de données et médias)
 
