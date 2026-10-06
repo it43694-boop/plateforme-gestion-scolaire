@@ -51,6 +51,8 @@ class Annonce(models.Model):
             raise ValidationError("Une annonce « toute l'école » ne cible pas de classe précise.")
         if self.auteur_id and self.auteur.role == Role.ENSEIGNANT and self.portee == Portee.TOUTE_ECOLE:
             raise ValidationError("Un enseignant ne peut pas diffuser une annonce à toute l'école.")
+        if self.auteur_id and self.auteur.role in {Role.PARENT, Role.ELEVE}:
+            raise ValidationError("Un parent ou un élève ne peut pas publier d'annonce.")
         if self.classe_ciblee_id and self.etablissement_id:
             if self.classe_ciblee.annee_scolaire.etablissement_id != self.etablissement_id:
                 raise ValidationError("L'annonce et la classe ciblée doivent appartenir au même établissement.")

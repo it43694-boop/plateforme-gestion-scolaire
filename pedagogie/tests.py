@@ -90,6 +90,66 @@ class SaisieNoteTests(TestCase):
         with self.assertRaises(ValidationError):
             saisir_note(eleve=autre_eleve, affectation=self.affectation, trimestre=Trimestre.T1, note_classe=12, enseignant=self.enseignant)
 
+    def test_un_parent_ne_peut_pas_saisir_de_note(self):
+        """
+        Correctif de sécurité : seul le rôle Enseignant était restreint à
+        sa propre affectation ; un parent ou un élève (qui ont accès au
+        module Notes/Bulletins pour consulter, pas pour noter) pouvaient
+        saisir une note pour n'importe quel élève de l'école.
+        """
+        parent = creer_utilisateur_actif("parent-note@example.com", Role.PARENT, telephone="70700001", profession="X")
+        with self.assertRaises(ValidationError):
+            saisir_note(eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1, note_classe=20, enseignant=parent)
+
+    def test_un_eleve_ne_peut_pas_se_noter_lui_meme(self):
+        with self.assertRaises(ValidationError):
+            saisir_note(eleve=self.eleve, affectation=self.affectation, trimestre=Trimestre.T1, note_classe=20, enseignant=self.eleve)
+
+
+class SaisirNoteVueTests(TestCase):
+    def setUp(self):
+        self.annee, self.classe = creer_contexte_classe()
+        self.enseignant = creer_utilisateur_actif("prof-vue-note@example.com", Role.ENSEIGNANT)
+        self.affectation = Affectation.objects.create(
+            enseignant=self.enseignant, classe=self.classe, matiere="Mathématiques",
+        )
+        self.eleve = creer_utilisateur_actif("eleve-vue-note@example.com", Role.ELEVE)
+        Inscription.objects.create(eleve=self.eleve, classe=self.classe)
+
+    def test_enseignant_affecte_peut_saisir_une_note_via_la_vue(self):
+        self.client.force_login(self.enseignant)
+        reponse = self.client.post(reverse("pedagogie:saisir_note", args=[self.affectation.id]), {
+            "matricule_eleve": self.eleve.matricule, "trimestre": Trimestre.T1, "note_classe": 14,
+        })
+        self.assertEqual(reponse.status_code, 302)
+        self.assertEqual(Note.objects.get(eleve=self.eleve, affectation=self.affectation).valeur, 14)
+
+    def test_parent_ne_peut_pas_saisir_une_note(self):
+        """
+        Correctif de sécurité : un parent (accès au module Notes/Bulletins
+        pour consulter le bulletin de son enfant) pouvait en réalité
+        saisir une note pour n'importe quel élève de n'importe quelle
+        classe de l'école.
+        """
+        parent = creer_utilisateur_actif("parent-vue-note@example.com", Role.PARENT, telephone="70700002", profession="X")
+        self.eleve.parents_lies.add(parent)
+        self.client.force_login(parent)
+        reponse = self.client.get(reverse("pedagogie:saisir_note", args=[self.affectation.id]))
+        self.assertEqual(reponse.status_code, 403)
+        reponse = self.client.post(reverse("pedagogie:saisir_note", args=[self.affectation.id]), {
+            "matricule_eleve": self.eleve.matricule, "trimestre": Trimestre.T1, "note_classe": 20,
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.assertFalse(Note.objects.filter(eleve=self.eleve, affectation=self.affectation).exists())
+
+    def test_eleve_ne_peut_pas_se_noter_lui_meme_via_la_vue(self):
+        self.client.force_login(self.eleve)
+        reponse = self.client.post(reverse("pedagogie:saisir_note", args=[self.affectation.id]), {
+            "matricule_eleve": self.eleve.matricule, "trimestre": Trimestre.T1, "note_classe": 20,
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.assertFalse(Note.objects.filter(eleve=self.eleve, affectation=self.affectation).exists())
+
 
 class BulletinPondereTests(TestCase):
     """
@@ -271,6 +331,29 @@ class AbsenceTests(TestCase):
     def test_enseignant_non_affecte_ne_peut_pas_saisir(self):
         exterieur = creer_utilisateur_actif("exterieur-abs@example.com", Role.ENSEIGNANT)
         self.client.force_login(exterieur)
+        reponse = self.client.get(reverse("pedagogie:saisir_absence", args=[self.classe.id]))
+        self.assertEqual(reponse.status_code, 403)
+
+    def test_parent_ne_peut_pas_saisir_une_absence(self):
+        """
+        Correctif de sécurité : un parent (accès au module Absences pour
+        consulter l'historique de son enfant) pouvait en réalité saisir
+        une absence pour n'importe quel élève de n'importe quelle classe.
+        """
+        parent = creer_utilisateur_actif("parent-saisie-abs@example.com", Role.PARENT, telephone="70200003", profession="X")
+        self.eleve.parents_lies.add(parent)
+        self.client.force_login(parent)
+        reponse = self.client.get(reverse("pedagogie:saisir_absence", args=[self.classe.id]))
+        self.assertEqual(reponse.status_code, 403)
+        reponse = self.client.post(reverse("pedagogie:saisir_absence", args=[self.classe.id]), {
+            "matricule_eleve": self.eleve.matricule, "date_absence": "2026-11-10",
+            "justifiee": "on", "motif": "Faux",
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.assertFalse(Absence.objects.filter(eleve=self.eleve).exists())
+
+    def test_eleve_ne_peut_pas_saisir_une_absence(self):
+        self.client.force_login(self.eleve)
         reponse = self.client.get(reverse("pedagogie:saisir_absence", args=[self.classe.id]))
         self.assertEqual(reponse.status_code, 403)
 

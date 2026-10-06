@@ -1265,6 +1265,43 @@ l'ordre après sélection de l'élève, un paiement couvrant janvier et mars
 (non consécutifs) s'enregistre et s'affiche correctement dans la liste
 et sur le reçu.
 
+## État du projet : Phase 37 — Correctif de sécurité critique : un élève pouvait se donner ses propres notes
+
+En poursuivant l'audit de sécurité par rôle : un élève - ou un parent -
+pouvait saisir une note ou une absence pour n'importe quel élève de
+l'école, y compris lui-même. Le plus sérieux des correctifs trouvés
+jusqu'ici.
+
+- **Cause.** `saisir_note_vue`, `saisir_absence_vue` et la fonction
+  `pedagogie.models.saisir_note` ne restreignaient que le rôle
+  Enseignant (« doit être affecté à cette classe/matière ») - un parent
+  ou un élève, qui ont accès aux modules Notes/Bulletins et Absences
+  uniquement pour CONSULTER (leur bulletin, celui de leur enfant),
+  passaient ce test sans aucune restriction puisqu'ils ne sont pas
+  Enseignant. Un élève connecté pouvait ainsi se rendre directement sur
+  l'URL de saisie d'une note, pour n'importe quelle matière de
+  n'importe quelle classe, et s'attribuer 20/20 - ou modifier/falsifier
+  les absences de n'importe qui.
+- **Correctif, à double verrou.** Les deux vues refusent désormais
+  explicitement un parent ou un élève (403), et `saisir_note()` fait de
+  même indépendamment de la vue qui l'appelle - en cas d'un futur appel
+  direct à cette fonction ailleurs dans le code, la règle s'applique
+  quand même. Par précaution, le même verrou a été ajouté au modèle
+  `Annonce` (déjà corrigé en vue à la Phase 35), qui ne restreignait
+  que l'enseignant de la même façon.
+- **Balayage complet.** Chaque vue de l'application gardée par les
+  modules Notes/Bulletins, Absences, Élèves, Communication, Emploi du
+  temps, Bibliothèque et Finances (tous ceux qu'un parent ou un élève
+  peut avoir) a été relue une à une : plus aucune ne permet d'agir
+  au-delà de la consultation de ses propres données.
+
+Suite complète (457 tests) verte après ce correctif, avec de nouveaux
+tests reproduisant exactement la faille (un élève tente de se noter
+lui-même, un parent tente de saisir une note/absence pour son enfant -
+refusés dans les deux cas). Vérifié de bout en bout (navigateur) :
+tentative de l'attaque réelle depuis un compte élève - 403 à chaque
+fois - pendant que l'enseignant affecté garde un accès normal.
+
 ### Ce qui reste ouvert après ces phases
 
 - SMS et WhatsApp : automatisation volontairement non construite, geré

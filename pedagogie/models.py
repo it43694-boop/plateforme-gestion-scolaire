@@ -112,6 +112,8 @@ def saisir_note(*, eleve, affectation, trimestre, enseignant, note_classe=None, 
     jamais de doublon. La moyenne de la matière (valeur) se recalcule
     automatiquement à chaque appel (voir _moyenne_matiere).
     """
+    if enseignant.role in {Role.PARENT, Role.ELEVE}:
+        raise ValidationError("Ce rôle ne peut pas saisir de note.")
     if enseignant.role == Role.ENSEIGNANT and affectation.enseignant_id != enseignant.id:
         raise ValidationError("Vous n'êtes pas l'enseignant affecté à cette matière pour cette classe.")
     if note_classe is None and note_composition is None:

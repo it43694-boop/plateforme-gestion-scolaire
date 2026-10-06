@@ -104,8 +104,21 @@ def mes_classes(request):
     return render(request, "pedagogie/mes_classes.html", {"affectations": affectations})
 
 
+ROLES_SAISIE_NOTE_INTERDITE = {Role.PARENT.value, Role.ELEVE.value}
+
+
 @module_requis(Module.NOTES_BULLETINS)
 def saisir_note_vue(request, affectation_id):
+    """
+    Un parent ou un élève a accès au module Notes/Bulletins pour
+    CONSULTER son propre bulletin (ou celui de son enfant), jamais pour
+    saisir une note au nom d'un enseignant - le garde-fou ci-dessous ne
+    visait jusqu'ici que l'enseignant (restreint à sa propre affectation),
+    sans exclure ces deux rôles, qui pouvaient donc noter n'importe quel
+    élève de l'école (voir aussi pedagogie.models.saisir_note).
+    """
+    if request.user.role in ROLES_SAISIE_NOTE_INTERDITE:
+        raise PermissionDenied("Vous n'avez pas le droit de saisir une note.")
     affectation = get_object_or_404(
         Affectation,
         id=affectation_id,
@@ -354,8 +367,18 @@ def verifier_bulletin(request, jeton):
 # Absences
 # ---------------------------------------------------------------------------
 
+ROLES_SAISIE_ABSENCE_INTERDITE = {Role.PARENT.value, Role.ELEVE.value}
+
+
 @module_requis(Module.ABSENCES)
 def saisir_absence_vue(request, classe_id):
+    """
+    Même garde-fou manquant que saisir_note_vue : un parent ou un élève a
+    accès au module Absences pour CONSULTER son propre historique (ou
+    celui de son enfant), jamais pour en saisir au nom d'un enseignant.
+    """
+    if request.user.role in ROLES_SAISIE_ABSENCE_INTERDITE:
+        raise PermissionDenied("Vous n'avez pas le droit de saisir une absence.")
     classe = get_object_or_404(classes_visibles_pour(request.user), id=classe_id)
     if request.user.role == Role.ENSEIGNANT and not Affectation.objects.filter(
         enseignant=request.user, classe=classe,
