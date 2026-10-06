@@ -26,7 +26,10 @@
                 <tr>
                     <td>{{ paiement.reference }}</td>
                     <td>{{ paiement.eleve.nom_complet }} <span class="texte-matricule">({{ paiement.eleve.matricule }})</span></td>
-                    <td>{{ paiement.get_tranche_display }}</td>
+                    <td>
+                        {{ paiement.get_tranche_display }}
+                        {% if paiement.periodes_couvertes %}<br><span class="texte-secondaire">{{ paiement.periodes_couvertes|join:", " }}</span>{% endif %}
+                    </td>
                     <td class="text-end montant-val">{{ paiement.montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
                     <td>{{ paiement.get_mode_paiement_display }}</td>
                     <td>{{ paiement.date_paiement|date:"d/m/Y H:i" }}</td>

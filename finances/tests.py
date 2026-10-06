@@ -532,6 +532,71 @@ class IsolationParentPaiementsTests(TestCase):
         self.assertEqual(self.paiement_a.montant, 18000)
 
 
+class PeriodesCouvertesTests(TestCase):
+    """
+    Une famille peut régler n'importe quelle combinaison de mois (pas
+    forcément consécutifs) en un seul versement - periodes_eleve_json
+    propose les mois valides de l'échéancier de la classe, et
+    enregistrer_paiement_vue refuse tout mois hors de cette liste.
+    """
+
+    def setUp(self):
+        self.annee, self.classe = creer_annee_et_classe()
+        EcheancierFrais.objects.create(
+            classe=self.classe, montant_inscription=20000, periodicite=Periodicite.MENSUEL,
+            montant_periode=5000, nombre_versements=9,
+        )
+        self.eleve = creer_utilisateur_actif("eleve-periodes@example.com", Role.ELEVE)
+        Inscription.objects.create(eleve=self.eleve, classe=self.classe)
+        self.comptable = creer_utilisateur_actif("comptable-periodes@example.com", Role.COMPTABLE)
+        self.parent = creer_utilisateur_actif(
+            "parent-periodes@example.com", Role.PARENT, telephone="70600001", profession="X",
+        )
+
+    def test_periodes_eleve_json_renvoie_les_mois_de_lecheancier(self):
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("finances:periodes_eleve_json"), {"matricule": self.eleve.matricule})
+        self.assertEqual(reponse.json()["periodes"][0], "Octobre 2026")
+        self.assertEqual(len(reponse.json()["periodes"]), 9)
+
+    def test_periodes_eleve_json_refuse_pour_un_parent(self):
+        self.client.force_login(self.parent)
+        reponse = self.client.get(reverse("finances:periodes_eleve_json"), {"matricule": self.eleve.matricule})
+        self.assertEqual(reponse.status_code, 403)
+
+    def test_enregistrer_un_paiement_avec_deux_mois_non_consecutifs(self):
+        self.client.force_login(self.comptable)
+        reponse = self.client.post(reverse("finances:enregistrer_paiement"), {
+            "matricule_eleve": self.eleve.matricule, "tranche": TypeTranche.VERSEMENT,
+            "montant": 10000, "mode_paiement": "especes",
+            "periodes": ["Janvier 2027", "Mars 2027"],
+        })
+        self.assertEqual(reponse.status_code, 302)
+        paiement = Paiement.objects.get(eleve=self.eleve)
+        self.assertEqual(paiement.periodes_couvertes, ["Janvier 2027", "Mars 2027"])
+
+    def test_mois_hors_echeancier_refuse(self):
+        self.client.force_login(self.comptable)
+        reponse = self.client.post(reverse("finances:enregistrer_paiement"), {
+            "matricule_eleve": self.eleve.matricule, "tranche": TypeTranche.VERSEMENT,
+            "montant": 5000, "mode_paiement": "especes",
+            "periodes": ["Décembre 2099"],
+        })
+        self.assertEqual(reponse.status_code, 200)  # formulaire réaffiché avec erreur
+        self.assertFalse(Paiement.objects.filter(eleve=self.eleve).exists())
+
+    def test_reçu_se_genere_avec_des_mois_couverts(self):
+        paiement = enregistrer_paiement(
+            eleve=self.eleve, inscription=Inscription.objects.get(eleve=self.eleve),
+            tranche=TypeTranche.VERSEMENT, montant=5000, mode_paiement="especes",
+            enregistre_par=self.comptable, periodes_couvertes=["Mai 2027", "Juin 2027"],
+        )
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("finances:exporter_recu_paiement_pdf", args=[paiement.id]))
+        self.assertEqual(reponse.status_code, 200)
+        self.assertTrue(reponse.content.startswith(b"%PDF"))
+
+
 class SuiviPaiementsTests(TestCase):
     def setUp(self):
         self.annee, self.classe = creer_annee_et_classe()

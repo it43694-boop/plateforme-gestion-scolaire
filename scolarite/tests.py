@@ -128,6 +128,54 @@ class ClasseEtFraisTests(TestCase):
         self.assertIn("EUR", str(cm.exception))
 
 
+class LibellesPeriodesTests(TestCase):
+    """
+    EcheancierFrais.libelles_periodes() : les mois/trimestres exacts
+    qu'un versement de scolarité peut couvrir, pour les cocher un par un
+    à l'enregistrement d'un paiement (une famille peut en régler
+    n'importe quelle combinaison, pas forcément consécutive).
+    """
+
+    def setUp(self):
+        self.annee = creer_annee()  # 2026-10-01 -> 2027-07-31
+
+    def test_mensuel_part_du_debut_de_lannee_scolaire(self):
+        classe = Classe.objects.create(nom="1ère année A", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
+        frais = EcheancierFrais.objects.create(
+            classe=classe, montant_inscription=20000, periodicite=Periodicite.MENSUEL,
+            montant_periode=5000, nombre_versements=9,
+        )
+        self.assertEqual(frais.libelles_periodes(), [
+            "Octobre 2026", "Novembre 2026", "Décembre 2026", "Janvier 2027", "Février 2027",
+            "Mars 2027", "Avril 2027", "Mai 2027", "Juin 2027",
+        ])
+
+    def test_mensuel_dix_versements(self):
+        classe = Classe.objects.create(nom="1ère année B", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
+        frais = EcheancierFrais.objects.create(
+            classe=classe, montant_inscription=20000, periodicite=Periodicite.MENSUEL,
+            montant_periode=5000, nombre_versements=10,
+        )
+        self.assertEqual(frais.libelles_periodes()[-1], "Juillet 2027")
+        self.assertEqual(len(frais.libelles_periodes()), 10)
+
+    def test_trimestriel_renvoie_les_trois_trimestres(self):
+        classe = Classe.objects.create(nom="1ère année C", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
+        frais = EcheancierFrais.objects.create(
+            classe=classe, montant_inscription=20000, periodicite=Periodicite.TRIMESTRIEL,
+            montant_periode=15000, nombre_versements=3,
+        )
+        self.assertEqual(frais.libelles_periodes(), ["1er trimestre", "2ème trimestre", "3ème trimestre"])
+
+    def test_annuel_ne_renvoie_rien(self):
+        classe = Classe.objects.create(nom="1ère année D", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
+        frais = EcheancierFrais.objects.create(
+            classe=classe, montant_inscription=20000, periodicite=Periodicite.ANNUEL,
+            montant_periode=50000, nombre_versements=1,
+        )
+        self.assertEqual(frais.libelles_periodes(), [])
+
+
 class PlanEtablissementTests(TestCase):
     """
     Un établissement n'est pas censé pouvoir créer une classe, ni attribuer

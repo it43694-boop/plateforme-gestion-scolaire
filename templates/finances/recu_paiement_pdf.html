@@ -25,6 +25,9 @@
         <tr><td class="libelle">Élève</td><td class="valeur">{{ paiement.eleve.nom_complet }} ({{ paiement.eleve.matricule }})</td></tr>
         <tr><td class="libelle">Classe</td><td class="valeur">{{ paiement.inscription.classe }}</td></tr>
         <tr><td class="libelle">Échéance réglée</td><td class="valeur">{{ paiement.get_tranche_display }}</td></tr>
+        {% if paiement.periodes_couvertes %}
+        <tr><td class="libelle">Mois couverts</td><td class="valeur">{{ paiement.periodes_couvertes|join:", " }}</td></tr>
+        {% endif %}
         <tr><td class="libelle">Mode de paiement</td><td class="valeur">{{ paiement.get_mode_paiement_display }}</td></tr>
         <tr><td class="libelle">Date</td><td class="valeur">{{ paiement.date_paiement|date:"d/m/Y à H:i" }}</td></tr>
         <tr><td class="libelle">Enregistré par</td><td class="valeur">{{ paiement.enregistre_par.nom_complet|default:"-" }}</td></tr>

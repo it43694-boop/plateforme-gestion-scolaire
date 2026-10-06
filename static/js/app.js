@@ -107,6 +107,7 @@ document.addEventListener("DOMContentLoaded", function () {
                                 cible.value = item[cleValeur];
                                 champRecherche.value = item[cleAffichage];
                                 masquerResultats();
+                                cible.dispatchEvent(new Event("change"));
                             });
                             conteneurResultats.appendChild(ligne);
                         });
@@ -116,6 +117,45 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         document.addEventListener("click", function (evenement) {
             if (evenement.target !== champRecherche) masquerResultats();
+        });
+    });
+
+    // Cases à cocher des mois/trimestres couverts par un versement de
+    // scolarité (voir finances/enregistrer un paiement) : rechargées à
+    // chaque changement d'élève (déclenché par la recherche ci-dessus),
+    // puisque les mois valides dépendent de l'échéancier de sa classe.
+    document.querySelectorAll("[data-periodes-url]").forEach(function (conteneur) {
+        var cible = document.getElementById(conteneur.dataset.periodesCible);
+        var bloc = document.getElementById("periodes-bloc");
+        if (!cible || !bloc) return;
+
+        cible.addEventListener("change", function () {
+            conteneur.innerHTML = "";
+            if (!cible.value) { bloc.style.display = "none"; return; }
+            fetch(conteneur.dataset.periodesUrl + "?matricule=" + encodeURIComponent(cible.value))
+                .then(function (r) { return r.json(); })
+                .then(function (donnees) {
+                    if (!donnees.periodes.length) { bloc.style.display = "none"; return; }
+                    donnees.periodes.forEach(function (libelle, index) {
+                        var id = "periode-" + index;
+                        var ligne = document.createElement("div");
+                        ligne.className = "form-check";
+                        var case_ = document.createElement("input");
+                        case_.type = "checkbox";
+                        case_.className = "form-check-input";
+                        case_.name = "periodes";
+                        case_.value = libelle;
+                        case_.id = id;
+                        var etiquette = document.createElement("label");
+                        etiquette.className = "form-check-label";
+                        etiquette.htmlFor = id;
+                        etiquette.textContent = libelle;
+                        ligne.appendChild(case_);
+                        ligne.appendChild(etiquette);
+                        conteneur.appendChild(ligne);
+                    });
+                    bloc.style.display = "block";
+                });
         });
     });
 

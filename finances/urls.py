@@ -9,6 +9,7 @@ urlpatterns = [
     path("paiements/", views.liste_paiements, name="liste_paiements"),
     path("paiements/enregistrer/", views.enregistrer_paiement_vue, name="enregistrer_paiement"),
     path("paiements/rechercher-eleve.json", views.rechercher_eleve_json, name="rechercher_eleve_json"),
+    path("paiements/periodes-eleve.json", views.periodes_eleve_json, name="periodes_eleve_json"),
     path("paiements/<int:paiement_id>/corriger/", views.corriger_paiement_vue, name="corriger_paiement"),
     path("paiements/<int:paiement_id>/recu.pdf", views.exporter_recu_paiement_pdf, name="exporter_recu_paiement_pdf"),
     path("paiements/<int:paiement_id>/supprimer/", views.supprimer_paiement_vue, name="supprimer_paiement"),

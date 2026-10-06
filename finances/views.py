@@ -76,6 +76,31 @@ def rechercher_eleve_json(request):
 
 
 @module_requis(Module.FINANCES)
+def periodes_eleve_json(request):
+    """
+    Mois (ou trimestres) couverts par l'échéancier de la classe d'un
+    élève - pour cocher, à l'enregistrement d'un paiement, exactement
+    ceux que ce versement règle. Même restriction que rechercher_eleve_json.
+    """
+    if not _peut_gerer_les_paiements(request.user):
+        raise PermissionDenied("Vous n'avez pas accès à cette recherche.")
+    from django.http import JsonResponse
+    from scolarite.models import Inscription
+
+    matricule = request.GET.get("matricule", "").strip()
+    eleve = Utilisateur.objects.filter(
+        matricule=matricule, role=Role.ELEVE, etablissement=request.user.etablissement,
+    ).first()
+    if not eleve:
+        return JsonResponse({"periodes": []})
+    inscription = Inscription.objects.filter(
+        eleve=eleve, statut=Inscription.Statut.EN_COURS,
+    ).select_related("classe__echeancier").order_by("-date_inscription").first()
+    echeancier = getattr(inscription.classe, "echeancier", None) if inscription else None
+    return JsonResponse({"periodes": echeancier.libelles_periodes() if echeancier else []})
+
+
+@module_requis(Module.FINANCES)
 def suivi_paiements(request):
     """
     Pour chaque élève inscrit : total dû (échéancier de sa classe), total
@@ -157,6 +182,7 @@ def enregistrer_paiement_vue(request):
             montant=formulaire.cleaned_data["montant"],
             mode_paiement=formulaire.cleaned_data["mode_paiement"],
             enregistre_par=request.user,
+            periodes_couvertes=formulaire.cleaned_data["periodes"],
         )
         enregistrer_action(
             acteur=request.user, action="enregistrement_paiement",

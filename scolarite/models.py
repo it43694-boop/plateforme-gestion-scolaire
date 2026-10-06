@@ -156,6 +156,11 @@ class AnneeScolaire(models.Model):
 PAS_MONTANT = 5000
 DEVISE_PAR_DEFAUT = "FCFA"
 
+MOIS_FR = [
+    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+]
+
 
 def valider_multiple_de_5000(valeur):
     # Conservée pour les migrations historiques qui la référencent par son
@@ -298,6 +303,30 @@ class EcheancierFrais(models.Model):
             Periodicite.TRIMESTRIEL: "Trimestre",
             Periodicite.ANNUEL: "Année",
         }[self.periodicite]
+
+    def libelles_periodes(self) -> list:
+        """
+        Libellés des mois (mensuel) ou trimestres (trimestriel) couverts
+        par cet échéancier, dans l'ordre chronologique depuis le début de
+        l'année scolaire - pour cocher exactement ceux qu'un versement
+        règle (une famille peut payer n'importe quelle combinaison de
+        mois, pas forcément consécutifs ni dans l'ordre). Vide pour
+        l'annuel : un seul versement, aucun détail de période nécessaire.
+        """
+        if self.periodicite == Periodicite.ANNUEL:
+            return []
+        if self.periodicite == Periodicite.TRIMESTRIEL:
+            return ["1er trimestre", "2ème trimestre", "3ème trimestre"]
+        debut = self.classe.annee_scolaire.date_debut
+        annee, mois = debut.year, debut.month
+        libelles = []
+        for _ in range(self.nombre_versements):
+            libelles.append(f"{MOIS_FR[mois - 1]} {annee}")
+            mois += 1
+            if mois > 12:
+                mois = 1
+                annee += 1
+        return libelles
 
 
 class Affectation(models.Model):

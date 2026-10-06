@@ -89,6 +89,12 @@ class Paiement(models.Model):
     tranche = models.CharField(max_length=20, choices=TypeTranche.choices)
     montant = models.PositiveIntegerField()
     mode_paiement = models.CharField(max_length=20, choices=ModePaiement.choices)
+    periodes_couvertes = models.JSONField(
+        default=list, blank=True,
+        help_text="Mois ou trimestres couverts par ce versement (ex. ['Janvier 2027', 'Février 2027']) - "
+                   "une famille peut régler n'importe quelle combinaison de mois, pas forcément consécutifs. "
+                   "Vide pour l'inscription ou un échéancier annuel.",
+    )
     # Unique par établissement (voir Meta), pas globalement : la numérotation
     # séquentielle repart de 1 pour chaque établissement, comme un registre
     # de reçus papier propre à chaque structure.
@@ -125,6 +131,12 @@ class Paiement(models.Model):
                 raise ValidationError("Le paiement et l'inscription doivent appartenir au même établissement.")
         if self.montant <= 0:
             raise ValidationError("Le montant du paiement doit être strictement positif.")
+        if self.periodes_couvertes and self.inscription_id:
+            echeancier = getattr(self.inscription.classe, "echeancier", None)
+            valides = set(echeancier.libelles_periodes()) if echeancier else set()
+            invalides = [p for p in self.periodes_couvertes if p not in valides]
+            if invalides:
+                raise ValidationError(f"Période(s) invalide(s) pour cette classe : {', '.join(invalides)}.")
 
     def save(self, *args, **kwargs):
         if not self.etablissement_id and self.eleve_id:
@@ -286,12 +298,13 @@ class MouvementCaisse(models.Model):
 # Opérations métier - chaque cascade est atomique (tout ou rien).
 # ---------------------------------------------------------------------------
 
-def enregistrer_paiement(*, eleve, inscription, tranche, montant, mode_paiement, enregistre_par):
+def enregistrer_paiement(*, eleve, inscription, tranche, montant, mode_paiement, enregistre_par, periodes_couvertes=None):
     """Crée un paiement de scolarité ET sa ligne de Caisse, de façon atomique."""
     with transaction.atomic():
         paiement = Paiement(
             eleve=eleve, inscription=inscription, tranche=tranche, montant=montant,
             mode_paiement=mode_paiement, enregistre_par=enregistre_par,
+            periodes_couvertes=periodes_couvertes or [],
             reference=generer_reference("REC", eleve.etablissement),
         )
         paiement.full_clean()

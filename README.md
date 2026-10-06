@@ -1234,6 +1234,37 @@ Vérifié de bout en bout (navigateur) : un parent et un élève ne voient
 plus aucun des boutons concernés, et un accès direct aux URLs renvoie
 bien une erreur 403.
 
+## État du projet : Phase 36 — Mois exacts couverts par un versement de scolarité
+
+Suite à une question sur le suivi des paiements : pour le salaire d'un
+employé, la période réglée est explicite (champ Période, AAAA-MM) ; pour
+un versement de scolarité, rien n'indiquait quel(s) mois il couvrait -
+gênant pour une école en périodicité mensuelle, où chaque famille paie
+à son propre rythme (certaines un mois à la fois, d'autres plusieurs
+mois d'un coup, pas forcément consécutifs).
+
+- **`EcheancierFrais.libelles_periodes()`** calcule les libellés exacts
+  couverts par l'abonnement d'une classe : les mois civils depuis le
+  début de l'année scolaire pour le mensuel (ex. « Octobre 2026 », «
+  Novembre 2026 »... jusqu'au nombre de versements prévu), les trois
+  trimestres pour le trimestriel, rien pour l'annuel (un seul versement,
+  aucun détail utile).
+- **À l'enregistrement d'un paiement**, une fois l'élève choisi (même
+  recherche en direct qu'avant), des cases à cocher apparaissent avec
+  les mois valides de sa classe - la comptabilité coche exactement ceux
+  réglés par ce versement, dans n'importe quelle combinaison (ex.
+  Janvier et Mars, sans Février). Les mois choisis sont validés côté
+  serveur contre l'échéancier réel de la classe (`Paiement.clean()`),
+  pas seulement côté formulaire.
+- **Affiché** dans la liste des paiements et sur le reçu PDF, à côté de
+  la tranche réglée.
+
+Suite complète (450 tests) verte après ce changement. Vérifié de bout en
+bout (navigateur) : les 9 mois d'une classe en mensuel apparaissent dans
+l'ordre après sélection de l'élève, un paiement couvrant janvier et mars
+(non consécutifs) s'enregistre et s'affiche correctement dans la liste
+et sur le reçu.
+
 ### Ce qui reste ouvert après ces phases
 
 - SMS et WhatsApp : automatisation volontairement non construite, geré

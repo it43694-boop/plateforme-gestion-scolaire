@@ -26,7 +26,7 @@
                 {% for erreur in formulaire.matricule_eleve.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
             </div>
             {% for champ in formulaire %}
-                {% if champ.name != "matricule_eleve" %}
+                {% if champ.name != "matricule_eleve" and champ.name != "periodes" %}
                 <div class="mb-3">
                     <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
                     {{ champ }}
@@ -34,6 +34,13 @@
                 </div>
                 {% endif %}
             {% endfor %}
+            <div class="mb-3" id="periodes-bloc" style="display: none;">
+                <label class="form-label">{{ formulaire.periodes.label }}</label>
+                <div id="periodes-conteneur" data-periodes-url="{% url 'finances:periodes_eleve_json' %}"
+                     data-periodes-cible="{{ formulaire.matricule_eleve.id_for_label }}"></div>
+                <div class="form-text">{{ formulaire.periodes.help_text }}</div>
+                {% for erreur in formulaire.periodes.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            </div>
             <button type="submit" class="btn btn-primary w-100">Enregistrer</button>
         </form>
     </div>

@@ -7,11 +7,29 @@ from finances.models import ModePaiement, Salaire, TypeTranche
 from scolarite.models import Inscription
 
 
+class ChoixLibreMultiple(forms.MultipleChoiceField):
+    """
+    Comme MultipleChoiceField, mais sans valider les valeurs contre
+    `choices` (laissé vide ici) : les choix valides - les mois/trimestres
+    de l'échéancier de la classe - ne sont connus qu'après avoir résolu
+    l'élève choisi (recherche en direct, voir EnregistrerPaiementForm.clean),
+    pas au moment où le formulaire est construit. Validé à la place dans
+    clean(), une fois l'élève et son échéancier connus.
+    """
+    def valid_value(self, value):
+        return True
+
+
 class EnregistrerPaiementForm(BootstrapFormMixin, forms.Form):
     matricule_eleve = forms.CharField(label="Élève", widget=forms.HiddenInput())
     tranche = forms.ChoiceField(label="Tranche", choices=TypeTranche.choices)
     montant = forms.IntegerField(label="Montant", min_value=1)
     mode_paiement = forms.ChoiceField(label="Mode de paiement", choices=ModePaiement.choices)
+    periodes = ChoixLibreMultiple(
+        label="Mois couverts", required=False, widget=forms.CheckboxSelectMultiple,
+        help_text="Cochez les mois (ou trimestres) exacts réglés par ce versement - inutile pour "
+                   "l'inscription ou un échéancier annuel.",
+    )
 
     def __init__(self, *args, etablissement=None, **kwargs):
         self.etablissement = etablissement
@@ -38,6 +56,15 @@ class EnregistrerPaiementForm(BootstrapFormMixin, forms.Form):
 
         cleaned["eleve"] = eleve
         cleaned["inscription"] = inscription
+
+        periodes = cleaned.get("periodes") or []
+        if periodes:
+            echeancier = getattr(inscription.classe, "echeancier", None)
+            valides = set(echeancier.libelles_periodes()) if echeancier else set()
+            invalides = [p for p in periodes if p not in valides]
+            if invalides:
+                self.add_error("periodes", f"Période(s) invalide(s) pour cette classe : {', '.join(invalides)}.")
+        cleaned["periodes"] = periodes
         return cleaned
 
 
