@@ -3,10 +3,11 @@ from django import forms
 from comptes.forms import BootstrapFormMixin
 from comptes.models import Sexe, Utilisateur
 from comptes.roles import Role
+from comptes.validators import valider_contenu_fichier, valider_extension_document, valider_taille_fichier_10mo
 from scolarite.models import PAS_MONTANT as PAS_MONTANT_PAR_DEFAUT
 from scolarite.models import (
-    DEVISE_PAR_DEFAUT, NOMBRE_VERSEMENTS_FIXE, AnneeScolaire, Classe, Cycle, EcheancierFrais, Periodicite, Serie,
-    cycles_autorises_pour,
+    DEVISE_PAR_DEFAUT, NOMBRE_VERSEMENTS_FIXE, AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription, Periodicite,
+    Serie, cycles_autorises_pour,
 )
 
 
@@ -177,4 +178,31 @@ class InscrireEleveForm(BootstrapFormMixin, forms.Form):
         cleaned["parent_1"] = parent_1
         cleaned["parent_2"] = parent_2
         cleaned["parents_en_attente"] = [info for info in (en_attente_1, en_attente_2) if info]
+        return cleaned
+
+
+class CloturerInscriptionForm(BootstrapFormMixin, forms.Form):
+    decision = forms.ChoiceField(
+        label="Motif de sortie",
+        choices=[
+            (Inscription.Statut.ABANDON, "Abandon"),
+            (Inscription.Statut.TRANSFERE, "Transfert vers une autre école"),
+        ],
+        widget=forms.RadioSelect,
+    )
+    date_evenement = forms.DateField(label="Date", widget=forms.DateInput(attrs={"type": "date"}))
+    motif = forms.CharField(label="Motif", widget=forms.Textarea(attrs={"rows": 3}))
+    destination_libelle = forms.CharField(
+        label="Établissement de destination", required=False,
+        help_text="Requis uniquement en cas de transfert.",
+    )
+    justificatif = forms.FileField(
+        label="Justificatif (optionnel)", required=False,
+        validators=[valider_taille_fichier_10mo, valider_extension_document, valider_contenu_fichier],
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("decision") == Inscription.Statut.TRANSFERE and not cleaned.get("destination_libelle"):
+            self.add_error("destination_libelle", "Indiquez l'établissement de destination.")
         return cleaned

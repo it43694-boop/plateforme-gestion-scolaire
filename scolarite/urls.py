@@ -12,6 +12,10 @@ urlpatterns = [
         "eleves/<str:matricule>/attestation/",
         views.generer_attestation_scolarite, name="generer_attestation_scolarite",
     ),
+    path(
+        "eleves/<str:matricule>/cloturer/",
+        views.cloturer_inscription_vue, name="cloturer_inscription",
+    ),
     path("verifier/<uuid:jeton>/", views.verifier_document, name="verifier_document"),
     path("eleves/inscrire/", views.inscrire_eleve, name="inscrire_eleve"),
     path("classes/", views.liste_classes, name="liste_classes"),

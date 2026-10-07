@@ -9,10 +9,11 @@ from comptes.decorators import module_requis
 from comptes.models import Utilisateur, creer_avec_matricule_unique, generer_matricule
 from comptes.roles import Role, StatutCompte
 from permissions_matrix.modules import Module
-from scolarite.forms import AffecterEnseignantForm, CreerClasseForm, InscrireEleveForm
+from scolarite.forms import AffecterEnseignantForm, CloturerInscriptionForm, CreerClasseForm, InscrireEleveForm
 from scolarite.models import (
     Affectation, AnneeScolaire, Classe, Inscription, ParentEnAttente, TypeDocumentVerifiable, VerificationDocument,
-    classes_visibles_pour, dossier_complet, eleve_visible_pour, lier_parent_a_eleve, passer_eleve, calculer_total_du,
+    classes_visibles_pour, cloturer_inscription, dossier_complet, eleve_visible_pour, lier_parent_a_eleve, passer_eleve,
+    calculer_total_du,
 )
 
 DOMAINE_EMAIL_AUTO_ELEVE = "eleves.local"
@@ -120,9 +121,10 @@ def dossier_eleve(request, matricule):
 
     contexte = {
         "eleve": eleve, "dossier_complet": dossier_complet(eleve),
-        "inscriptions": inscriptions, "inscription_active": inscription_active,
+        "inscriptions": inscriptions.select_related("transfert", "abandon"), "inscription_active": inscription_active,
         "parents": eleve.parents_lies.all(), "parents_en_attente": eleve.parents_en_attente.all(),
         "peut_voir_notes": peut_voir_notes, "peut_voir_absences": peut_voir_absences, "peut_voir_finances": peut_voir_finances,
+        "peut_cloturer_inscription": request.user.role not in ROLES_INSCRIPTION_ELEVE_INTERDITE,
     }
 
     if peut_voir_absences:
@@ -143,6 +145,49 @@ def dossier_eleve(request, matricule):
             contexte["solde_annee_active"] = total_du - paye_annee
 
     return render(request, "scolarite/dossier_eleve.html", contexte)
+
+
+@module_requis(Module.ELEVES)
+def cloturer_inscription_vue(request, matricule):
+    """
+    Marque la sortie d'un élève en cours d'année scolaire - abandon ou
+    transfert vers une autre école - indépendamment du passage de classe
+    annuel (voir scolarite.models.cloturer_inscription), qui lui ne
+    traite que la fin d'année pour toute une classe à la fois.
+    """
+    from django.core.exceptions import PermissionDenied, ValidationError
+
+    if request.user.role in ROLES_INSCRIPTION_ELEVE_INTERDITE:
+        raise PermissionDenied("Vous n'avez pas le droit de modifier l'inscription d'un élève.")
+
+    eleve = get_object_or_404(Utilisateur, matricule=matricule, role=Role.ELEVE)
+    if not eleve_visible_pour(request.user, eleve):
+        raise PermissionDenied("Vous n'avez pas accès au dossier de cet élève.")
+
+    inscription = get_object_or_404(Inscription, eleve=eleve, statut=Inscription.Statut.EN_COURS)
+
+    formulaire = CloturerInscriptionForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and formulaire.is_valid():
+        try:
+            cloturer_inscription(
+                inscription=inscription, decision=formulaire.cleaned_data["decision"], acteur=request.user,
+                motif=formulaire.cleaned_data["motif"], date_evenement=formulaire.cleaned_data["date_evenement"],
+                destination_libelle=formulaire.cleaned_data["destination_libelle"],
+                justificatif=formulaire.cleaned_data["justificatif"],
+            )
+        except ValidationError as erreur:
+            for message in erreur.messages:
+                messages.error(request, message)
+        else:
+            libelle_decision = dict(formulaire.fields["decision"].choices)[formulaire.cleaned_data["decision"]]
+            enregistrer_action(
+                acteur=request.user, action="cloture_inscription", cible=eleve.matricule,
+                details={"decision": formulaire.cleaned_data["decision"]}, request=request,
+            )
+            messages.success(request, f"Inscription de {eleve.nom_complet} clôturée ({libelle_decision}).")
+            return redirect("scolarite:dossier_eleve", matricule=eleve.matricule)
+
+    return render(request, "scolarite/cloturer_inscription.html", {"eleve": eleve, "formulaire": formulaire})
 
 
 @module_requis(Module.ELEVES)

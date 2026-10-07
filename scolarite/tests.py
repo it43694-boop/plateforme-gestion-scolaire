@@ -11,9 +11,9 @@ from django.urls import reverse
 from comptes.models import Utilisateur
 from comptes.roles import Role, StatutCompte
 from scolarite.models import (
-    Affectation, AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription, ParentEnAttente, Periodicite, Serie,
-    TypeDocumentVerifiable, VerificationDocument,
-    classes_visibles_pour, dossier_complet, eleve_visible_pour, lier_parent_a_eleve,
+    Abandon, Affectation, AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription, ParentEnAttente, Periodicite,
+    Serie, TransfertEleve, TypeDocumentVerifiable, VerificationDocument,
+    classes_visibles_pour, cloturer_inscription, dossier_complet, eleve_visible_pour, lier_parent_a_eleve,
 )
 
 
@@ -1118,6 +1118,92 @@ class DossierEleveTests(TestCase):
         reponse = self.client.get(reverse("scolarite:dossier_eleve", args=[self.eleve.matricule]))
         self.assertFalse(reponse.context["peut_voir_finances"])
         self.assertNotIn("total_paye", reponse.context)
+
+
+class CloturerInscriptionTests(TestCase):
+    """
+    Sortie d'un élève EN COURS D'ANNÉE (abandon ou transfert vers une
+    autre école), indépendamment du passage de classe annuel qui lui ne
+    traite que la fin d'année pour toute une classe à la fois.
+    """
+
+    def setUp(self):
+        self.annee = creer_annee()
+        self.classe = Classe.objects.create(nom="5ème année A", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
+        self.direction = creer_utilisateur_actif("direction-cloture@example.com", Role.FONDATEUR)
+        self.eleve = creer_utilisateur_actif("eleve-cloture@example.com", Role.ELEVE)
+        self.inscription = Inscription.objects.create(eleve=self.eleve, classe=self.classe)
+        self.url = reverse("scolarite:cloturer_inscription", args=[self.eleve.matricule])
+
+    def test_marquer_abandon(self):
+        self.client.force_login(self.direction)
+        reponse = self.client.post(self.url, {
+            "decision": Inscription.Statut.ABANDON, "date_evenement": "2026-11-15",
+            "motif": "Ne vient plus depuis deux semaines, famille injoignable.",
+            "destination_libelle": "",
+        })
+        self.assertEqual(reponse.status_code, 302)
+        self.inscription.refresh_from_db()
+        self.assertEqual(self.inscription.statut, Inscription.Statut.ABANDON)
+        abandon = Abandon.objects.get(inscription=self.inscription)
+        self.assertEqual(abandon.date_abandon, datetime.date(2026, 11, 15))
+        self.assertEqual(abandon.enregistre_par, self.direction)
+
+    def test_marquer_transfert_avec_destination(self):
+        self.client.force_login(self.direction)
+        reponse = self.client.post(self.url, {
+            "decision": Inscription.Statut.TRANSFERE, "date_evenement": "2026-11-20",
+            "motif": "Déménagement de la famille à Sikasso.",
+            "destination_libelle": "École Les Lauréats, Sikasso",
+        })
+        self.assertEqual(reponse.status_code, 302)
+        self.inscription.refresh_from_db()
+        self.assertEqual(self.inscription.statut, Inscription.Statut.TRANSFERE)
+        transfert = TransfertEleve.objects.get(inscription=self.inscription)
+        self.assertEqual(transfert.destination_libelle, "École Les Lauréats, Sikasso")
+        self.assertEqual(transfert.date_transfert, datetime.date(2026, 11, 20))
+
+    def test_transfert_sans_destination_refuse(self):
+        self.client.force_login(self.direction)
+        reponse = self.client.post(self.url, {
+            "decision": Inscription.Statut.TRANSFERE, "date_evenement": "2026-11-20",
+            "motif": "Déménagement.", "destination_libelle": "",
+        })
+        self.assertEqual(reponse.status_code, 200)
+        self.assertFormError(reponse.context["formulaire"], "destination_libelle", "Indiquez l'établissement de destination.")
+        self.inscription.refresh_from_db()
+        self.assertEqual(self.inscription.statut, Inscription.Statut.EN_COURS)
+
+    def test_parent_ne_peut_pas_cloturer_une_inscription(self):
+        parent = creer_utilisateur_actif("parent-cloture@example.com", Role.PARENT, telephone="70200009", profession="X")
+        self.eleve.parents_lies.add(parent)
+        self.client.force_login(parent)
+        reponse = self.client.get(self.url)
+        self.assertEqual(reponse.status_code, 403)
+        reponse = self.client.post(self.url, {
+            "decision": Inscription.Statut.ABANDON, "date_evenement": "2026-11-15", "motif": "Faux", "destination_libelle": "",
+        })
+        self.assertEqual(reponse.status_code, 403)
+        self.inscription.refresh_from_db()
+        self.assertEqual(self.inscription.statut, Inscription.Statut.EN_COURS)
+
+    def test_impossible_de_cloturer_une_inscription_deja_cloturee(self):
+        cloturer_inscription(
+            inscription=self.inscription, decision=Inscription.Statut.ABANDON, acteur=self.direction,
+            motif="Premier abandon.", date_evenement=datetime.date(2026, 11, 1),
+        )
+        self.client.force_login(self.direction)
+        reponse = self.client.get(self.url)
+        self.assertEqual(reponse.status_code, 404)
+
+    def test_eleve_disparait_du_dossier_actif_apres_cloture(self):
+        cloturer_inscription(
+            inscription=self.inscription, decision=Inscription.Statut.TRANSFERE, acteur=self.direction,
+            motif="Transfert.", date_evenement=datetime.date(2026, 11, 1), destination_libelle="Autre école",
+        )
+        self.client.force_login(self.direction)
+        reponse = self.client.get(reverse("scolarite:dossier_eleve", args=[self.eleve.matricule]))
+        self.assertIsNone(reponse.context["inscription_active"])
 
 
 class PassageDeClasseTests(TestCase):

@@ -372,6 +372,7 @@ class Inscription(models.Model):
         ADMIS = "admis", "Admis (année suivante)"
         REDOUBLE = "redouble", "Redouble"
         TRANSFERE = "transfere", "Transféré / parti"
+        ABANDON = "abandon", "Abandon"
 
     eleve = models.ForeignKey(
         "comptes.Utilisateur", on_delete=models.CASCADE, related_name="inscriptions",
@@ -502,6 +503,66 @@ class TransfertEleve(models.Model):
     )
     enregistre_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.PROTECT, related_name="transferts_enregistres")
     cree_le = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        super().clean()
+        if not self.etablissement_destination_id and not self.destination_libelle:
+            raise ValidationError(
+                "Indiquez l'établissement de destination (sur la plateforme, ou en texte libre)."
+            )
+
+
+class Abandon(models.Model):
+    """
+    Élève qui a cessé de fréquenter l'établissement en cours d'année sans
+    transfert formel vers une autre école (voir TransfertEleve pour ce
+    second cas) - contrairement au transfert, pas de document ni
+    d'établissement de destination à renseigner.
+    """
+
+    inscription = models.OneToOneField(Inscription, on_delete=models.PROTECT, related_name="abandon")
+    date_abandon = models.DateField()
+    motif = models.CharField(max_length=255)
+    enregistre_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.PROTECT, related_name="abandons_enregistres")
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+
+def cloturer_inscription(*, inscription, decision, acteur, motif, date_evenement, destination_libelle="", justificatif=None):
+    """
+    Clôt l'inscription d'un élève en cours d'année scolaire - abandon ou
+    transfert vers une autre école - indépendamment du passage de classe
+    annuel (voir passer_eleve ci-dessus) qui lui traite la fin d'année
+    pour toute une classe à la fois, avec une classe de destination dans
+    le MÊME établissement. Ici l'élève quitte l'établissement : aucune
+    nouvelle inscription n'est créée.
+    """
+    from django.db import transaction
+
+    if decision not in {Inscription.Statut.ABANDON, Inscription.Statut.TRANSFERE}:
+        raise ValidationError("Décision invalide : seuls abandon et transfert sont possibles ici.")
+    if inscription.statut != Inscription.Statut.EN_COURS:
+        raise ValidationError("Cette inscription a déjà fait l'objet d'une décision.")
+    if not motif:
+        raise ValidationError("Le motif est requis.")
+
+    with transaction.atomic():
+        inscription.statut = decision
+        inscription.save(update_fields=["statut"])
+        if decision == Inscription.Statut.TRANSFERE:
+            transfert = TransfertEleve(
+                inscription=inscription, destination_libelle=destination_libelle,
+                date_transfert=date_evenement, motif=motif, enregistre_par=acteur,
+            )
+            if justificatif is not None:
+                transfert.justificatif = justificatif
+            transfert.full_clean()
+            transfert.save()
+        else:
+            abandon = Abandon(
+                inscription=inscription, date_abandon=date_evenement, motif=motif, enregistre_par=acteur,
+            )
+            abandon.full_clean()
+            abandon.save()
 
 
 class TypeDocumentVerifiable(models.TextChoices):

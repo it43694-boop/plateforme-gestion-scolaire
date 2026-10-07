@@ -1347,6 +1347,51 @@ immédiatement ; retour en ligne → synchronisation automatique, file
 vidée, bandeau masqué, nouvelle absence visible dans le tableau sans
 rechargement.
 
+## État du projet : Phase 39 — Abandon et transfert d'élève en cours d'année
+
+Le statut d'une inscription (`Inscription.statut`) ne changeait
+auparavant QUE via l'outil annuel « Passage de classe » - un écran qui
+traite toute une classe à la fois en fin d'année (admis / redouble /
+transféré). Aucune action n'existait pour sortir un seul élève en cours
+d'année, et le modèle `TransfertEleve` (destination, date, motif,
+justificatif), déjà présent dans le schéma, n'était en réalité créé par
+aucun code de l'application - une vérification exhaustive (recherche de
+`TransfertEleve(` et `TransfertEleve.objects.create` sur tout le projet)
+n'a trouvé aucun point d'appel.
+
+- **Nouveau statut `Abandon`** ajouté à `Inscription.Statut`, qui
+  n'avait jusqu'ici que admis/redouble/transféré/en cours - un élève qui
+  cesse de venir sans transfert formel n'avait auparavant aucun moyen
+  d'être distingué d'un élève toujours scolarisé.
+- **Nouvelle action « Clôturer l'inscription »**, accessible à tout
+  moment depuis le dossier de l'élève (pas seulement en fin d'année),
+  réservée au personnel (un parent ou un élève ne peut que consulter,
+  comme pour l'inscription initiale). Un seul formulaire pour les deux
+  cas : abandon (date + motif) ou transfert (date + motif + école de
+  destination en texte libre, pas de liste des autres écoles de la
+  plateforme pour ne jamais exposer leurs noms à un établissement tiers
+  + justificatif optionnel).
+- **`TransfertEleve` et le nouveau modèle `Abandon` sont désormais
+  réellement créés** par `scolarite.models.cloturer_inscription()`, de
+  façon atomique avec le changement de statut. L'historique du dossier
+  élève affiche maintenant le motif et la destination pour chaque sortie
+  passée.
+- **Impossible de clôturer deux fois** : la vue ne trouve l'inscription
+  « en cours » que si elle l'est encore (404 sinon) - la fonction métier
+  refuse aussi explicitement toute inscription déjà close.
+- Les écrans de finances filtraient déjà sur le statut « en cours » :
+  dès la clôture, l'élève sort automatiquement des listes de
+  recouvrement actif, sans changement nécessaire de ce côté.
+
+6 nouveaux tests (abandon, transfert avec destination, transfert sans
+destination refusé, parent bloqué, double clôture impossible, disparition
+du dossier actif) - suite complète du module scolarite (114 tests) puis
+suite complète de l'application vertes. Vérifié de bout en bout
+(navigateur, compte direction réel) : clôture d'un élève en abandon et
+d'un autre en transfert, motif et destination visibles dans l'historique,
+bouton de clôture qui disparaît une fois l'inscription close, tentative
+d'accès direct à l'URL par un compte parent - 403.
+
 ### Ce qui reste ouvert après ces phases
 
 - SMS et WhatsApp : automatisation volontairement non construite, geré

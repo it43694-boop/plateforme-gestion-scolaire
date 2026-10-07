@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titre %}Clôturer l'inscription de {{ eleve.nom_complet }}{% endblock %}
+{% block contenu %}
+<div class="page-header"><div><h1>Clôturer l'inscription - {{ eleve.nom_complet }}</h1></div></div>
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <p class="text-muted">
+                    À utiliser quand un élève quitte l'établissement en cours d'année
+                    (abandon, ou transfert vers une autre école) - indépendamment du
+                    passage de classe de fin d'année.
+                </p>
+                <form method="post" enctype="multipart/form-data" novalidate data-confirmer="Confirmer la clôture de cette inscription ? Cette action est définitive.">
+                    {% csrf_token %}
+                    {% for champ in formulaire %}
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                            {{ champ }}
+                            {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                            {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                        </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary w-100">Confirmer la clôture</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
