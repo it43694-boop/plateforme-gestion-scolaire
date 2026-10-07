@@ -1,8 +1,9 @@
 // Service worker minimal : rend l'application installable (critère navigateur)
 // et accélère le chargement des fichiers statiques (CSS/JS/icônes).
-// Ne met JAMAIS en cache les pages HTML ni les requêtes dynamiques : les
-// notes, paiements, emplois du temps etc. doivent toujours venir du réseau,
-// jamais d'une copie locale potentiellement obsolète.
+// Seules les pages de saisie listées ci-dessous (REGEX_PAGES_HORS_LIGNE)
+// sont mises en cache - toutes les autres pages dynamiques (paiements,
+// emplois du temps, bulletins...) viennent toujours du réseau, jamais
+// d'une copie locale potentiellement obsolète.
 
 var CACHE_NOM = "statique-v1";
 
@@ -11,7 +12,10 @@ var CACHE_NOM = "statique-v1";
 // pour que l'enseignant puisse encore ouvrir le formulaire si le réseau
 // tombe pendant le cours. Aucune autre page dynamique n'est concernée.
 var CACHE_PAGES = "pages-hors-ligne-v1";
-var REGEX_PAGE_ABSENCE = /^\/pedagogie\/absences\/classe\/\d+\/saisir\/$/;
+var REGEX_PAGES_HORS_LIGNE = [
+    /^\/pedagogie\/absences\/classe\/\d+\/saisir\/$/,
+    /^\/pedagogie\/notes\/affectation\/\d+\/saisir\/$/,
+];
 var CACHES_VALIDES = [CACHE_NOM, CACHE_PAGES];
 
 var NOM_BASE_HORS_LIGNE = "hors-ligne-v1";
@@ -36,7 +40,8 @@ self.addEventListener("fetch", function (evenement) {
     var requete = evenement.request;
     var chemin = new URL(requete.url).pathname;
 
-    if (requete.method === "GET" && REGEX_PAGE_ABSENCE.test(chemin)) {
+    var estPageHorsLigne = REGEX_PAGES_HORS_LIGNE.some(function (regex) { return regex.test(chemin); });
+    if (requete.method === "GET" && estPageHorsLigne) {
         evenement.respondWith(
             fetch(requete).then(function (reponseReseau) {
                 if (reponseReseau && reponseReseau.status === 200) {
@@ -76,12 +81,13 @@ self.addEventListener("fetch", function (evenement) {
 });
 
 // Synchronisation en arrière-plan (Background Sync, surtout Chrome/Android) :
-// rejoue la file de saisies hors-ligne même si aucun onglet n'est ouvert.
-// Complète (ne remplace pas) la synchronisation déclenchée par la page elle-
-// même au retour du réseau (voir app.js) - les deux sont sans risque l'une
-// pour l'autre car la saisie d'absence est idempotente côté serveur.
+// rejoue la file de saisies hors-ligne (absences, notes...) même si aucun
+// onglet n'est ouvert. Complète (ne remplace pas) la synchronisation
+// déclenchée par la page elle-même au retour du réseau (voir app.js) - les
+// deux sont sans risque l'une pour l'autre car chaque type de saisie
+// couvert par ce mécanisme est idempotent côté serveur.
 self.addEventListener("sync", function (evenement) {
-    if (evenement.tag !== "synchroniser-absences") return;
+    if (evenement.tag !== "synchroniser-saisies-hors-ligne") return;
     evenement.waitUntil(
         synchroniserDepuisLeServiceWorker().then(function () {
             return self.clients.matchAll().then(function (clients) {

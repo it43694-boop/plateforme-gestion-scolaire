@@ -150,6 +150,38 @@ class SaisirNoteVueTests(TestCase):
         self.assertEqual(reponse.status_code, 403)
         self.assertFalse(Note.objects.filter(eleve=self.eleve, affectation=self.affectation).exists())
 
+    def test_saisie_note_ajax_renvoie_du_json_en_cas_de_succes(self):
+        """
+        La file de synchronisation hors-ligne (voir static/js/app.js et
+        static/js/sw.js, même mécanisme que la saisie d'absences) envoie
+        ses requêtes en AJAX et attend du JSON, pas une redirection.
+        """
+        self.client.force_login(self.enseignant)
+        reponse = self.client.post(
+            reverse("pedagogie:saisir_note", args=[self.affectation.id]),
+            {"matricule_eleve": self.eleve.matricule, "trimestre": Trimestre.T1, "note_classe": 14},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        self.assertEqual(reponse.status_code, 200)
+        donnees = reponse.json()
+        self.assertTrue(donnees["ok"])
+        self.assertEqual(donnees["eleve"], self.eleve.nom_complet)
+        self.assertEqual(donnees["note_classe"], "14.00")
+        self.assertTrue(Note.objects.filter(eleve=self.eleve, affectation=self.affectation).exists())
+
+    def test_saisie_note_ajax_renvoie_les_erreurs_en_json(self):
+        self.client.force_login(self.enseignant)
+        reponse = self.client.post(
+            reverse("pedagogie:saisir_note", args=[self.affectation.id]),
+            {"matricule_eleve": "N-EXISTE-PAS", "trimestre": Trimestre.T1, "note_classe": 14},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        self.assertEqual(reponse.status_code, 200)
+        donnees = reponse.json()
+        self.assertFalse(donnees["ok"])
+        self.assertIn("matricule_eleve", donnees["erreurs"])
+        self.assertFalse(Note.objects.filter(affectation=self.affectation).exists())
+
 
 class BulletinPondereTests(TestCase):
     """

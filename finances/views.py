@@ -16,6 +16,7 @@ from finances.forms import (
     EnregistrerPaiementForm, SaisirSalaireForm,
 )
 from finances.models import (
+    COMPTE_SYSCOHADA_CAISSE, COMPTE_SYSCOHADA_CHARGES_PERSONNEL, COMPTE_SYSCOHADA_PRODUITS_SCOLARITE,
     Contrat, DemandeConge, MouvementCaisse, Paiement, Salaire,
     contrat_actif_pour, corriger_paiement, creer_bulletin_paie, enregistrer_paiement, marquer_salaire_paye,
     solde_conges_payes, supprimer_paiement, supprimer_salaire,
@@ -527,3 +528,63 @@ def registre_caisse(request):
     return render(request, "finances/registre_caisse.html", {
         "mouvements": page_obj.object_list, "page_obj": page_obj, "solde": solde,
     })
+
+
+@module_requis(Module.CAISSE)
+def journal_caisse_syscohada(request):
+    """
+    Journal de caisse au format SYSCOHADA (compte de contrepartie, débit/
+    crédit de la Caisse), dérivé des mouvements de Caisse déjà enregistrés -
+    aucune nouvelle saisie, aucun nouveau modèle. Portée volontairement
+    limitée à un journal de caisse exportable pour un comptable externe,
+    PAS une comptabilité en partie double complète (plan de comptes, grand
+    livre, bilan) - voir README.
+    """
+    from django.db.models import Sum
+
+    mouvements = MouvementCaisse.objects.filter(
+        etablissement=request.user.etablissement, annule=False,
+    ).select_related("paiement", "salaire").order_by("date_mouvement")
+
+    total_entrees = mouvements.filter(type_mouvement=MouvementCaisse.TypeMouvement.ENTREE).aggregate(
+        total=Sum("montant"))["total"] or 0
+    total_sorties = mouvements.filter(type_mouvement=MouvementCaisse.TypeMouvement.SORTIE).aggregate(
+        total=Sum("montant"))["total"] or 0
+
+    balance = [
+        {"compte": COMPTE_SYSCOHADA_CAISSE, "libelle": "Caisse", "debit": total_entrees, "credit": total_sorties},
+        {
+            "compte": COMPTE_SYSCOHADA_PRODUITS_SCOLARITE, "libelle": "Produits de scolarité",
+            "debit": 0, "credit": total_entrees,
+        },
+        {
+            "compte": COMPTE_SYSCOHADA_CHARGES_PERSONNEL, "libelle": "Charges de personnel",
+            "debit": total_sorties, "credit": 0,
+        },
+    ]
+
+    page_obj = Paginator(mouvements, 50).get_page(request.GET.get("page"))
+    return render(request, "finances/journal_caisse_syscohada.html", {
+        "mouvements": page_obj.object_list, "page_obj": page_obj, "balance": balance,
+    })
+
+
+@module_requis(Module.CAISSE)
+def journal_caisse_syscohada_csv(request):
+    import csv
+
+    mouvements = MouvementCaisse.objects.filter(
+        etablissement=request.user.etablissement, annule=False,
+    ).order_by("date_mouvement")
+
+    reponse = HttpResponse(content_type="text/csv; charset=utf-8")
+    reponse["Content-Disposition"] = 'attachment; filename="journal_caisse_syscohada.csv"'
+    reponse.write("﻿")
+    ecrivain = csv.writer(reponse, delimiter=";")
+    ecrivain.writerow(["Date", "Pièce", "Libellé", "Compte de contrepartie", "Débit (Caisse)", "Crédit (Caisse)"])
+    for mouvement in mouvements:
+        ecrivain.writerow([
+            mouvement.date_mouvement.strftime("%d/%m/%Y"), mouvement.reference, mouvement.description,
+            mouvement.compte_contrepartie, mouvement.debit_caisse, mouvement.credit_caisse,
+        ])
+    return reponse

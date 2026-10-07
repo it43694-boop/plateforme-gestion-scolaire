@@ -386,6 +386,80 @@ class RegistreCaisseSoldeTests(TestCase):
         self.assertEqual(reponse.context["solde"], 20000)
 
 
+class JournalCaisseSyscohadaTests(TestCase):
+    """
+    Journal de caisse SYSCOHADA : purement dérivé des MouvementCaisse déjà
+    enregistrés (aucun nouveau modèle, aucune nouvelle saisie) - une entrée
+    impute 706 (Produits de scolarité), une sortie impute 661 (Charges de
+    personnel), la Caisse (571) étant le compte commun aux deux.
+    """
+
+    def setUp(self):
+        self.annee, self.classe = creer_annee_et_classe()
+        self.eleve = creer_utilisateur_actif("eleve-journal@example.com", Role.ELEVE)
+        self.inscription = Inscription.objects.create(eleve=self.eleve, classe=self.classe)
+        self.comptable = creer_utilisateur_actif("comptable-journal@example.com", Role.COMPTABLE)
+        self.enseignant = creer_utilisateur_actif("prof-journal@example.com", Role.ENSEIGNANT)
+
+        enregistrer_paiement(
+            eleve=self.eleve, inscription=self.inscription, tranche=TypeTranche.INSCRIPTION,
+            montant=30000, mode_paiement="especes", enregistre_par=self.comptable,
+        )
+        salaire = Salaire.objects.create(
+            employe=self.enseignant, periode="2026-10", montant=10000, enregistre_par=self.comptable,
+        )
+        marquer_salaire_paye(salaire=salaire, paye_par=self.comptable)
+
+    def test_imputation_syscohada_par_mouvement(self):
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("finances:journal_caisse_syscohada"))
+        self.assertEqual(reponse.status_code, 200)
+        mouvements = {m.type_mouvement: m for m in reponse.context["mouvements"]}
+        entree = mouvements[MouvementCaisse.TypeMouvement.ENTREE]
+        sortie = mouvements[MouvementCaisse.TypeMouvement.SORTIE]
+        self.assertEqual(entree.compte_contrepartie, "706")
+        self.assertEqual(entree.debit_caisse, 30000)
+        self.assertEqual(entree.credit_caisse, 0)
+        self.assertEqual(sortie.compte_contrepartie, "661")
+        self.assertEqual(sortie.credit_caisse, 10000)
+        self.assertEqual(sortie.debit_caisse, 0)
+
+    def test_balance_des_comptes_mouvementes(self):
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("finances:journal_caisse_syscohada"))
+        balance = {ligne["compte"]: ligne for ligne in reponse.context["balance"]}
+        self.assertEqual(balance["571"]["debit"], 30000)
+        self.assertEqual(balance["571"]["credit"], 10000)
+        self.assertEqual(balance["706"]["credit"], 30000)
+        self.assertEqual(balance["661"]["debit"], 10000)
+
+    def test_mouvement_annule_exclu_du_journal(self):
+        mouvement_salaire = MouvementCaisse.objects.get(salaire__employe=self.enseignant)
+        mouvement_salaire.annule = True
+        mouvement_salaire.save(update_fields=["annule"])
+
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("finances:journal_caisse_syscohada"))
+        types = [m.type_mouvement for m in reponse.context["mouvements"]]
+        self.assertNotIn(MouvementCaisse.TypeMouvement.SORTIE, types)
+
+    def test_export_csv(self):
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("finances:journal_caisse_syscohada_csv"))
+        self.assertEqual(reponse.status_code, 200)
+        self.assertEqual(reponse["Content-Type"], "text/csv; charset=utf-8")
+        contenu = reponse.content.decode("utf-8-sig")
+        self.assertIn("706", contenu)
+        self.assertIn("661", contenu)
+        self.assertIn("30000", contenu)
+
+    def test_secretaire_sans_module_caisse_ne_peut_pas_voir_le_journal(self):
+        secretaire = creer_utilisateur_actif("secretaire-journal@example.com", Role.SECRETAIRE)
+        self.client.force_login(secretaire)
+        reponse = self.client.get(reverse("finances:journal_caisse_syscohada"))
+        self.assertEqual(reponse.status_code, 403)
+
+
 class VuesFinancesAccesTests(TestCase):
     def setUp(self):
         self.annee, self.classe = creer_annee_et_classe()

@@ -278,19 +278,28 @@ document.addEventListener("DOMContentLoaded", function () {
         conteneur.style.display = "none";
     }
 
-    function ajouterLigneAbsence(resultat) {
-        var corps = document.getElementById("corps-tableau-absences");
+    // Ajoute une ligne au tableau "déjà saisi" après une soumission réussie
+    // (immédiate ou synchronisée depuis la file hors-ligne), sans recharger
+    // la page. Générique : la liste et l'ordre des colonnes viennent de
+    // data-ligne-champs sur le <tbody>, pas d'un champ en dur - réutilisé
+    // par la saisie d'absences ET de notes (voir saisir_absence.html et
+    // saisir_note.html).
+    function ajouterLigneResultat(resultat) {
+        var corps = document.querySelector("[data-corps-resultats]");
         if (corps) {
+            var champs = (corps.dataset.ligneChamps || "").split(",").filter(Boolean);
             var ligne = document.createElement("tr");
-            [resultat.eleve, resultat.date_absence, resultat.justifiee ? "Oui" : "Non"].forEach(function (texte) {
+            champs.forEach(function (champ) {
+                var valeur = resultat[champ];
+                if (typeof valeur === "boolean") valeur = valeur ? "Oui" : "Non";
                 var cellule = document.createElement("td");
-                cellule.textContent = texte;
+                cellule.textContent = (valeur === null || valeur === undefined) ? "-" : valeur;
                 ligne.appendChild(cellule);
             });
             corps.insertBefore(ligne, corps.firstChild);
         }
-        var tableau = document.getElementById("tableau-absences");
-        var videMsg = document.getElementById("absences-vide");
+        var tableau = document.querySelector("[data-tableau-resultats]");
+        var videMsg = document.querySelector("[data-etat-vide-resultats]");
         if (tableau) tableau.style.display = "";
         if (videMsg) videMsg.style.display = "none";
     }
@@ -325,7 +334,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
                     reponse.json().then(function (resultat) {
                         if (resultat.ok) {
-                            ajouterLigneAbsence(resultat);
+                            ajouterLigneResultat(resultat);
                         } else {
                             enErreur += 1;
                         }
@@ -383,7 +392,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         });
                         return;
                     }
-                    ajouterLigneAbsence(resultat);
+                    ajouterLigneResultat(resultat);
                     formulaire.reset();
                     var champMatricule = formulaire.querySelector("[name='matricule_eleve']");
                     if (champMatricule) champMatricule.focus();
@@ -414,7 +423,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         formulaire.reset();
                         if ("serviceWorker" in navigator && "SyncManager" in window) {
                             navigator.serviceWorker.ready.then(function (enregistrement) {
-                                return enregistrement.sync.register("synchroniser-absences");
+                                return enregistrement.sync.register("synchroniser-saisies-hors-ligne");
                             }).catch(function () {});
                         }
                     });

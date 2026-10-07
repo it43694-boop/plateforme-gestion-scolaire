@@ -419,6 +419,19 @@ def creer_bulletin_paie(*, employe, periode, salaire_brut, its, enregistre_par):
     )
 
 
+# Comptes du plan SYSCOHADA utilisés par le journal de caisse (voir
+# MouvementCaisse.compte_contrepartie et finances.views.journal_caisse_
+# syscohada) - imputation fixe, puisque chaque mouvement de Caisse ne
+# provient que d'exactement deux origines possibles (paiement ou salaire
+# payé, voir la contrainte mouvement_caisse_origine_unique ci-dessous).
+# Portée volontairement limitée à un journal de caisse exportable, PAS une
+# comptabilité en partie double complète (plan de comptes, grand livre,
+# bilan) - voir README.
+COMPTE_SYSCOHADA_CAISSE = "571"
+COMPTE_SYSCOHADA_PRODUITS_SCOLARITE = "706"
+COMPTE_SYSCOHADA_CHARGES_PERSONNEL = "661"
+
+
 class MouvementCaisse(models.Model):
     """
     Registre unique de toute la trésorerie (cahier des charges, section
@@ -480,6 +493,21 @@ class MouvementCaisse(models.Model):
         etat = " (annulé)" if self.annule else ""
         devise = getattr(self.etablissement, "code_devise", "FCFA")
         return f"{self.reference} - {self.get_type_mouvement_display()} - {self.montant} {devise}{etat}"
+
+    @property
+    def compte_contrepartie(self):
+        """Compte SYSCOHADA de contrepartie de la Caisse pour ce mouvement."""
+        if self.type_mouvement == self.TypeMouvement.ENTREE:
+            return COMPTE_SYSCOHADA_PRODUITS_SCOLARITE
+        return COMPTE_SYSCOHADA_CHARGES_PERSONNEL
+
+    @property
+    def debit_caisse(self):
+        return self.montant if self.type_mouvement == self.TypeMouvement.ENTREE else 0
+
+    @property
+    def credit_caisse(self):
+        return self.montant if self.type_mouvement == self.TypeMouvement.SORTIE else 0
 
     def clean(self):
         super().clean()

@@ -11,14 +11,17 @@
     <div class="col-md-5">
         <div class="card">
             <div class="card-body">
-                <form method="post" novalidate>
+                <div id="etat-hors-ligne" class="alert" style="display:none;" role="status"></div>
+                <form method="post" novalidate data-hors-ligne>
                     {% csrf_token %}
                     {% for champ in formulaire %}
                         <div class="mb-3">
                             <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
                             {{ champ }}
                             {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
-                            {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                            <div id="erreurs-{{ champ.html_name }}">
+                                {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                            </div>
                         </div>
                     {% endfor %}
                     <button type="submit" class="btn btn-primary w-100">Enregistrer</button>
@@ -30,10 +33,12 @@
         <div class="card">
             <div class="card-body">
                 <p class="titre-section">Notes déjà saisies</p>
-                {% if notes_existantes %}
-                <table class="table">
+                <div data-etat-vide-resultats class="etat-vide" {% if notes_existantes %}style="display:none;"{% endif %}>
+                    <p>Aucune note saisie pour le moment.</p>
+                </div>
+                <table class="table" data-tableau-resultats {% if not notes_existantes %}style="display:none;"{% endif %}>
                     <thead><tr><th>Élève</th><th>Trimestre</th><th class="text-end">Classe/20</th><th class="text-end">Compo/40</th><th class="text-end">Moyenne</th></tr></thead>
-                    <tbody>
+                    <tbody data-corps-resultats data-ligne-champs="eleve,trimestre,note_classe,note_composition,valeur">
                         {% for note in notes_existantes %}
                         <tr>
                             <td>{{ note.eleve.nom_complet }}</td>
@@ -45,9 +50,6 @@
                         {% endfor %}
                     </tbody>
                 </table>
-                {% else %}
-                <div class="etat-vide"><p>Aucune note saisie pour le moment.</p></div>
-                {% endif %}
             </div>
         </div>
     </div>

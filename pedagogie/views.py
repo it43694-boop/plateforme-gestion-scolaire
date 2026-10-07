@@ -127,11 +127,16 @@ def saisir_note_vue(request, affectation_id):
     if request.user.role == Role.ENSEIGNANT and affectation.enseignant_id != request.user.id:
         raise PermissionDenied("Vous n'êtes pas l'enseignant affecté à cette matière pour cette classe.")
 
+    # Requête envoyée par la file de synchronisation hors-ligne (voir
+    # static/js/app.js et static/js/sw.js, même mécanisme que la saisie
+    # d'absences) : on répond en JSON plutôt que par une redirection.
+    est_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
     formulaire = SaisirNoteForm(request.POST or None, affectation=affectation)
     if request.method == "POST" and formulaire.is_valid():
         eleve = Utilisateur.objects.get(matricule=formulaire.cleaned_data["matricule_eleve"], role=Role.ELEVE)
         try:
-            saisir_note(
+            note = saisir_note(
                 eleve=eleve, affectation=affectation,
                 trimestre=formulaire.cleaned_data["trimestre"],
                 note_classe=formulaire.cleaned_data["note_classe"],
@@ -139,14 +144,28 @@ def saisir_note_vue(request, affectation_id):
                 enseignant=request.user,
             )
         except ValidationError as erreur:
+            if est_ajax:
+                return JsonResponse({"ok": False, "erreurs": {"matricule_eleve": erreur.messages}})
             messages.error(request, "; ".join(erreur.messages))
         else:
             enregistrer_action(
                 acteur=request.user, action="saisie_note",
                 cible=f"{eleve.matricule} - {affectation}", request=request,
             )
-            messages.success(request, f"Note enregistrée pour {eleve.nom_complet}.")
+            message = f"Note enregistrée pour {eleve.nom_complet}."
+            if est_ajax:
+                return JsonResponse({
+                    "ok": True, "message": message, "eleve": eleve.nom_complet,
+                    "trimestre": note.get_trimestre_display(),
+                    "note_classe": "-" if note.note_classe is None else f"{note.note_classe:.2f}",
+                    "note_composition": "-" if note.note_composition is None else f"{note.note_composition:.2f}",
+                    "valeur": f"{note.valeur:.2f}",
+                })
+            messages.success(request, message)
         return redirect("pedagogie:saisir_note", affectation_id=affectation.id)
+
+    if est_ajax and request.method == "POST":
+        return JsonResponse({"ok": False, "erreurs": formulaire.errors})
 
     notes_existantes = Note.objects.filter(affectation=affectation).select_related("eleve")
     return render(request, "pedagogie/saisir_note.html", {

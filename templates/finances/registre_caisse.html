@@ -10,6 +10,7 @@
             <p>Alimenté exclusivement par les paiements et les salaires payés.</p>
         </div>
     </div>
+    <a href="{% url 'finances:journal_caisse_syscohada' %}" class="btn btn-outline-secondary btn-sm">Journal SYSCOHADA</a>
     <div class="solde-affichage">
         <div class="mini-stat-label">Solde</div>
         <div class="mini-stat-valeur {% if solde >= 0 %}positif{% else %}negatif{% endif %}">

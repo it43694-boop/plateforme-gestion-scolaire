@@ -30,4 +30,6 @@ urlpatterns = [
     path("personnel/conges/solde.json", views.solde_conges_json, name="solde_conges_json"),
 
     path("caisse/", views.registre_caisse, name="registre_caisse"),
+    path("caisse/journal-syscohada/", views.journal_caisse_syscohada, name="journal_caisse_syscohada"),
+    path("caisse/journal-syscohada.csv", views.journal_caisse_syscohada_csv, name="journal_caisse_syscohada_csv"),
 ]

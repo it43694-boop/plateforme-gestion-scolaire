@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Journal de caisse SYSCOHADA{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "finances" 24 %}</div>
+        <div>
+            <h1>Journal de caisse SYSCOHADA</h1>
+            <p>
+                Dérivé automatiquement du registre de Caisse - une entrée (paiement reçu)
+                débite la Caisse et crédite le compte 706 (Produits de scolarité), une
+                sortie (salaire payé) crédite la Caisse et débite le compte 661 (Charges
+                de personnel). Journal de caisse exportable pour votre comptable, pas une
+                comptabilité en partie double complète.
+            </p>
+        </div>
+    </div>
+    <a href="{% url 'finances:journal_caisse_syscohada_csv' %}" class="btn btn-outline-secondary btn-sm" data-telechargement>Exporter en CSV</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <p class="titre-section">Balance (comptes mouvementés)</p>
+        <table class="table">
+            <thead><tr><th>Compte</th><th>Libellé</th><th class="text-end">Débit</th><th class="text-end">Crédit</th></tr></thead>
+            <tbody>
+                {% for ligne in balance %}
+                <tr>
+                    <td>{{ ligne.compte }}</td>
+                    <td>{{ ligne.libelle }}</td>
+                    <td class="text-end montant-val">{{ ligne.debit }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td class="text-end montant-val">{{ ligne.credit }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if mouvements %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date</th><th>Pièce</th><th>Libellé</th><th>Compte de contrepartie</th>
+                    <th class="text-end">Débit (Caisse)</th><th class="text-end">Crédit (Caisse)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mouvement in mouvements %}
+                <tr>
+                    <td>{{ mouvement.date_mouvement|date:"d/m/Y" }}</td>
+                    <td>{{ mouvement.reference }}</td>
+                    <td>{{ mouvement.description }}</td>
+                    <td>{{ mouvement.compte_contrepartie }}</td>
+                    <td class="text-end montant-val">{% if mouvement.debit_caisse %}{{ mouvement.debit_caisse }} {{ etablissement.code_devise|default:"FCFA" }}{% endif %}</td>
+                    <td class="text-end montant-val">{% if mouvement.credit_caisse %}{{ mouvement.credit_caisse }} {{ etablissement.code_devise|default:"FCFA" }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide"><p>Aucun mouvement de caisse pour le moment.</p></div>
+        {% endif %}
+        {% include "_pagination.html" %}
+    </div>
+</div>
+{% endblock %}

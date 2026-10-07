@@ -27,12 +27,12 @@
         <div class="card">
             <div class="card-body">
                 <p class="titre-section">Dernières absences saisies</p>
-                <div id="absences-vide" class="etat-vide" {% if absences %}style="display:none;"{% endif %}>
+                <div data-etat-vide-resultats class="etat-vide" {% if absences %}style="display:none;"{% endif %}>
                     <p>Aucune absence saisie pour le moment.</p>
                 </div>
-                <table class="table" id="tableau-absences" {% if not absences %}style="display:none;"{% endif %}>
+                <table class="table" data-tableau-resultats {% if not absences %}style="display:none;"{% endif %}>
                     <thead><tr><th>Élève</th><th>Date</th><th>Justifiée</th></tr></thead>
-                    <tbody id="corps-tableau-absences">
+                    <tbody data-corps-resultats data-ligne-champs="eleve,date_absence,justifiee">
                         {% for absence in absences %}
                         <tr>
                             <td>{{ absence.eleve.nom_complet }}</td>
