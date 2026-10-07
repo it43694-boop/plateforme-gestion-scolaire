@@ -42,7 +42,10 @@ class ModifierCompteForm(BootstrapFormMixin, forms.Form):
 class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Etablissement
-        fields = ["nom", "devise", "logo", "code_devise", "pas_montant"]
+        fields = [
+            "nom", "devise", "logo", "code_devise", "pas_montant",
+            "taux_inps_salarie", "taux_inps_employeur", "taux_amo_salarie", "taux_amo_employeur",
+        ]
 
 
 class CreerAnneeScolaireForm(BootstrapFormMixin, forms.Form):

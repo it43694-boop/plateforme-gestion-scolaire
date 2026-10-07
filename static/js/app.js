@@ -159,6 +159,25 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
+    // Solde de congés payés de l'employé choisi (voir finances/enregistrer
+    // un congé) : rechargé à chaque changement d'employé, même principe que
+    // les mois couverts ci-dessus.
+    document.querySelectorAll("[data-solde-url]").forEach(function (conteneur) {
+        var cible = document.getElementById(conteneur.dataset.soldeCible);
+        if (!cible) return;
+        cible.addEventListener("change", function () {
+            conteneur.textContent = "";
+            if (!cible.value) { conteneur.style.display = "none"; return; }
+            fetch(conteneur.dataset.soldeUrl + "?email=" + encodeURIComponent(cible.value))
+                .then(function (r) { return r.json(); })
+                .then(function (donnees) {
+                    if (donnees.solde === null) { conteneur.style.display = "none"; return; }
+                    conteneur.textContent = "Solde de congés payés actuel : " + donnees.solde + " jour(s).";
+                    conteneur.style.display = "block";
+                });
+        });
+    });
+
     document.querySelectorAll(".annuaire-item").forEach(function (bouton) {
         bouton.addEventListener("click", function () {
             document.querySelectorAll(".annuaire-panneau").forEach(function (p) { p.style.display = "none"; });

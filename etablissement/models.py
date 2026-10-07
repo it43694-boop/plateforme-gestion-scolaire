@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
@@ -77,6 +79,35 @@ class Etablissement(models.Model):
                    "de direction de cycle attribuables. Modifiable uniquement depuis l'espace plateforme, "
                    "jamais par l'établissement lui-même.",
     )
+
+    # Taux de cotisations sociales maliennes (INPS, AMO/CANAM), utilisés par
+    # le bulletin de paie détaillé (finances.models.creer_bulletin_paie).
+    # Valeurs par défaut conformes aux taux en vigueur au moment de l'écriture
+    # (INPS part salarié 3,6 % ; AMO part salarié/employeur 3,06 %/3,5 %,
+    # décret n°578/P-RM du 26/10/2010) - la part employeur de l'INPS varie
+    # en réalité de 18,9 % à 21,9 % selon la classe de risque ATMP de
+    # l'établissement, d'où un champ modifiable plutôt qu'une valeur codée en
+    # dur : ces taux évoluent par décret, à vérifier/ajuster périodiquement.
+    taux_inps_salarie = models.DecimalField(
+        "taux INPS (part salarié)", max_digits=5, decimal_places=2, default=Decimal("3.6"),
+        help_text="Pourcentage du salaire brut retenu sur le bulletin de paie au titre de l'INPS.",
+    )
+    taux_inps_employeur = models.DecimalField(
+        "taux INPS (part employeur)", max_digits=5, decimal_places=2, default=Decimal("20.0"),
+        help_text="Pourcentage du salaire brut à la charge de l'établissement (information uniquement, "
+                   "n'affecte pas le net payé à l'employé) - varie de 18,9 % à 21,9 % selon la classe de "
+                   "risque ATMP, à ajuster selon votre situation réelle.",
+    )
+    taux_amo_salarie = models.DecimalField(
+        "taux AMO (part salarié)", max_digits=5, decimal_places=2, default=Decimal("3.06"),
+        help_text="Pourcentage du salaire brut retenu sur le bulletin de paie au titre de l'AMO (CANAM).",
+    )
+    taux_amo_employeur = models.DecimalField(
+        "taux AMO (part employeur)", max_digits=5, decimal_places=2, default=Decimal("3.5"),
+        help_text="Pourcentage du salaire brut à la charge de l'établissement au titre de l'AMO "
+                   "(information uniquement, n'affecte pas le net payé à l'employé).",
+    )
+
     cree_le = models.DateTimeField(default=timezone.now, editable=False)
 
     class Meta:

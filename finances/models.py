@@ -1,3 +1,6 @@
+import datetime
+from decimal import Decimal
+
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.utils import timezone
@@ -166,11 +169,26 @@ class Salaire(models.Model):
     periode = models.CharField(
         max_length=7, help_text="Format AAAA-MM, exemple : 2026-10",
     )
-    montant = models.PositiveIntegerField()
+    montant = models.PositiveIntegerField(help_text="Montant net effectivement versé à l'employé.")
     statut = models.CharField(max_length=20, choices=Statut.choices, default=Statut.EN_ATTENTE)
     # Unique par établissement (voir Meta), pas globalement - même logique que Paiement.reference.
     reference = models.CharField(max_length=30, null=True, blank=True, editable=False)
     date_paiement = models.DateTimeField(null=True, blank=True)
+
+    # Détail du bulletin de paie - facultatif (voir creer_bulletin_paie) :
+    # un salaire saisi par la voie simple (saisir_salaire_vue) n'a que
+    # `montant`, ces champs restent vides. Les parts employeur sont
+    # purement informatives (coût réel pour l'établissement) et n'affectent
+    # jamais `montant`, qui reste toujours le net versé à l'employé.
+    salaire_brut = models.PositiveIntegerField(null=True, blank=True)
+    cotisation_inps_salarie = models.PositiveIntegerField(null=True, blank=True)
+    cotisation_inps_employeur = models.PositiveIntegerField(null=True, blank=True)
+    cotisation_amo_salarie = models.PositiveIntegerField(null=True, blank=True)
+    cotisation_amo_employeur = models.PositiveIntegerField(null=True, blank=True)
+    its = models.PositiveIntegerField(
+        "ITS (impôt sur salaires)", default=0, blank=True,
+        help_text="Saisi manuellement - le barème officiel n'est pas calculé automatiquement par l'application.",
+    )
 
     enregistre_par = models.ForeignKey(
         "comptes.Utilisateur", on_delete=models.SET_NULL, null=True, related_name="salaires_enregistres",
@@ -208,6 +226,197 @@ class Salaire(models.Model):
             self.etablissement_id = self.employe.etablissement_id
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class TypeContrat(models.TextChoices):
+    CDI = "cdi", "CDI"
+    CDD = "cdd", "CDD"
+
+
+class Contrat(models.Model):
+    """
+    Contrat de travail d'un membre du personnel (poste, type, salaire de
+    base). Un seul contrat actif à la fois par employé (voir clean()) -
+    un renouvellement ou changement de poste clôture l'ancien (date_fin)
+    plutôt que de le supprimer, pour garder l'historique complet.
+    """
+
+    employe = models.ForeignKey("comptes.Utilisateur", on_delete=models.PROTECT, related_name="contrats")
+    etablissement = models.ForeignKey(
+        "etablissement.Etablissement", on_delete=models.PROTECT, related_name="contrats", null=True, blank=True,
+    )
+    type_contrat = models.CharField(max_length=10, choices=TypeContrat.choices)
+    poste = models.CharField(max_length=150)
+    date_debut = models.DateField()
+    date_fin = models.DateField(null=True, blank=True, help_text="Laisser vide pour un CDI toujours en cours.")
+    salaire_base = models.PositiveIntegerField(help_text="Salaire brut mensuel de base.")
+
+    cree_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.PROTECT, related_name="contrats_crees")
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "contrat"
+        verbose_name_plural = "contrats"
+        ordering = ["-date_debut"]
+
+    def __str__(self):
+        return f"{self.employe.nom_complet} - {self.get_type_contrat_display()} ({self.poste})"
+
+    @property
+    def est_actif(self):
+        return self.date_fin is None or self.date_fin >= timezone.now().date()
+
+    def clean(self):
+        super().clean()
+        if self.employe_id and self.etablissement_id and self.employe.etablissement_id != self.etablissement_id:
+            raise ValidationError("L'employé et le contrat doivent appartenir au même établissement.")
+        if self.type_contrat == TypeContrat.CDD and not self.date_fin:
+            raise ValidationError("Un CDD doit avoir une date de fin.")
+        if self.date_fin and self.date_debut and self.date_fin <= self.date_debut:
+            raise ValidationError("La date de fin doit être postérieure à la date de début.")
+        if self.employe_id and self.est_actif:
+            conflit = Contrat.objects.filter(employe_id=self.employe_id).exclude(pk=self.pk).filter(
+                models.Q(date_fin__isnull=True) | models.Q(date_fin__gte=timezone.now().date())
+            )
+            if conflit.exists():
+                raise ValidationError(
+                    "Cet employé a déjà un contrat actif - clôturez-le (date de fin) avant d'en créer un nouveau."
+                )
+
+    def save(self, *args, **kwargs):
+        if not self.etablissement_id and self.employe_id:
+            self.etablissement_id = self.employe.etablissement_id
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+def contrat_actif_pour(employe):
+    """Le contrat en cours de cet employé, s'il en a un (voir Contrat.est_actif)."""
+    return Contrat.objects.filter(employe=employe).filter(
+        models.Q(date_fin__isnull=True) | models.Q(date_fin__gte=timezone.now().date())
+    ).order_by("-date_debut").first()
+
+
+class TypeConge(models.TextChoices):
+    PAYE = "paye", "Congé payé"
+    MALADIE = "maladie", "Congé maladie"
+    MATERNITE = "maternite", "Congé maternité"
+    AUTRE = "autre", "Autre"
+
+
+class StatutConge(models.TextChoices):
+    EN_ATTENTE = "en_attente", "En attente"
+    APPROUVE = "approuve", "Approuvé"
+    REFUSE = "refuse", "Refusé"
+
+
+class DemandeConge(models.Model):
+    """Congé d'un membre du personnel, enregistré par la direction/comptabilité."""
+
+    employe = models.ForeignKey("comptes.Utilisateur", on_delete=models.PROTECT, related_name="demandes_conge")
+    etablissement = models.ForeignKey(
+        "etablissement.Etablissement", on_delete=models.PROTECT, related_name="demandes_conge", null=True, blank=True,
+    )
+    type_conge = models.CharField(max_length=20, choices=TypeConge.choices)
+    date_debut = models.DateField()
+    date_fin = models.DateField()
+    motif = models.CharField(max_length=255, blank=True)
+    statut = models.CharField(max_length=20, choices=StatutConge.choices, default=StatutConge.APPROUVE)
+
+    enregistre_par = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.PROTECT, related_name="demandes_conge_enregistrees",
+    )
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "congé"
+        verbose_name_plural = "congés"
+        ordering = ["-date_debut"]
+
+    def __str__(self):
+        return f"{self.employe.nom_complet} - {self.get_type_conge_display()} ({self.date_debut} au {self.date_fin})"
+
+    @property
+    def nombre_jours(self):
+        """Jours ouvrables (dimanche exclu), inclusif des deux bornes."""
+        jours = 0
+        curseur = self.date_debut
+        while curseur <= self.date_fin:
+            if curseur.weekday() != 6:
+                jours += 1
+            curseur += datetime.timedelta(days=1)
+        return jours
+
+    def clean(self):
+        super().clean()
+        if self.employe_id and self.etablissement_id and self.employe.etablissement_id != self.etablissement_id:
+            raise ValidationError("L'employé et le congé doivent appartenir au même établissement.")
+        if self.date_debut and self.date_fin and self.date_fin < self.date_debut:
+            raise ValidationError("La date de fin doit être postérieure ou égale à la date de début.")
+
+    def save(self, *args, **kwargs):
+        if not self.etablissement_id and self.employe_id:
+            self.etablissement_id = self.employe.etablissement_id
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+JOURS_CONGES_PAYES_PAR_MOIS = Decimal("2.5")
+
+
+def solde_conges_payes(employe, a_la_date=None):
+    """
+    Solde de congés payés disponible : jours acquis depuis le début du
+    contrat en cours (2,5 jours ouvrables par mois complet travaillé,
+    conforme au Code du travail malien) moins les jours de congé payé déjà
+    approuvés. Simplification volontaire assumée : pas de remise à zéro
+    annuelle (voir README) - renvoie 0 si l'employé n'a aucun contrat actif.
+    """
+    a_la_date = a_la_date or timezone.now().date()
+    contrat = contrat_actif_pour(employe)
+    if not contrat:
+        return 0
+    mois_travailles = (a_la_date.year - contrat.date_debut.year) * 12 + (a_la_date.month - contrat.date_debut.month)
+    if a_la_date.day < contrat.date_debut.day:
+        mois_travailles -= 1
+    mois_travailles = max(mois_travailles, 0)
+    acquis = JOURS_CONGES_PAYES_PAR_MOIS * mois_travailles
+
+    conges_payes = DemandeConge.objects.filter(
+        employe=employe, type_conge=TypeConge.PAYE, statut=StatutConge.APPROUVE, date_debut__gte=contrat.date_debut,
+    )
+    jours_pris = sum(conge.nombre_jours for conge in conges_payes)
+    return float(acquis) - jours_pris
+
+
+def creer_bulletin_paie(*, employe, periode, salaire_brut, its, enregistre_par):
+    """
+    Crée un Salaire avec le détail complet du bulletin (brut, cotisations
+    INPS/AMO selon les taux configurés pour l'établissement, ITS saisi par
+    l'appelant, net calculé). Le net calculé devient `montant` - c'est lui
+    qui part en dépense de Caisse une fois le salaire marqué payé (voir
+    marquer_salaire_paye), jamais le brut.
+    """
+    etablissement = employe.etablissement
+
+    def _part(taux_pourcentage):
+        return round(Decimal(salaire_brut) * Decimal(str(taux_pourcentage)) / Decimal("100"))
+
+    inps_salarie = _part(etablissement.taux_inps_salarie) if etablissement else 0
+    inps_employeur = _part(etablissement.taux_inps_employeur) if etablissement else 0
+    amo_salarie = _part(etablissement.taux_amo_salarie) if etablissement else 0
+    amo_employeur = _part(etablissement.taux_amo_employeur) if etablissement else 0
+    net = salaire_brut - inps_salarie - amo_salarie - its
+    if net <= 0:
+        raise ValidationError("Le net calculé (brut moins retenues) doit être strictement positif.")
+
+    return Salaire.objects.create(
+        employe=employe, etablissement=etablissement, periode=periode, montant=net,
+        salaire_brut=salaire_brut, its=its,
+        cotisation_inps_salarie=inps_salarie, cotisation_inps_employeur=inps_employeur,
+        cotisation_amo_salarie=amo_salarie, cotisation_amo_employeur=amo_employeur,
+        enregistre_par=enregistre_par,
+    )
 
 
 class MouvementCaisse(models.Model):

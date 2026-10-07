@@ -11,11 +11,14 @@ from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
 from comptes.models import Utilisateur
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
-from finances.forms import CorrigerPaiementForm, EnregistrerPaiementForm, SaisirSalaireForm
+from finances.forms import (
+    CloturerContratForm, CorrigerPaiementForm, CreerBulletinPaieForm, CreerContratForm, EnregistrerCongeForm,
+    EnregistrerPaiementForm, SaisirSalaireForm,
+)
 from finances.models import (
-    MouvementCaisse, Paiement, Salaire,
-    corriger_paiement, enregistrer_paiement, marquer_salaire_paye,
-    supprimer_paiement, supprimer_salaire,
+    Contrat, DemandeConge, MouvementCaisse, Paiement, Salaire,
+    contrat_actif_pour, corriger_paiement, creer_bulletin_paie, enregistrer_paiement, marquer_salaire_paye,
+    solde_conges_payes, supprimer_paiement, supprimer_salaire,
 )
 from permissions_matrix.modules import Module
 
@@ -364,6 +367,143 @@ def supprimer_salaire_vue(request, salaire_id):
     )
     messages.success(request, "Salaire supprimé.")
     return redirect("finances:liste_salaires")
+
+
+@module_requis(Module.SALAIRES)
+def creer_bulletin_paie_vue(request):
+    """
+    Bulletin de paie détaillé (brut, cotisations INPS/AMO calculées selon
+    les taux de l'établissement, ITS saisi à la main, net calculé) - crée
+    un Salaire comme saisir_salaire_vue, mais avec le détail complet
+    plutôt qu'un simple montant. Voir finances.models.creer_bulletin_paie.
+    """
+    formulaire = CreerBulletinPaieForm(request.POST or None, etablissement=request.user.etablissement)
+    if request.method == "POST" and formulaire.is_valid():
+        try:
+            salaire = creer_bulletin_paie(
+                employe=formulaire.cleaned_data["employe"], periode=formulaire.cleaned_data["periode"],
+                salaire_brut=formulaire.cleaned_data["salaire_brut"], its=formulaire.cleaned_data["its"],
+                enregistre_par=request.user,
+            )
+        except ValidationError as erreur:
+            messages.error(request, "; ".join(erreur.messages) if hasattr(erreur, "messages") else str(erreur))
+            return render(request, "finances/creer_bulletin_paie.html", {"formulaire": formulaire})
+        enregistrer_action(
+            acteur=request.user, action="creation_bulletin_paie",
+            cible=f"{salaire.employe.nom_complet} - {salaire.periode}", request=request,
+        )
+        messages.success(request, f"Bulletin de paie créé (net : {salaire.montant}).")
+        return redirect("finances:liste_salaires")
+    return render(request, "finances/creer_bulletin_paie.html", {"formulaire": formulaire})
+
+
+@module_requis(Module.SALAIRES)
+def bulletin_paie_pdf(request, salaire_id):
+    salaire = get_object_or_404(
+        Salaire, id=salaire_id, est_supprime=False, etablissement=request.user.etablissement,
+    )
+    html = render_to_string("finances/bulletin_paie_pdf.html", {"salaire": salaire}, request=request)
+    reponse = HttpResponse(content_type="application/pdf")
+    reponse["Content-Disposition"] = f'attachment; filename="bulletin_{salaire.employe.matricule or salaire.employe.id}_{salaire.periode}.pdf"'
+    resultat = pisa.CreatePDF(html, dest=reponse, encoding="utf-8")
+    if resultat.err:
+        return HttpResponse("Erreur lors de la génération du bulletin.", status=500)
+    return reponse
+
+
+# ---------------------------------------------------------------------------
+# Personnel - contrats
+# ---------------------------------------------------------------------------
+
+@module_requis(Module.SALAIRES)
+def liste_contrats(request):
+    contrats = Contrat.objects.filter(etablissement=request.user.etablissement).select_related("employe")
+    page_obj = Paginator(contrats, 25).get_page(request.GET.get("page"))
+    return render(request, "finances/liste_contrats.html", {"page_obj": page_obj, "contrats": page_obj.object_list})
+
+
+@module_requis(Module.SALAIRES)
+def creer_contrat_vue(request):
+    formulaire = CreerContratForm(request.POST or None, etablissement=request.user.etablissement)
+    if request.method == "POST" and formulaire.is_valid():
+        contrat = Contrat.objects.create(
+            employe=formulaire.cleaned_data["employe"], type_contrat=formulaire.cleaned_data["type_contrat"],
+            poste=formulaire.cleaned_data["poste"], date_debut=formulaire.cleaned_data["date_debut"],
+            date_fin=formulaire.cleaned_data["date_fin"], salaire_base=formulaire.cleaned_data["salaire_base"],
+            cree_par=request.user,
+        )
+        enregistrer_action(
+            acteur=request.user, action="creation_contrat",
+            cible=f"{contrat.employe.nom_complet} - {contrat.poste}", request=request,
+        )
+        messages.success(request, f"Contrat créé pour {contrat.employe.nom_complet}.")
+        return redirect("finances:liste_contrats")
+    return render(request, "finances/creer_contrat.html", {"formulaire": formulaire})
+
+
+@module_requis(Module.SALAIRES)
+@require_http_methods(["POST"])
+def cloturer_contrat_vue(request, contrat_id):
+    contrat = get_object_or_404(Contrat, id=contrat_id, etablissement=request.user.etablissement)
+    formulaire = CloturerContratForm(request.POST)
+    if formulaire.is_valid():
+        contrat.date_fin = formulaire.cleaned_data["date_fin"]
+        try:
+            contrat.full_clean()
+        except ValidationError as erreur:
+            messages.error(request, "; ".join(erreur.messages) if hasattr(erreur, "messages") else str(erreur))
+            return redirect("finances:liste_contrats")
+        contrat.save(update_fields=["date_fin"])
+        enregistrer_action(
+            acteur=request.user, action="cloture_contrat",
+            cible=f"{contrat.employe.nom_complet} - {contrat.poste}", request=request,
+        )
+        messages.success(request, "Contrat clôturé.")
+    else:
+        messages.error(request, "Date de fin invalide.")
+    return redirect("finances:liste_contrats")
+
+
+# ---------------------------------------------------------------------------
+# Personnel - congés
+# ---------------------------------------------------------------------------
+
+@module_requis(Module.SALAIRES)
+def liste_conges(request):
+    conges = DemandeConge.objects.filter(etablissement=request.user.etablissement).select_related("employe")
+    page_obj = Paginator(conges, 25).get_page(request.GET.get("page"))
+    return render(request, "finances/liste_conges.html", {"page_obj": page_obj, "conges": page_obj.object_list})
+
+
+@module_requis(Module.SALAIRES)
+def enregistrer_conge_vue(request):
+    formulaire = EnregistrerCongeForm(request.POST or None, etablissement=request.user.etablissement)
+    if request.method == "POST" and formulaire.is_valid():
+        conge = DemandeConge.objects.create(
+            employe=formulaire.cleaned_data["employe"], type_conge=formulaire.cleaned_data["type_conge"],
+            date_debut=formulaire.cleaned_data["date_debut"], date_fin=formulaire.cleaned_data["date_fin"],
+            motif=formulaire.cleaned_data["motif"], statut=formulaire.cleaned_data["statut"],
+            enregistre_par=request.user,
+        )
+        enregistrer_action(
+            acteur=request.user, action="enregistrement_conge",
+            cible=f"{conge.employe.nom_complet} - {conge.date_debut} au {conge.date_fin}", request=request,
+        )
+        messages.success(request, f"Congé enregistré pour {conge.employe.nom_complet} ({conge.nombre_jours} jour(s)).")
+        return redirect("finances:liste_conges")
+    return render(request, "finances/enregistrer_conge.html", {"formulaire": formulaire})
+
+
+@module_requis(Module.SALAIRES)
+def solde_conges_json(request):
+    """Solde de congés payés de l'employé sélectionné (voir EnregistrerCongeForm) - affiché en direct en JS."""
+    from django.http import JsonResponse
+
+    email = request.GET.get("email", "").strip()
+    employe = Utilisateur.objects.filter(email__iexact=email, etablissement=request.user.etablissement).first()
+    if not employe:
+        return JsonResponse({"solde": None})
+    return JsonResponse({"solde": solde_conges_payes(employe)})
 
 
 # ---------------------------------------------------------------------------

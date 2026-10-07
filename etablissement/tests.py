@@ -59,6 +59,8 @@ class ParametresEtablissementVueTests(TestCase):
         reponse = self.client.post(reverse("espace_developpeur:parametres_etablissement"), {
             "nom": "Collège Sahel", "devise": "Réussir ensemble",
             "code_devise": "EUR", "pas_montant": "100",
+            "taux_inps_salarie": "3.6", "taux_inps_employeur": "20.0",
+            "taux_amo_salarie": "3.06", "taux_amo_employeur": "3.5",
         })
         self.assertEqual(reponse.status_code, 302)
         self.etablissement.refresh_from_db()

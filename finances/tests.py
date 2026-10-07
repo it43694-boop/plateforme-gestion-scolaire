@@ -7,9 +7,9 @@ from django.urls import reverse
 from comptes.models import Utilisateur
 from comptes.roles import Role, StatutCompte
 from finances.models import (
-    MouvementCaisse, Paiement, Salaire, TypeTranche,
-    corriger_paiement, enregistrer_paiement, marquer_salaire_paye,
-    supprimer_paiement, supprimer_salaire,
+    Contrat, DemandeConge, MouvementCaisse, Paiement, Salaire, StatutConge, TypeContrat, TypeTranche,
+    contrat_actif_pour, corriger_paiement, creer_bulletin_paie, enregistrer_paiement, marquer_salaire_paye,
+    solde_conges_payes, supprimer_paiement, supprimer_salaire,
 )
 from scolarite.models import AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription, Periodicite
 
@@ -197,6 +197,173 @@ class CascadeSalaireCaisseTests(TestCase):
         self.assertTrue(salaire.est_supprime)
         mouvement = MouvementCaisse.objects.get(reference=reference_caisse)
         self.assertTrue(mouvement.annule)
+
+
+class ContratTests(TestCase):
+    def setUp(self):
+        from etablissement.models import Etablissement
+        from permissions_matrix.models import PermissionMatrix
+
+        self.ecole = Etablissement.objects.create(nom="École Contrats")
+        PermissionMatrix.seed_pour(self.ecole)
+        self.comptable = creer_utilisateur_actif("comptable-contrat@example.com", Role.COMPTABLE, etablissement=self.ecole)
+        self.enseignant = creer_utilisateur_actif("prof-contrat@example.com", Role.ENSEIGNANT, etablissement=self.ecole)
+
+    def test_creer_contrat_via_la_vue(self):
+        self.client.force_login(self.comptable)
+        reponse = self.client.post(reverse("finances:creer_contrat"), {
+            "email_employe": self.enseignant.email, "type_contrat": TypeContrat.CDI,
+            "poste": "Enseignant de mathématiques", "date_debut": "2026-01-01", "date_fin": "", "salaire_base": 150000,
+        })
+        self.assertEqual(reponse.status_code, 302)
+        contrat = Contrat.objects.get(employe=self.enseignant)
+        self.assertTrue(contrat.est_actif)
+        self.assertEqual(contrat_actif_pour(self.enseignant), contrat)
+
+    def test_cdd_sans_date_fin_refuse(self):
+        with self.assertRaises(ValidationError):
+            Contrat.objects.create(
+                employe=self.enseignant, type_contrat=TypeContrat.CDD, poste="Remplaçant",
+                date_debut=datetime.date(2026, 1, 1), salaire_base=100000, cree_par=self.comptable,
+            )
+
+    def test_un_seul_contrat_actif_a_la_fois(self):
+        Contrat.objects.create(
+            employe=self.enseignant, type_contrat=TypeContrat.CDI, poste="Enseignant",
+            date_debut=datetime.date(2026, 1, 1), salaire_base=150000, cree_par=self.comptable,
+        )
+        with self.assertRaises(ValidationError):
+            Contrat.objects.create(
+                employe=self.enseignant, type_contrat=TypeContrat.CDI, poste="Enseignant (second contrat)",
+                date_debut=datetime.date(2026, 6, 1), salaire_base=160000, cree_par=self.comptable,
+            )
+
+    def test_cloturer_contrat_vue(self):
+        contrat = Contrat.objects.create(
+            employe=self.enseignant, type_contrat=TypeContrat.CDI, poste="Enseignant",
+            date_debut=datetime.date(2026, 1, 1), salaire_base=150000, cree_par=self.comptable,
+        )
+        self.client.force_login(self.comptable)
+        reponse = self.client.post(reverse("finances:cloturer_contrat", args=[contrat.id]), {"date_fin": "2026-09-30"})
+        self.assertEqual(reponse.status_code, 302)
+        contrat.refresh_from_db()
+        self.assertFalse(contrat.est_actif)
+
+    def test_secretaire_sans_module_salaires_ne_peut_pas_voir_les_contrats(self):
+        secretaire = creer_utilisateur_actif("secretaire-contrat@example.com", Role.SECRETAIRE, etablissement=self.ecole)
+        self.client.force_login(secretaire)
+        reponse = self.client.get(reverse("finances:liste_contrats"))
+        self.assertEqual(reponse.status_code, 403)
+
+
+class DemandeCongeTests(TestCase):
+    def setUp(self):
+        from etablissement.models import Etablissement
+        from permissions_matrix.models import PermissionMatrix
+
+        self.ecole = Etablissement.objects.create(nom="École Congés")
+        PermissionMatrix.seed_pour(self.ecole)
+        self.comptable = creer_utilisateur_actif("comptable-conge@example.com", Role.COMPTABLE, etablissement=self.ecole)
+        self.enseignant = creer_utilisateur_actif("prof-conge@example.com", Role.ENSEIGNANT, etablissement=self.ecole)
+        Contrat.objects.create(
+            employe=self.enseignant, type_contrat=TypeContrat.CDI, poste="Enseignant",
+            date_debut=datetime.date(2026, 1, 1), salaire_base=150000, cree_par=self.comptable,
+        )
+
+    def test_date_fin_avant_date_debut_refuse(self):
+        with self.assertRaises(ValidationError):
+            DemandeConge.objects.create(
+                employe=self.enseignant, type_conge="paye",
+                date_debut=datetime.date(2026, 5, 10), date_fin=datetime.date(2026, 5, 5),
+                enregistre_par=self.comptable,
+            )
+
+    def test_nombre_jours_exclut_le_dimanche(self):
+        # Lundi 4 mai au dimanche 10 mai 2026 : 6 jours ouvrables (dimanche exclu).
+        conge = DemandeConge.objects.create(
+            employe=self.enseignant, type_conge="paye",
+            date_debut=datetime.date(2026, 5, 4), date_fin=datetime.date(2026, 5, 10),
+            enregistre_par=self.comptable,
+        )
+        self.assertEqual(conge.nombre_jours, 6)
+
+    def test_solde_conges_payes_tient_compte_des_conges_deja_pris(self):
+        # Contrat débuté le 2026-01-01 ; au 2026-07-01, 6 mois complets
+        # travaillés -> 6 * 2,5 = 15 jours acquis.
+        DemandeConge.objects.create(
+            employe=self.enseignant, type_conge="paye", statut=StatutConge.APPROUVE,
+            date_debut=datetime.date(2026, 3, 2), date_fin=datetime.date(2026, 3, 6),  # lun-ven, 5 jours
+            enregistre_par=self.comptable,
+        )
+        solde = solde_conges_payes(self.enseignant, a_la_date=datetime.date(2026, 7, 1))
+        self.assertEqual(solde, 15 - 5)
+
+    def test_enregistrer_conge_via_la_vue(self):
+        self.client.force_login(self.comptable)
+        reponse = self.client.post(reverse("finances:enregistrer_conge"), {
+            "email_employe": self.enseignant.email, "type_conge": "maladie",
+            "date_debut": "2026-04-01", "date_fin": "2026-04-03", "motif": "Grippe", "statut": "approuve",
+        })
+        self.assertEqual(reponse.status_code, 302)
+        self.assertTrue(DemandeConge.objects.filter(employe=self.enseignant, type_conge="maladie").exists())
+
+    def test_solde_conges_json(self):
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("finances:solde_conges_json"), {"email": self.enseignant.email})
+        self.assertIsNotNone(reponse.json()["solde"])
+
+
+class BulletinPaieTests(TestCase):
+    def setUp(self):
+        from etablissement.models import Etablissement
+        from permissions_matrix.models import PermissionMatrix
+
+        self.ecole = Etablissement.objects.create(nom="École Bulletins")
+        PermissionMatrix.seed_pour(self.ecole)
+        self.comptable = creer_utilisateur_actif("comptable-bulletin@example.com", Role.COMPTABLE, etablissement=self.ecole)
+        self.enseignant = creer_utilisateur_actif("prof-bulletin@example.com", Role.ENSEIGNANT, etablissement=self.ecole)
+
+    def test_cotisations_calculees_selon_les_taux_par_defaut(self):
+        salaire = creer_bulletin_paie(
+            employe=self.enseignant, periode="2026-10", salaire_brut=200000, its=5000, enregistre_par=self.comptable,
+        )
+        self.assertEqual(salaire.cotisation_inps_salarie, 7200)
+        self.assertEqual(salaire.cotisation_inps_employeur, 40000)
+        self.assertEqual(salaire.cotisation_amo_salarie, 6120)
+        self.assertEqual(salaire.cotisation_amo_employeur, 7000)
+        self.assertEqual(salaire.montant, 200000 - 7200 - 6120 - 5000)
+
+    def test_taux_personnalises_par_etablissement(self):
+        self.ecole.taux_inps_salarie = 10
+        self.ecole.save(update_fields=["taux_inps_salarie"])
+        salaire = creer_bulletin_paie(
+            employe=self.enseignant, periode="2026-11", salaire_brut=100000, its=0, enregistre_par=self.comptable,
+        )
+        self.assertEqual(salaire.cotisation_inps_salarie, 10000)
+
+    def test_net_negatif_ou_nul_refuse(self):
+        with self.assertRaises(ValidationError):
+            creer_bulletin_paie(
+                employe=self.enseignant, periode="2026-12", salaire_brut=10000, its=10000, enregistre_par=self.comptable,
+            )
+
+    def test_creer_bulletin_paie_via_la_vue(self):
+        self.client.force_login(self.comptable)
+        reponse = self.client.post(reverse("finances:creer_bulletin_paie"), {
+            "email_employe": self.enseignant.email, "periode": "2027-01", "salaire_brut": 180000, "its": 3000,
+        })
+        self.assertEqual(reponse.status_code, 302)
+        salaire = Salaire.objects.get(employe=self.enseignant, periode="2027-01")
+        self.assertIsNotNone(salaire.salaire_brut)
+
+    def test_bulletin_paie_pdf(self):
+        salaire = creer_bulletin_paie(
+            employe=self.enseignant, periode="2027-02", salaire_brut=180000, its=3000, enregistre_par=self.comptable,
+        )
+        self.client.force_login(self.comptable)
+        reponse = self.client.get(reverse("finances:bulletin_paie_pdf", args=[salaire.id]))
+        self.assertEqual(reponse.status_code, 200)
+        self.assertTrue(reponse.content.startswith(b"%PDF"))
 
 
 class RegistreCaisseSoldeTests(TestCase):

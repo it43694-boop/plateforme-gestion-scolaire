@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Créer un contrat{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "finances" 24 %}</div>
+        <div><h1>Créer un contrat</h1></div>
+    </div>
+</div>
+<div class="card mw-480">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label" for="recherche-employe">Employé</label>
+                <div class="recherche-conteneur">
+                    <input type="text" id="recherche-employe" class="form-control" autocomplete="off"
+                           placeholder="Rechercher par nom ou email..."
+                           data-recherche-url="{% url 'finances:rechercher_employe_json' %}"
+                           data-recherche-cible="{{ formulaire.email_employe.id_for_label }}"
+                           data-recherche-affichage="nom_complet" data-recherche-valeur="email">
+                    <div class="recherche-resultats" data-recherche-resultats></div>
+                </div>
+                {{ formulaire.email_employe }}
+                {% for erreur in formulaire.email_employe.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            </div>
+            {% for champ in formulaire %}
+                {% if champ.name != "email_employe" %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+                {% endif %}
+            {% endfor %}
+            <button type="submit" class="btn btn-primary w-100">Créer le contrat</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

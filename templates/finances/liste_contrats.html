@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Contrats{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "finances" 24 %}</div>
+        <div><h1>Contrats</h1></div>
+    </div>
+    <a href="{% url 'finances:creer_contrat' %}" class="btn btn-primary btn-sm">Créer un contrat</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        {% if contrats %}
+        <table class="table">
+            <thead><tr><th>Employé</th><th>Poste</th><th>Type</th><th>Début</th><th>Fin</th><th>Salaire de base</th><th>Statut</th><th></th></tr></thead>
+            <tbody>
+                {% for contrat in contrats %}
+                <tr>
+                    <td>{{ contrat.employe.nom_complet }}</td>
+                    <td>{{ contrat.poste }}</td>
+                    <td>{{ contrat.get_type_contrat_display }}</td>
+                    <td>{{ contrat.date_debut|date:"d/m/Y" }}</td>
+                    <td>{{ contrat.date_fin|date:"d/m/Y"|default:"-" }}</td>
+                    <td>{{ contrat.salaire_base }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td>
+                        <span class="badge {% if contrat.est_actif %}bg-success{% else %}bg-secondary{% endif %}">
+                            {% if contrat.est_actif %}Actif{% else %}Clôturé{% endif %}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        {% if contrat.est_actif %}
+                        <form method="post" action="{% url 'finances:cloturer_contrat' contrat.id %}" class="d-flex gap-1 justify-content-end" data-confirmer="Clôturer ce contrat ?">
+                            {% csrf_token %}
+                            <input type="date" name="date_fin" class="form-control form-control-sm" style="width:auto;" required>
+                            <button class="btn btn-sm btn-outline-danger">Clôturer</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide">
+            <p>Aucun contrat enregistré pour le moment.</p>
+            <a href="{% url 'finances:creer_contrat' %}" class="btn btn-primary btn-sm">Créer le premier contrat</a>
+        </div>
+        {% endif %}
+        {% include "_pagination.html" %}
+    </div>
+</div>
+{% endblock %}

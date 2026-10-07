@@ -1399,6 +1399,55 @@ d'accès direct à l'URL par un compte parent - 403.
   restauration testée uniquement en local, rattrapage, traduction
   bambara : toujours ouverts (voir phases précédentes).
 
+## État du projet : Phase 40 — RH/Paie : contrats, congés, bulletin de paie détaillé
+
+Avant cette phase, `Salaire` n'enregistrait qu'un montant par période,
+sans brut/net, sans contrat, sans poste ni ancienneté - aucune donnée RH
+sur le personnel. Avant de construire quoi que ce soit, vérification de
+la réglementation malienne (INPS, AMO/CANAM) par recherche web : les
+taux de cotisation trouvés étaient cohérents sur plusieurs sources
+indépendantes, mais le barème complet de l'ITS (impôt sur salaires) ne
+l'était pas - décision délibérée de ne jamais coder en dur un calcul
+d'impôt dont le barème n'est pas vérifié à 100%, plutôt que de risquer
+une erreur sur un document qui engage réellement l'établissement.
+
+- **Dossier employé (`Contrat`).** Poste, type (CDI/CDD), dates, salaire
+  de base. Un seul contrat actif à la fois par employé (verrouillé en
+  base) - un renouvellement clôture l'ancien plutôt que de le remplacer,
+  pour garder l'historique complet.
+- **Suivi des congés (`DemandeConge`).** Enregistrés par la
+  comptabilité/direction (même logique que `Salaire` : pas de portail
+  self-service employé, cohérent avec l'existant). Solde de congés payés
+  calculé automatiquement : 2,5 jours ouvrables par mois complet
+  travaillé sous le contrat actif (Code du travail malien), moins les
+  congés payés déjà approuvés - affiché en direct dès qu'un employé est
+  sélectionné.
+- **Bulletin de paie détaillé.** Brut saisi, INPS et AMO calculés
+  automatiquement selon des **taux configurables dans les paramètres de
+  l'établissement** (jamais codés en dur : un décret qui change les taux
+  se corrige en un champ, pas un déploiement) ; ITS saisi manuellement,
+  faute de barème vérifié. Le net calculé devient `Salaire.montant`,
+  exactement comme avant - c'est toujours lui qui part en dépense de
+  Caisse une fois le salaire marqué payé, jamais le brut. Les parts
+  employeur (INPS/AMO) sont purement informatives (coût réel pour
+  l'établissement), n'affectent jamais le net payé à l'employé. Export
+  PDF du bulletin, sur le même principe que le reçu de paiement.
+- **Totalement additif.** L'ancienne saisie simple d'un salaire
+  (`saisir_salaire_vue`) reste inchangée et pleinement fonctionnelle pour
+  les écoles qui n'ont pas besoin du détail - les nouveaux champs du
+  bulletin détaillé restent vides pour ces lignes-là.
+
+15 nouveaux tests (contrats, congés avec calcul de solde et exclusion du
+dimanche, cotisations calculées selon les taux par défaut et des taux
+personnalisés, net négatif refusé, génération et export PDF du
+bulletin) - suite complète de l'application verte après correction d'une
+régression détectée par les tests existants (le formulaire des
+paramètres d'établissement, qui a gagné 4 nouveaux champs obligatoires,
+n'était plus rempli en entier par un ancien test). Vérifié de bout en
+bout (navigateur, compte comptable réel avec 2FA) : création d'un
+contrat, affichage du solde de congés en direct au choix de l'employé,
+génération d'un bulletin avec calcul correct des cotisations, téléchargement du PDF.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

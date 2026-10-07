@@ -10,7 +10,12 @@
             <p>Marquer un salaire payé crée automatiquement la dépense en Caisse.</p>
         </div>
     </div>
-    <a href="{% url 'finances:saisir_salaire' %}" class="btn btn-primary btn-sm">Saisir un salaire</a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'finances:liste_contrats' %}" class="btn btn-outline-secondary btn-sm">Contrats</a>
+        <a href="{% url 'finances:liste_conges' %}" class="btn btn-outline-secondary btn-sm">Congés</a>
+        <a href="{% url 'finances:saisir_salaire' %}" class="btn btn-outline-secondary btn-sm">Saisir un salaire simple</a>
+        <a href="{% url 'finances:creer_bulletin_paie' %}" class="btn btn-primary btn-sm">Générer un bulletin de paie</a>
+    </div>
 </div>
 <div class="card">
     <div class="card-body">
@@ -30,6 +35,9 @@
                     </td>
                     <td>{{ salaire.reference|default:"-" }}</td>
                     <td class="text-end">
+                        {% if salaire.salaire_brut %}
+                        <a href="{% url 'finances:bulletin_paie_pdf' salaire.id %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Bulletin PDF</a>
+                        {% endif %}
                         {% if salaire.statut != 'paye' %}
                         <form method="post" action="{% url 'finances:marquer_salaire_paye' salaire.id %}" class="d-inline">
                             {% csrf_token %}

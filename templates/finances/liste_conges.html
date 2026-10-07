@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Congés{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "finances" 24 %}</div>
+        <div><h1>Congés</h1></div>
+    </div>
+    <a href="{% url 'finances:enregistrer_conge' %}" class="btn btn-primary btn-sm">Enregistrer un congé</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        {% if conges %}
+        <table class="table">
+            <thead><tr><th>Employé</th><th>Type</th><th>Début</th><th>Fin</th><th>Jours</th><th>Statut</th><th>Motif</th></tr></thead>
+            <tbody>
+                {% for conge in conges %}
+                <tr>
+                    <td>{{ conge.employe.nom_complet }}</td>
+                    <td>{{ conge.get_type_conge_display }}</td>
+                    <td>{{ conge.date_debut|date:"d/m/Y" }}</td>
+                    <td>{{ conge.date_fin|date:"d/m/Y" }}</td>
+                    <td>{{ conge.nombre_jours }}</td>
+                    <td>
+                        <span class="badge {% if conge.statut == 'approuve' %}bg-success{% elif conge.statut == 'refuse' %}bg-danger{% else %}bg-warning{% endif %}">
+                            {{ conge.get_statut_display }}
+                        </span>
+                    </td>
+                    <td class="text-muted small">{{ conge.motif|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide">
+            <p>Aucun congé enregistré pour le moment.</p>
+            <a href="{% url 'finances:enregistrer_conge' %}" class="btn btn-primary btn-sm">Enregistrer le premier congé</a>
+        </div>
+        {% endif %}
+        {% include "_pagination.html" %}
+    </div>
+</div>
+{% endblock %}
