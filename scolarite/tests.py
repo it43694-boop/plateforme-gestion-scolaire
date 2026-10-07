@@ -11,8 +11,8 @@ from django.urls import reverse
 from comptes.models import Utilisateur
 from comptes.roles import Role, StatutCompte
 from scolarite.models import (
-    Abandon, Affectation, AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription, ParentEnAttente, Periodicite,
-    Serie, TransfertEleve, TypeDocumentVerifiable, VerificationDocument,
+    Abandon, Affectation, AnneeScolaire, Classe, Cycle, EcheancierFrais, FiliereProfessionnelle, Inscription,
+    ParentEnAttente, Periodicite, Serie, TransfertEleve, TypeDocumentVerifiable, VerificationDocument,
     classes_visibles_pour, cloturer_inscription, dossier_complet, eleve_visible_pour, lier_parent_a_eleve,
 )
 
@@ -82,6 +82,28 @@ class ClasseEtFraisTests(TestCase):
         classe = Classe(nom="10ème A", cycle=Cycle.LYCEE, annee_scolaire=self.annee)
         classe.clean()
         classe.save()
+
+    def test_filiere_professionnelle_hors_cycle_professionnel_refusee(self):
+        classe = Classe(
+            nom="Terminale B", cycle=Cycle.LYCEE, filiere_professionnelle=FiliereProfessionnelle.CAP,
+            annee_scolaire=self.annee,
+        )
+        with self.assertRaises(ValidationError):
+            classe.clean()
+
+    def test_cycle_professionnel_sans_filiere_refuse(self):
+        classe = Classe(nom="CAP Électricité A", cycle=Cycle.PROFESSIONNEL, annee_scolaire=self.annee)
+        with self.assertRaises(ValidationError):
+            classe.clean()
+
+    def test_cycle_professionnel_avec_filiere_acceptee(self):
+        classe = Classe(
+            nom="CAP Électricité A", cycle=Cycle.PROFESSIONNEL, filiere_professionnelle=FiliereProfessionnelle.CAP,
+            annee_scolaire=self.annee,
+        )
+        classe.clean()
+        classe.save()
+        self.assertEqual(classe.get_filiere_professionnelle_display(), "CAP - cycle court (2 ans)")
 
     def test_frais_multiple_de_5000_obligatoire(self):
         classe = Classe.objects.create(nom="1ère année A", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
@@ -238,6 +260,62 @@ class PlanEtablissementTests(TestCase):
         self.etablissement.plan = self.PlanEtablissement.TOUS_CYCLES
         self.etablissement.save(update_fields=["plan"])
         self.assertTrue(role_autorise_pour_plan(Role.CENSEUR.value, self.etablissement))
+
+
+class EnseignementProfessionnelTests(TestCase):
+    """
+    L'enseignement professionnel (CAP/BT) est un réglage indépendant de la
+    formule (Etablissement.inclut_professionnel) - pas une suite du 1er/
+    2ème cycle, une branche parallèle au Lycée cumulable avec n'importe
+    quelle formule (voir scolarite.models.cycles_autorises_pour).
+    """
+
+    def setUp(self):
+        from etablissement.models import Etablissement, PlanEtablissement
+        self.PlanEtablissement = PlanEtablissement
+        self.etablissement = Etablissement.objects.create(nom="École Pro", plan=PlanEtablissement.PREMIER_CYCLE)
+        self.annee = AnneeScolaire.objects.create(
+            etablissement=self.etablissement, libelle="2026-2027",
+            date_debut=datetime.date(2026, 10, 1), date_fin=datetime.date(2027, 7, 31),
+        )
+
+    def test_professionnel_refuse_par_defaut(self):
+        classe = Classe(
+            nom="CAP A", cycle=Cycle.PROFESSIONNEL, filiere_professionnelle=FiliereProfessionnelle.CAP,
+            annee_scolaire=self.annee,
+        )
+        with self.assertRaises(ValidationError):
+            classe.clean()
+
+    def test_professionnel_autorise_une_fois_le_reglage_active(self):
+        self.etablissement.inclut_professionnel = True
+        self.etablissement.save(update_fields=["inclut_professionnel"])
+        classe = Classe(
+            nom="CAP A", cycle=Cycle.PROFESSIONNEL, filiere_professionnelle=FiliereProfessionnelle.CAP,
+            annee_scolaire=self.annee,
+        )
+        classe.clean()  # ne doit pas lever d'exception
+
+    def test_professionnel_se_cumule_avec_nimporte_quelle_formule(self):
+        from scolarite.models import cycles_autorises_pour
+        self.etablissement.inclut_professionnel = True
+        self.etablissement.plan = self.PlanEtablissement.PREMIER_CYCLE
+        self.etablissement.save(update_fields=["inclut_professionnel", "plan"])
+        cycles = cycles_autorises_pour(self.etablissement)
+        self.assertIn(Cycle.PREMIER_CYCLE.value, cycles)
+        self.assertIn(Cycle.PROFESSIONNEL.value, cycles)
+        self.assertNotIn(Cycle.LYCEE.value, cycles)
+
+    def test_vue_creer_classe_propose_professionnel_uniquement_si_active(self):
+        direction = creer_utilisateur_actif("direction-pro@example.com", Role.FONDATEUR, etablissement=self.etablissement)
+        self.client.force_login(direction)
+        reponse = self.client.get(reverse("scolarite:creer_classe"))
+        self.assertNotContains(reponse, '<option value="professionnel">')
+
+        self.etablissement.inclut_professionnel = True
+        self.etablissement.save(update_fields=["inclut_professionnel"])
+        reponse = self.client.get(reverse("scolarite:creer_classe"))
+        self.assertContains(reponse, '<option value="professionnel">')
 
 
 class CloisonnementCycleTests(TestCase):

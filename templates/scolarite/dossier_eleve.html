@@ -21,7 +21,7 @@
         <div class="card"><div class="card-body mini-stat">
             <div class="mini-stat-label">Classe actuelle</div>
             <div class="mini-stat-valeur petit">
-                {{ inscription_active.classe }}{% if inscription_active.classe.serie %} — {{ inscription_active.classe.get_serie_display }}{% endif %}
+                {{ inscription_active.classe }}{% if inscription_active.classe.serie %} — {{ inscription_active.classe.get_serie_display }}{% endif %}{% if inscription_active.classe.filiere_professionnelle %} — {{ inscription_active.classe.get_filiere_professionnelle_display }}{% endif %}
             </div>
         </div></div>
     </div>

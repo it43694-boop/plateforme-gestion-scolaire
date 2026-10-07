@@ -96,13 +96,18 @@ def creer_etablissement(request):
 def modifier_plan(request, etablissement_id):
     etablissement = get_object_or_404(Etablissement, id=etablissement_id)
     ancien_plan = etablissement.plan
+    ancien_professionnel = etablissement.inclut_professionnel
     formulaire = ModifierPlanEtablissementForm(request.POST, instance=etablissement)
     if formulaire.is_valid():
         formulaire.save()
         enregistrer_action(
             acteur=request.user, action="modification_plan_etablissement",
             cible=etablissement.nom,
-            details={"plan": f"{ancien_plan} -> {etablissement.plan}"}, request=request,
+            details={
+                "plan": f"{ancien_plan} -> {etablissement.plan}",
+                "inclut_professionnel": f"{ancien_professionnel} -> {etablissement.inclut_professionnel}",
+            },
+            request=request,
         )
         messages.success(request, f"Formule d'abonnement de « {etablissement.nom} » mise à jour.")
     else:

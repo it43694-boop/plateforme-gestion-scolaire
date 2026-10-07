@@ -79,6 +79,13 @@ class Etablissement(models.Model):
                    "de direction de cycle attribuables. Modifiable uniquement depuis l'espace plateforme, "
                    "jamais par l'établissement lui-même.",
     )
+    inclut_professionnel = models.BooleanField(
+        "inclut l'enseignement professionnel (CAP/BT)", default=False,
+        help_text="Réglage indépendant de la formule ci-dessus : l'enseignement professionnel est une branche "
+                   "parallèle au Lycée (accessible après le DEF), pas une suite du 1er/2ème cycle - un "
+                   "établissement peut donc le cumuler avec n'importe quelle formule. Modifiable uniquement "
+                   "depuis l'espace plateforme, comme la formule.",
+    )
 
     # Taux de cotisations sociales maliennes (INPS, AMO/CANAM), utilisés par
     # le bulletin de paie détaillé (finances.models.creer_bulletin_paie).

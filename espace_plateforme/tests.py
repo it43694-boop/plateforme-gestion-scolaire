@@ -185,6 +185,33 @@ class ModifierPlanTests(TestCase):
         formulaire = ParametresEtablissementForm(instance=self.etablissement)
         self.assertNotIn("plan", formulaire.fields)
 
+    def test_proprietaire_peut_activer_le_professionnel_independamment_du_plan(self):
+        """
+        inclut_professionnel est un réglage indépendant de la formule (voir
+        scolarite.models.cycles_autorises_pour) - l'activer ne doit pas
+        changer le plan, et inversement (voir les deux formulaires de
+        templates/espace_plateforme/liste_etablissements.html, chacun avec
+        un champ caché pour préserver l'autre réglage).
+        """
+        self.client.force_login(self.proprietaire)
+        self.client.post(
+            reverse("espace_plateforme:modifier_plan", args=[self.etablissement.id]),
+            {"plan": self.PlanEtablissement.PREMIER_CYCLE.value, "inclut_professionnel": "True"},
+        )
+        self.etablissement.refresh_from_db()
+        self.assertTrue(self.etablissement.inclut_professionnel)
+        self.assertEqual(self.etablissement.plan, self.PlanEtablissement.PREMIER_CYCLE)
+
+        # Changer uniquement le plan (comme le fait le premier mini-formulaire,
+        # avec son champ caché) ne doit pas réinitialiser inclut_professionnel.
+        self.client.post(
+            reverse("espace_plateforme:modifier_plan", args=[self.etablissement.id]),
+            {"plan": self.PlanEtablissement.TOUS_CYCLES.value, "inclut_professionnel": "True"},
+        )
+        self.etablissement.refresh_from_db()
+        self.assertTrue(self.etablissement.inclut_professionnel)
+        self.assertEqual(self.etablissement.plan, self.PlanEtablissement.TOUS_CYCLES)
+
 
 class VoirComptesEtablissementTests(TestCase):
     def setUp(self):

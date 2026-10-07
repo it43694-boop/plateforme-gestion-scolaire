@@ -1448,6 +1448,91 @@ bout (navigateur, compte comptable réel avec 2FA) : création d'un
 contrat, affichage du solde de congés en direct au choix de l'employé,
 génération d'un bulletin avec calcul correct des cotisations, téléchargement du PDF.
 
+## État du projet : Phase 41 — Saisie des notes hors-ligne, journal de caisse SYSCOHADA
+
+Deux ajouts indépendants, choisis dans la liste des écarts face aux
+plateformes concurrentes maliennes.
+
+### Saisie des notes hors-ligne
+
+Même mécanisme que la Phase 38 (saisie des absences), étendu à la saisie
+des notes : la page se met en cache après une visite en ligne, la
+soumission part en AJAX et file dans la file d'attente locale en cas de
+coupure réseau, synchronisation automatique au retour. Pour y arriver
+sans dupliquer tout le mécanisme, la fonction JS qui ajoute une ligne au
+tableau "déjà saisi" après une synchronisation a été généralisée
+(`ajouterLigneResultat`, pilotée par un attribut `data-ligne-champs` sur
+le tableau plutôt que des noms de colonnes codés en dur) - réutilisée
+telle quelle par les notes, sans rien changer à son comportement pour les
+absences. Vérifié explicitement par un test de non-régression dédié
+(scénario hors-ligne réel, navigateur) sur les absences après ce
+remaniement, en plus du nouveau scénario équivalent pour les notes.
+
+### Journal de caisse SYSCOHADA
+
+Avant de construire quoi que ce soit, cadrage explicite avec l'utilisateur
+sur le périmètre : une comptabilité SYSCOHADA complète (plan de comptes,
+partie double, grand livre, bilan) est un vrai logiciel de comptabilité à
+elle seule - plusieurs semaines de travail, et un risque élevé d'erreur
+difficile à corriger une fois des écritures réelles enregistrées. Choix
+retenu : un journal de caisse exportable, entièrement dérivé des
+`MouvementCaisse` déjà enregistrés - **aucun nouveau modèle, aucune
+nouvelle saisie, donc aucun risque sur les données existantes**.
+
+- Une entrée (paiement de scolarité) débite la Caisse (571) et crédite
+  les Produits de scolarité (706) ; une sortie (salaire payé) débite les
+  Charges de personnel (661) et crédite la Caisse - imputation fixe et
+  déterministe, puisqu'un mouvement de Caisse ne peut provenir que d'un
+  paiement ou d'un salaire (jamais les deux, contrainte déjà en place).
+- Balance des 3 comptes mouvementés (débit/crédit) affichée en tête de
+  page.
+- Export CSV (point-virgule, BOM UTF-8 pour un affichage correct des
+  accents dans Excel) pour transmission directe à un comptable externe.
+- Mouvements annulés exclus, comme pour le registre de Caisse existant.
+
+9 nouveaux tests (notes hors-ligne, imputation SYSCOHADA par mouvement,
+balance des comptes, exclusion des mouvements annulés, export CSV,
+contrôle d'accès). Vérifié de bout en bout (navigateur) : notes et
+absences saisies hors-ligne puis synchronisées avec succès chacune de
+leur côté ; journal SYSCOHADA affiché avec comptes et balance corrects,
+CSV téléchargé et vérifié.
+
+## État du projet : Phase 42 — Enseignement professionnel (CAP/BT)
+
+Ajout demandé pour pouvoir enregistrer une école professionnelle. Recherche
+préalable sur la structure réelle malienne (après le DEF, un élève part soit
+au Lycée général soit en enseignement technique et professionnel - CAP en 2
+ans ou BT en 4 ans - jamais les deux à la suite), puis cadrage avec
+l'utilisateur sur deux points avant de coder : un même établissement
+peut cumuler fondamental/lycée ET professionnel, et seule la distinction
+CAP/BT est structurée pour cette version (le métier exact reste en texte
+libre dans le nom de la classe, comme aujourd'hui pour les autres cycles).
+
+- **Nouveau cycle `Professionnel`**, parallèle au Lycée - pas une suite du
+  2ème cycle. Nouvelle filière CAP/BT sur la classe, même principe que les
+  séries du Bac existantes.
+- **Réglage indépendant de la formule** (`Etablissement.inclut_
+  professionnel`) plutôt qu'une formule de plus : contrairement au 1er
+  cycle/2ème cycle/Lycée qui forment une progression cumulative, le
+  professionnel se cumule avec n'importe laquelle. Modifiable uniquement
+  depuis l'espace plateforme (propriétaire), comme la formule.
+- **Bug pré-existant trouvé et corrigé en vérifiant réellement le scénario
+  au navigateur** : le menu déroulant « Formule » de la page Établissements
+  utilisait `onchange="this.form.submit()"` - une syntaxe que la politique
+  CSP de l'application bloque silencieusement (aucune erreur visible pour
+  l'utilisateur, juste un menu qui ne sauvegarde jamais son changement).
+  Remplacé par le mécanisme `data-auto-submit` déjà utilisé ailleurs dans
+  l'application, qui passe par un fichier JS externe et respecte donc la
+  CSP. La nouvelle case à cocher « Professionnel » suit le même principe.
+
+8 nouveaux tests (cycle/filière, cumul avec n'importe quelle formule,
+formulaire de création de classe filtré selon le réglage, indépendance entre
+formule et case professionnelle). Vérifié de bout en bout (navigateur,
+scénario réel) : activation du réglage par le propriétaire de la
+plateforme, apparition du cycle dans le formulaire de création de classe
+côté école, création d'une classe CAP, filière visible dans la liste des
+classes.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

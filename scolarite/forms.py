@@ -6,8 +6,8 @@ from comptes.roles import Role
 from comptes.validators import valider_contenu_fichier, valider_extension_document, valider_taille_fichier_10mo
 from scolarite.models import PAS_MONTANT as PAS_MONTANT_PAR_DEFAUT
 from scolarite.models import (
-    DEVISE_PAR_DEFAUT, NOMBRE_VERSEMENTS_FIXE, AnneeScolaire, Classe, Cycle, EcheancierFrais, Inscription, Periodicite,
-    Serie, cycles_autorises_pour,
+    DEVISE_PAR_DEFAUT, NOMBRE_VERSEMENTS_FIXE, AnneeScolaire, Classe, Cycle, EcheancierFrais, FiliereProfessionnelle,
+    Inscription, Periodicite, Serie, cycles_autorises_pour,
 )
 
 
@@ -17,6 +17,10 @@ class CreerClasseForm(BootstrapFormMixin, forms.Form):
     serie = forms.ChoiceField(
         label="Série", choices=[("", "— Aucune (hors lycée, ou 10ème année) —")] + Serie.choices,
         required=False, help_text="Uniquement pour une classe de 11ème ou 12ème année.",
+    )
+    filiere_professionnelle = forms.ChoiceField(
+        label="Filière", choices=[("", "— Aucune (hors enseignement professionnel) —")] + FiliereProfessionnelle.choices,
+        required=False, help_text="Uniquement pour une classe du cycle Enseignement professionnel.",
     )
     annee_scolaire = forms.ModelChoiceField(label="Année scolaire", queryset=AnneeScolaire.objects.none())
     montant_inscription = forms.IntegerField(label="Frais d'inscription", min_value=0)
@@ -62,6 +66,10 @@ class CreerClasseForm(BootstrapFormMixin, forms.Form):
             self.add_error("nom", "Une classe porte déjà ce nom pour cette année scolaire.")
         if cleaned.get("serie") and cleaned.get("cycle") != Cycle.LYCEE:
             self.add_error("serie", "Une série ne s'applique qu'à une classe du cycle Lycée.")
+        if cleaned.get("filiere_professionnelle") and cleaned.get("cycle") != Cycle.PROFESSIONNEL:
+            self.add_error("filiere_professionnelle", "Une filière ne s'applique qu'à une classe du cycle Enseignement professionnel.")
+        if cleaned.get("cycle") == Cycle.PROFESSIONNEL and not cleaned.get("filiere_professionnelle"):
+            self.add_error("filiere_professionnelle", "Précisez la filière (CAP ou BT) pour une classe du cycle Enseignement professionnel.")
         periodicite = cleaned.get("periodicite")
         if periodicite == Periodicite.MENSUEL and cleaned.get("nombre_versements") not in (9, 10):
             self.add_error("nombre_versements", "Un échéancier mensuel compte 9 ou 10 versements.")
@@ -70,7 +78,8 @@ class CreerClasseForm(BootstrapFormMixin, forms.Form):
     def save(self):
         classe = Classe.objects.create(
             nom=self.cleaned_data["nom"], cycle=self.cleaned_data["cycle"],
-            serie=self.cleaned_data["serie"], annee_scolaire=self.cleaned_data["annee_scolaire"],
+            serie=self.cleaned_data["serie"], filiere_professionnelle=self.cleaned_data["filiere_professionnelle"],
+            annee_scolaire=self.cleaned_data["annee_scolaire"],
         )
         periodicite = self.cleaned_data["periodicite"]
         EcheancierFrais.objects.create(

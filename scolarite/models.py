@@ -13,11 +13,16 @@ class Cycle(models.TextChoices):
     """
     Cycles de l'enseignement malien (cf. cahier des charges pour le
     fondamental ; le lycée a été ajouté ensuite sur le même principe -
-    seconde à terminale, menant au baccalauréat malien).
+    seconde à terminale, menant au baccalauréat malien). PROFESSIONNEL
+    n'est pas une suite du 2ème cycle mais une branche parallèle au Lycée :
+    après le DEF, un élève part soit au Lycée général soit en enseignement
+    technique et professionnel (CAP/BT) - jamais les deux à la suite l'un
+    de l'autre. Voir FiliereProfessionnelle pour le détail CAP/BT.
     """
     PREMIER_CYCLE = "1er_cycle", "1er cycle"
     DEUXIEME_CYCLE = "2eme_cycle", "2ème cycle"
     LYCEE = "lycee", "Lycée"
+    PROFESSIONNEL = "professionnel", "Enseignement professionnel"
 
 
 class Serie(models.TextChoices):
@@ -33,6 +38,17 @@ class Serie(models.TextChoices):
     SCIENCES_SOCIALES = "tss", "Sciences Sociales (TSS)"
     LANGUES_LITTERATURE = "tll", "Langues et Littérature (TLL)"
     ARTS_LETTRES = "tal", "Arts et Lettres (TAL)"
+
+
+class FiliereProfessionnelle(models.TextChoices):
+    """
+    Les deux filières de l'enseignement secondaire professionnel malien -
+    le métier/la spécialité exacte (électricité, couture, mécanique...)
+    reste en texte libre dans le nom de la classe, comme pour les autres
+    cycles ; seule la filière (durée, diplôme) est structurée ici.
+    """
+    CAP = "cap", "CAP - cycle court (2 ans)"
+    BT = "bt", "BT - cycle long (4 ans)"
 
 
 # Correspondance rôle de direction cloisonné -> cycle qu'il supervise. Donne
@@ -74,10 +90,22 @@ CYCLES_PAR_PLAN = {
 }
 
 def cycles_autorises_pour(etablissement) -> set:
-    """Valeurs de cycle (chaînes) couvertes par l'abonnement d'un établissement (voir CYCLES_PAR_PLAN)."""
+    """
+    Valeurs de cycle (chaînes) couvertes par l'abonnement d'un
+    établissement (voir CYCLES_PAR_PLAN). L'enseignement professionnel est
+    un réglage indépendant de la formule (Etablissement.inclut_
+    professionnel) plutôt qu'une formule de plus : contrairement au 1er
+    cycle/2ème cycle/Lycée qui forment une progression cumulative, le
+    professionnel est une branche parallèle au Lycée que n'importe quelle
+    formule peut inclure ou non (cf. recherche Mali - un même établissement
+    peut cumuler fondamental, lycée ET professionnel).
+    """
     if etablissement is None:
         return set(Cycle.values)
-    return CYCLES_PAR_PLAN.get(etablissement.plan, set(Cycle.values))
+    cycles = set(CYCLES_PAR_PLAN.get(etablissement.plan, set(Cycle.values)))
+    if getattr(etablissement, "inclut_professionnel", False):
+        cycles.add(Cycle.PROFESSIONNEL.value)
+    return cycles
 
 
 def role_autorise_pour_plan(role: str, etablissement) -> bool:
@@ -185,6 +213,11 @@ class Classe(models.Model):
         "série", max_length=20, choices=Serie.choices, blank=True,
         help_text="Uniquement pour une classe de 11ème ou 12ème année (lycée) - laisser vide sinon.",
     )
+    filiere_professionnelle = models.CharField(
+        "filière", max_length=20, choices=FiliereProfessionnelle.choices, blank=True,
+        help_text="Uniquement pour une classe du cycle Enseignement professionnel - laisser vide sinon. "
+                   "Le métier exact (électricité, couture...) se précise dans le nom de la classe.",
+    )
     annee_scolaire = models.ForeignKey(
         AnneeScolaire, on_delete=models.PROTECT, related_name="classes",
     )
@@ -207,6 +240,10 @@ class Classe(models.Model):
         super().clean()
         if self.serie and self.cycle != Cycle.LYCEE:
             raise ValidationError("Une série ne s'applique qu'à une classe du cycle Lycée.")
+        if self.filiere_professionnelle and self.cycle != Cycle.PROFESSIONNEL:
+            raise ValidationError("Une filière ne s'applique qu'à une classe du cycle Enseignement professionnel.")
+        if self.cycle == Cycle.PROFESSIONNEL and not self.filiere_professionnelle:
+            raise ValidationError("Une classe du cycle Enseignement professionnel doit préciser sa filière (CAP ou BT).")
         if self.cycle and self.annee_scolaire_id:
             etablissement = self.annee_scolaire.etablissement
             if self.cycle not in cycles_autorises_pour(etablissement):

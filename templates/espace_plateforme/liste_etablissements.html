@@ -12,7 +12,7 @@
     <div class="card-body">
         {% if etablissements %}
         <table class="table">
-            <thead><tr><th>Nom</th><th>Comptes</th><th>Statut</th><th>Formule</th><th>Visible dans l'annuaire</th><th></th></tr></thead>
+            <thead><tr><th>Nom</th><th>Comptes</th><th>Statut</th><th>Formule</th><th>Professionnel</th><th>Visible dans l'annuaire</th><th></th></tr></thead>
             <tbody>
                 {% for etablissement in etablissements %}
                 <tr>
@@ -26,11 +26,22 @@
                     <td>
                         <form method="post" action="{% url 'espace_plateforme:modifier_plan' etablissement.id %}" class="d-inline">
                             {% csrf_token %}
-                            <select name="plan" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <select name="plan" class="form-select form-select-sm" data-auto-submit>
                                 {% for valeur, libelle in plan_choices %}
                                 <option value="{{ valeur }}" {% if valeur == etablissement.plan %}selected{% endif %}>{{ libelle }}</option>
                                 {% endfor %}
                             </select>
+                            <input type="hidden" name="inclut_professionnel" value="{{ etablissement.inclut_professionnel|yesno:"True," }}">
+                        </form>
+                    </td>
+                    <td>
+                        <form method="post" action="{% url 'espace_plateforme:modifier_plan' etablissement.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="plan" value="{{ etablissement.plan }}">
+                            <div class="form-check form-switch">
+                                <input type="checkbox" class="form-check-input" name="inclut_professionnel" value="True"
+                                       {% if etablissement.inclut_professionnel %}checked{% endif %} data-auto-submit>
+                            </div>
                         </form>
                     </td>
                     <td>{% if etablissement.visible_dans_annuaire %}Oui{% else %}Non{% endif %}</td>

@@ -79,7 +79,7 @@
     </p>
     <p class="matricule">
         Matricule : {{ eleve.matricule }}
-        {% if inscription %} — Classe : {{ inscription.classe }}{% if inscription.classe.serie %} — Série {{ inscription.classe.get_serie_display }}{% endif %}{% endif %}
+        {% if inscription %} — Classe : {{ inscription.classe }}{% if inscription.classe.serie %} — Série {{ inscription.classe.get_serie_display }}{% endif %}{% if inscription.classe.filiere_professionnelle %} — Filière {{ inscription.classe.get_filiere_professionnelle_display }}{% endif %}{% endif %}
     </p>
 
     <br>
