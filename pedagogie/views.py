@@ -385,6 +385,12 @@ def saisir_absence_vue(request, classe_id):
     ).exists():
         raise PermissionDenied("Vous n'êtes pas affecté à cette classe.")
 
+    # Requête envoyée par la file de synchronisation hors-ligne (voir
+    # static/js/app.js et static/js/sw.js) : on répond en JSON plutôt que par
+    # une redirection, pour que le JS puisse distinguer succès, erreur de
+    # saisie et session expirée sans recharger la page.
+    est_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
     formulaire = SaisirAbsenceForm(request.POST or None, classe=classe)
     if request.method == "POST" and formulaire.is_valid():
         eleve = Utilisateur.objects.get(matricule=formulaire.cleaned_data["matricule_eleve"], role=Role.ELEVE)
@@ -399,8 +405,17 @@ def saisir_absence_vue(request, classe_id):
             acteur=request.user, action="saisie_absence",
             cible=f"{eleve.matricule} - {absence.date_absence}", request=request,
         )
-        messages.success(request, f"Absence {'enregistrée' if cree else 'mise à jour'} pour {eleve.nom_complet}.")
+        message = f"Absence {'enregistrée' if cree else 'mise à jour'} pour {eleve.nom_complet}."
+        if est_ajax:
+            return JsonResponse({
+                "ok": True, "message": message, "eleve": eleve.nom_complet,
+                "date_absence": absence.date_absence.strftime("%d/%m/%Y"), "justifiee": absence.justifiee,
+            })
+        messages.success(request, message)
         return redirect("pedagogie:saisir_absence", classe_id=classe.id)
+
+    if est_ajax and request.method == "POST":
+        return JsonResponse({"ok": False, "erreurs": formulaire.errors})
 
     absences_du_jour = Absence.objects.filter(classe=classe).select_related("eleve").order_by("-date_absence")[:50]
     return render(request, "pedagogie/saisir_absence.html", {

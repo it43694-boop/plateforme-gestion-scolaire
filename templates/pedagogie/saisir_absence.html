@@ -6,13 +6,16 @@
     <div class="col-md-5">
         <div class="card">
             <div class="card-body">
-                <form method="post" novalidate>
+                <div id="etat-hors-ligne" class="alert" style="display:none;" role="status"></div>
+                <form method="post" novalidate data-hors-ligne>
                     {% csrf_token %}
                     {% for champ in formulaire %}
                         <div class="mb-3">
                             <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
                             {{ champ }}
-                            {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                            <div id="erreurs-{{ champ.html_name }}">
+                                {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                            </div>
                         </div>
                     {% endfor %}
                     <button type="submit" class="btn btn-primary w-100">Enregistrer</button>
@@ -24,10 +27,12 @@
         <div class="card">
             <div class="card-body">
                 <p class="titre-section">Dernières absences saisies</p>
-                {% if absences %}
-                <table class="table">
+                <div id="absences-vide" class="etat-vide" {% if absences %}style="display:none;"{% endif %}>
+                    <p>Aucune absence saisie pour le moment.</p>
+                </div>
+                <table class="table" id="tableau-absences" {% if not absences %}style="display:none;"{% endif %}>
                     <thead><tr><th>Élève</th><th>Date</th><th>Justifiée</th></tr></thead>
-                    <tbody>
+                    <tbody id="corps-tableau-absences">
                         {% for absence in absences %}
                         <tr>
                             <td>{{ absence.eleve.nom_complet }}</td>
@@ -37,9 +42,6 @@
                         {% endfor %}
                     </tbody>
                 </table>
-                {% else %}
-                <div class="etat-vide"><p>Aucune absence saisie pour le moment.</p></div>
-                {% endif %}
             </div>
         </div>
     </div>

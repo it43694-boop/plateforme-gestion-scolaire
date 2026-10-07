@@ -322,6 +322,42 @@ class AbsenceTests(TestCase):
         self.assertTrue(absence.justifiee)
         self.assertEqual(absence.motif, "Maladie")
 
+    def test_saisie_absence_ajax_renvoie_du_json_en_cas_de_succes(self):
+        """
+        La file de synchronisation hors-ligne (voir static/js/app.js et
+        static/js/sw.js) envoie ses requêtes en AJAX et attend du JSON, pas
+        une redirection - sinon elle ne peut pas savoir si la saisie a
+        vraiment été enregistrée pendant qu'elle était hors ligne.
+        """
+        self.client.force_login(self.enseignant)
+        url = reverse("pedagogie:saisir_absence", args=[self.classe.id])
+        reponse = self.client.post(
+            url,
+            {"matricule_eleve": self.eleve.matricule, "date_absence": "2026-11-10", "justifiee": "on", "motif": "Maladie"},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        self.assertEqual(reponse.status_code, 200)
+        donnees = reponse.json()
+        self.assertTrue(donnees["ok"])
+        self.assertEqual(donnees["eleve"], self.eleve.nom_complet)
+        self.assertEqual(donnees["date_absence"], "10/11/2026")
+        self.assertTrue(donnees["justifiee"])
+        self.assertTrue(Absence.objects.filter(eleve=self.eleve, date_absence=datetime.date(2026, 11, 10)).exists())
+
+    def test_saisie_absence_ajax_renvoie_les_erreurs_en_json(self):
+        self.client.force_login(self.enseignant)
+        url = reverse("pedagogie:saisir_absence", args=[self.classe.id])
+        reponse = self.client.post(
+            url,
+            {"matricule_eleve": "N-EXISTE-PAS", "date_absence": "2026-11-10", "justifiee": "", "motif": ""},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        self.assertEqual(reponse.status_code, 200)
+        donnees = reponse.json()
+        self.assertFalse(donnees["ok"])
+        self.assertIn("matricule_eleve", donnees["erreurs"])
+        self.assertFalse(Absence.objects.exists())
+
     def test_absence_future_refusee(self):
         demain = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
         absence = Absence(eleve=self.eleve, classe=self.classe, date_absence=demain, enregistre_par=self.enseignant)

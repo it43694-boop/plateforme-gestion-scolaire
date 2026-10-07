@@ -1302,6 +1302,51 @@ refusés dans les deux cas). Vérifié de bout en bout (navigateur) :
 tentative de l'attaque réelle depuis un compte élève - 403 à chaque
 fois - pendant que l'enseignant affecté garde un accès normal.
 
+## État du projet : Phase 38 — Saisie des absences disponible hors-ligne, avec synchronisation automatique
+
+Après une étude des plateformes concurrentes au Mali (Scolynx, Novacole,
+EduSahel...), l'écart le plus utile à combler après le paiement en ligne :
+un enseignant peut désormais prendre les présences même quand le réseau
+tombe en plein cours, saisie qui part automatiquement dès que la
+connexion revient.
+
+- **Pourquoi les absences d'abord.** C'est le cas réel le plus fréquent
+  (salle de classe, signal faible), et `saisir_absence_vue` était déjà
+  idempotente (`update_or_create` sur élève+date) - rejouer deux fois la
+  même saisie ne crée jamais de doublon, condition nécessaire pour une
+  file d'attente hors-ligne sans risque.
+- **Comment ça marche.** La page de saisie est mise en cache par le
+  service worker dès la première visite en ligne de la journée. Chaque
+  soumission part en AJAX ; si le réseau manque, la saisie est stockée
+  localement (IndexedDB) au lieu d'échouer, avec un bandeau visible
+  (« N saisie(s) en attente ») et un bouton « Synchroniser maintenant ».
+  La resynchronisation se déclenche seule dès que la connexion revient
+  (évènement `online`), et aussi en tâche de fond via Background Sync sur
+  Chrome/Android même application fermée - les deux se complètent sans
+  risque de doublon grâce à l'idempotence déjà en place.
+- **Cas particuliers traités explicitement.** Session expirée pendant la
+  coupure : bandeau distinct demandant de se reconnecter, saisie
+  conservée (pas de retentative infinie silencieuse). Vraie erreur
+  serveur (validation, etc.) : signalée immédiatement, retirée de la
+  file plutôt que retentée indéfiniment.
+- **Deux bugs trouvés en vérifiant réellement le scénario (navigateur
+  hors-ligne, pas en théorie).** L'écriture de la page dans le cache
+  n'était pas protégée par `waitUntil()` - le service worker pouvait
+  être arrêté avant la fin de l'écriture, rendant la page indisponible
+  hors-ligne malgré un code en apparence correct. Et le bouton
+  « Enregistrer » restait grisé indéfiniment après une saisie
+  hors-ligne, le gestionnaire générique de désactivation du bouton
+  supposant un rechargement de page qui n'arrive jamais dans ce flux.
+
+Suite complète verte après ces ajouts (2 nouveaux tests ciblés sur la
+réponse JSON de la vue). Vérifié de bout en bout (navigateur, scénario
+hors-ligne réel) : page rechargée sans réseau → toujours utilisable
+depuis le cache ; saisie hors-ligne → mise en file, bandeau et bouton de
+synchronisation visibles, bouton « Enregistrer » réutilisable
+immédiatement ; retour en ligne → synchronisation automatique, file
+vidée, bandeau masqué, nouvelle absence visible dans le tableau sans
+rechargement.
+
 ### Ce qui reste ouvert après ces phases
 
 - SMS et WhatsApp : automatisation volontairement non construite, geré
