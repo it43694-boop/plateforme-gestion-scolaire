@@ -299,7 +299,11 @@ def redirection_tableau_de_bord(request):
     from permissions_matrix.models import PermissionMatrix
     from permissions_matrix.modules import Module
     from comptes.models import Notification
+    from comptes.middleware import est_proprietaire_sans_etablissement
     from scolarite.models import Inscription, calculer_total_du, classes_visibles_pour
+
+    if est_proprietaire_sans_etablissement(request.user):
+        return redirect("espace_plateforme:liste_etablissements")
 
     valeurs_autorisees = PermissionMatrix.modules_autorises(request.user.role, etablissement=request.user.etablissement)
     modules = [m.label for m in Module if m.value in valeurs_autorisees]

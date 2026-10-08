@@ -114,7 +114,10 @@ class NavigationProprietairePlateformeTests(TestCase):
         proprietaire.full_clean(exclude=["password"])
         proprietaire.save()
         self.client.force_login(proprietaire)
-        reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
+        # Le tableau de bord du propriétaire redirige vers l'espace Plateforme
+        # (aucune école à résumer) : on vérifie la barre latérale de cette page.
+        reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"), follow=True)
+        self.assertEqual(reponse.status_code, 200)
         self.assertNotContains(reponse, "Matrice de permissions")
         self.assertNotContains(reponse, "Journal d'audit")
 

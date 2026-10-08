@@ -94,6 +94,8 @@ MIDDLEWARE = [
     "comptes.middleware.AxesLikeLockoutMiddleware",
     # 2FA obligatoire pour les rôles à privilège élevé (comptes.roles.ROLES_2FA_OBLIGATOIRE)
     "comptes.middleware.ForcerActivation2FAMiddleware",
+    # Le propriétaire de la plateforme (sans établissement) n'accède pas aux pages métier d'une école
+    "comptes.middleware.ProprietairePlateformeMiddleware",
     # Content-Security-Policy (défense en profondeur contre l'injection de script)
     "comptes.middleware.ContentSecurityPolicyMiddleware",
 ]

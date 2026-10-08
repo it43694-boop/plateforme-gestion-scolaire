@@ -44,7 +44,26 @@ def navigation(request):
     if not getattr(request, "user", None) or not request.user.is_authenticated:
         return {}
 
+    from comptes.middleware import est_proprietaire_sans_etablissement
     from permissions_matrix.models import PermissionMatrix
+
+    if est_proprietaire_sans_etablissement(request.user):
+        # Aucune école : seuls le compte personnel et la gestion des
+        # établissements ont un sens (voir ProprietairePlateformeMiddleware).
+        from comptes.models import Notification
+        non_lues = Notification.objects.filter(destinataire=request.user, lue_le__isnull=True).count()
+        return {
+            "sections_navigation": [
+                {"titre": "Compte", "icone": "compte", "liens": [{
+                    "label": f"Notifications ({non_lues})" if non_lues else "Notifications",
+                    "url": "comptes:liste_notifications",
+                }]},
+                {"titre": "Plateforme", "icone": "plateforme", "liens": [
+                    {"label": "Établissements", "url": "espace_plateforme:liste_etablissements"},
+                ]},
+            ],
+            "notifications_non_lues": non_lues, "peut_rechercher_eleves": False, "app_version": settings.APP_VERSION,
+        }
 
     modules_autorises = set(PermissionMatrix.modules_autorises(request.user.role, etablissement=request.user.etablissement))
     role = request.user.role

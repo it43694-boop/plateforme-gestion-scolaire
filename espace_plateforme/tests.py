@@ -227,3 +227,87 @@ class VoirComptesEtablissementTests(TestCase):
         emails = [c.email for c in reponse.context["comptes"]]
         self.assertIn("compte-a-plateforme@example.com", emails)
         self.assertNotIn("compte-b-plateforme@example.com", emails)
+
+
+class ProprietaireSansEtablissementTests(TestCase):
+    """
+    Le propriétaire de la plateforme (superutilisateur sans établissement) gère
+    les écoles depuis l'espace Plateforme, mais n'a aucune école à lui : les
+    pages métier filtrées par établissement le feraient tomber sur
+    `etablissement IS NULL` (lignes orphelines) - elles lui sont donc fermées
+    (comptes.middleware.ProprietairePlateformeMiddleware).
+    """
+
+    PAGES_METIER = [
+        "scolarite:liste_eleves", "scolarite:liste_classes", "scolarite:creer_classe", "scolarite:inscrire_eleve",
+        "scolarite:recherche_globale", "finances:suivi_paiements", "finances:liste_paiements",
+        "finances:liste_salaires", "finances:registre_caisse", "finances:journal_caisse_syscohada_csv",
+        "finances:rechercher_eleve_json", "pedagogie:suivi_des_cours", "tests_niveau:liste_candidats",
+        "assistant:poser_question", "bibliotheque:liste_documents", "bibliotheque:exporter_zip",
+        "communication:liste_annonces", "communication:publier_annonce", "statistiques:vue_ensemble",
+        "statistiques:exporter_finances_csv", "espace_developpeur:liste_comptes", "comptes:comptes_en_attente",
+    ]
+
+    def setUp(self):
+        import datetime
+        from scolarite.models import AnneeScolaire, Classe, Cycle
+
+        self.proprietaire = creer_utilisateur_actif("owner-cloison@example.com", Role.DEVELOPPEUR, is_superuser=True)
+        # Ligne orpheline (aucun établissement), telle qu'en laissent les anciennes installations.
+        annee = AnneeScolaire.objects.create(
+            libelle="2026-2027", date_debut=datetime.date(2026, 10, 1), date_fin=datetime.date(2027, 7, 31),
+        )
+        Classe.objects.create(nom="Classe orpheline", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=annee)
+
+    def test_pages_metier_fermees_au_proprietaire(self):
+        self.client.force_login(self.proprietaire)
+        for nom in self.PAGES_METIER:
+            with self.subTest(page=nom):
+                reponse = self.client.get(reverse(nom))
+                self.assertRedirects(
+                    reponse, reverse("espace_plateforme:liste_etablissements"), fetch_redirect_response=False,
+                )
+
+    def test_donnees_orphelines_jamais_affichees_au_proprietaire(self):
+        self.client.force_login(self.proprietaire)
+        reponse = self.client.get(reverse("scolarite:liste_classes"), follow=True)
+        self.assertNotContains(reponse, "Classe orpheline")
+
+    def test_tableau_de_bord_redirige_vers_la_plateforme(self):
+        self.client.force_login(self.proprietaire)
+        reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
+        self.assertRedirects(
+            reponse, reverse("espace_plateforme:liste_etablissements"), fetch_redirect_response=False,
+        )
+
+    def test_espace_plateforme_et_compte_personnel_restent_accessibles(self):
+        self.client.force_login(self.proprietaire)
+        for nom in ["espace_plateforme:liste_etablissements", "comptes:liste_notifications",
+                    "comptes:changer_mot_de_passe"]:
+            with self.subTest(page=nom):
+                self.assertEqual(self.client.get(reverse(nom)).status_code, 200)
+
+    def test_verification_publique_de_document_reste_ouverte(self):
+        import uuid
+        self.client.force_login(self.proprietaire)
+        reponse = self.client.get(reverse("scolarite:verifier_document", args=[uuid.uuid4()]))
+        self.assertNotEqual(reponse.status_code, 302)  # pas de redirection vers la plateforme
+
+    def test_barre_laterale_reduite_a_compte_et_plateforme(self):
+        self.client.force_login(self.proprietaire)
+        reponse = self.client.get(reverse("espace_plateforme:liste_etablissements"))
+        titres = [section["titre"] for section in reponse.context["sections_navigation"]]
+        self.assertEqual(titres, ["Compte", "Plateforme"])
+        self.assertFalse(reponse.context["peut_rechercher_eleves"])
+
+    def test_utilisateur_dun_etablissement_non_concerne(self):
+        etablissement = Etablissement.objects.create(nom="École cloisonnement")
+        from permissions_matrix.models import PermissionMatrix
+        PermissionMatrix.seed_pour(etablissement)
+        fondateur = creer_utilisateur_actif("fondateur-cloison@example.com", Role.FONDATEUR, etablissement=etablissement)
+        self.client.force_login(fondateur)
+        self.assertEqual(self.client.get(reverse("scolarite:liste_classes")).status_code, 200)
+        reponse = self.client.get(reverse("scolarite:liste_classes"))
+        self.assertNotContains(reponse, "Classe orpheline")
+        titres = [section["titre"] for section in reponse.context["sections_navigation"]]
+        self.assertIn("Élèves & classes", titres)

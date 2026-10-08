@@ -1559,6 +1559,32 @@ s'ajouter).
 3 nouveaux tests (lycée seul, lycée seul + professionnel, professionnel
 seul sans activer le réglage). Écran non vérifié au navigateur.
 
+## État du projet : Phase 44 — Le propriétaire de la plateforme n'accède plus aux pages d'une école
+
+Audit demandé après avoir constaté que le propriétaire (superutilisateur sans
+établissement) voyait dans sa barre latérale tous les modules d'une école.
+Méthode : deux écoles avec données complètes (élèves, paiements, salaires,
+documents, annonces, candidats), puis ~70 pages ouvertes avec ce compte.
+
+- **Aucune fuite entre vraies écoles** : les données des écoles A et B
+  n'apparaissent jamais, et tout accès direct par identifiant renvoie 404.
+- **Faiblesse trouvée** : sans établissement, le filtre `etablissement=...`
+  devient `etablissement IS NULL`. Le propriétaire voyait donc (et pouvait
+  corriger ou créer) toute ligne orpheline sans établissement, héritée des
+  anciennes installations. Rien ne prouve qu'il y en ait en production.
+- **Correction** : `ProprietairePlateformeMiddleware` ferme au propriétaire
+  toutes les pages métier (liste blanche : refus par défaut, donc une future
+  application est fermée tant qu'on ne l'autorise pas). Sa barre latérale est
+  réduite à « Compte » et « Plateforme », et son tableau de bord renvoie vers
+  la Plateforme. Les pages publiques de vérification de document restent
+  ouvertes.
+- **Non traité (décision à prendre)** : l'admin Django (`/admin/`) montre au
+  propriétaire les données de toutes les écoles, sans filtre. Seuls les
+  comptes « staff » y accèdent et aucune page web ne donne ce statut.
+
+7 nouveaux tests ; un test existant ajusté (le tableau de bord du propriétaire
+redirige désormais, le test suit la redirection).
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque
