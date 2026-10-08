@@ -1533,6 +1533,32 @@ plateforme, apparition du cycle dans le formulaire de création de classe
 côté école, création d'une classe CAP, filière visible dans la liste des
 classes.
 
+## État du projet : Phase 43 — Formules « Lycée seul » et « Professionnel seul »
+
+Constat après la Phase 42 : les trois formules existantes sont
+cumulatives à partir du 1er cycle, donc un établissement avait forcément
+le 1er cycle et ne pouvait pas être uniquement un lycée ou uniquement une
+école professionnelle (le réglage « Professionnel » ne faisait que
+s'ajouter).
+
+- Deux formules ajoutées à `PlanEtablissement` : **Lycée seul** (cycle
+  Lycée uniquement, cumulable avec le réglage « Professionnel ») et
+  **Enseignement professionnel seul** (cycle Professionnel uniquement ; le
+  curseur « Professionnel » de la liste des établissements est alors
+  remplacé par « Inclus dans la formule »).
+- Migration `etablissement/0010` : simple modification des choix du champ,
+  aucun changement de schéma ni de données.
+- Pas de rôle « Directeur du professionnel » : une école professionnelle
+  seule se gère avec les rôles à accès complet (fondateur, administrateur
+  général, développeur). À ajouter si le besoin se confirme.
+- Repasser un établissement de « Professionnel seul » à une autre formule
+  ne supprime pas ses classes professionnelles, mais l'établissement ne
+  peut plus en créer tant que le réglage « Professionnel » n'est pas
+  activé (même comportement qu'une rétrogradation de formule existante).
+
+3 nouveaux tests (lycée seul, lycée seul + professionnel, professionnel
+seul sans activer le réglage). Écran non vérifié au navigateur.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

@@ -306,6 +306,33 @@ class EnseignementProfessionnelTests(TestCase):
         self.assertIn(Cycle.PROFESSIONNEL.value, cycles)
         self.assertNotIn(Cycle.LYCEE.value, cycles)
 
+    def test_formule_lycee_seul_exclut_le_fondamental_et_le_professionnel(self):
+        from scolarite.models import cycles_autorises_pour
+        self.etablissement.plan = self.PlanEtablissement.LYCEE_SEUL
+        self.etablissement.save(update_fields=["plan"])
+        self.assertEqual(cycles_autorises_pour(self.etablissement), {Cycle.LYCEE.value})
+
+    def test_formule_lycee_seul_peut_cumuler_le_professionnel(self):
+        from scolarite.models import cycles_autorises_pour
+        self.etablissement.plan = self.PlanEtablissement.LYCEE_SEUL
+        self.etablissement.inclut_professionnel = True
+        self.etablissement.save(update_fields=["plan", "inclut_professionnel"])
+        self.assertEqual(cycles_autorises_pour(self.etablissement), {Cycle.LYCEE.value, Cycle.PROFESSIONNEL.value})
+
+    def test_formule_professionnel_seul_sans_activer_le_reglage(self):
+        """Le réglage inclut_professionnel est inutile ici : la formule inclut déjà le professionnel."""
+        from scolarite.models import cycles_autorises_pour
+        self.etablissement.plan = self.PlanEtablissement.PROFESSIONNEL_SEUL
+        self.etablissement.save(update_fields=["plan"])
+        self.assertFalse(self.etablissement.inclut_professionnel)
+        self.assertEqual(cycles_autorises_pour(self.etablissement), {Cycle.PROFESSIONNEL.value})
+        Classe(
+            nom="CAP A", cycle=Cycle.PROFESSIONNEL, filiere_professionnelle=FiliereProfessionnelle.CAP,
+            annee_scolaire=self.annee,
+        ).clean()  # ne doit pas lever d'exception
+        with self.assertRaises(ValidationError):
+            Classe(nom="1ère A", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee).clean()
+
     def test_vue_creer_classe_propose_professionnel_uniquement_si_active(self):
         direction = creer_utilisateur_actif("direction-pro@example.com", Role.FONDATEUR, etablissement=self.etablissement)
         self.client.force_login(direction)

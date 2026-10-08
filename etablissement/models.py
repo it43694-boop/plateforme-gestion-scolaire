@@ -15,11 +15,16 @@ class PlanEtablissement(models.TextChoices):
     facturer différemment une école qui ne couvre que le 1er cycle d'une
     école qui va jusqu'au Lycée, sans qu'elle puisse s'auto-attribuer un
     cycle non souscrit (voir PlanEtablissement et scolarite.models.
-    cycles_autorises_pour).
+    cycles_autorises_pour). LYCEE_SEUL et PROFESSIONNEL_SEUL existent pour
+    les établissements qui n'ont ni 1er ni 2ème cycle (un lycée privé, une
+    école professionnelle) : les trois premières formules sont cumulatives
+    à partir du 1er cycle et ne peuvent pas les représenter.
     """
     PREMIER_CYCLE = "premier_cycle", "1er cycle"
     PREMIER_ET_DEUXIEME_CYCLE = "premier_et_deuxieme_cycle", "1er et 2ème cycle"
     TOUS_CYCLES = "tous_cycles", "Tous les cycles (1er, 2ème, Lycée)"
+    LYCEE_SEUL = "lycee_seul", "Lycée seul"
+    PROFESSIONNEL_SEUL = "professionnel_seul", "Enseignement professionnel seul"
 
 
 class Etablissement(models.Model):

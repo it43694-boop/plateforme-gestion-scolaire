@@ -87,6 +87,11 @@ CYCLES_PAR_PLAN = {
     PlanEtablissement.PREMIER_CYCLE.value: {Cycle.PREMIER_CYCLE.value},
     PlanEtablissement.PREMIER_ET_DEUXIEME_CYCLE.value: {Cycle.PREMIER_CYCLE.value, Cycle.DEUXIEME_CYCLE.value},
     PlanEtablissement.TOUS_CYCLES.value: {Cycle.PREMIER_CYCLE.value, Cycle.DEUXIEME_CYCLE.value, Cycle.LYCEE.value},
+    # Formules « seul » : pour un lycée ou une école professionnelle sans
+    # fondamental. Le lycée seul peut quand même cumuler le professionnel via
+    # le réglage inclut_professionnel (cycles_autorises_pour).
+    PlanEtablissement.LYCEE_SEUL.value: {Cycle.LYCEE.value},
+    PlanEtablissement.PROFESSIONNEL_SEUL.value: {Cycle.PROFESSIONNEL.value},
 }
 
 def cycles_autorises_pour(etablissement) -> set:

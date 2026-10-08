@@ -35,6 +35,9 @@
                         </form>
                     </td>
                     <td>
+                        {% if etablissement.plan == "professionnel_seul" %}
+                        <span class="text-muted small">Inclus dans la formule</span>
+                        {% else %}
                         <form method="post" action="{% url 'espace_plateforme:modifier_plan' etablissement.id %}" class="d-inline">
                             {% csrf_token %}
                             <input type="hidden" name="plan" value="{{ etablissement.plan }}">
@@ -43,6 +46,7 @@
                                        {% if etablissement.inclut_professionnel %}checked{% endif %} data-auto-submit>
                             </div>
                         </form>
+                        {% endif %}
                     </td>
                     <td>{% if etablissement.visible_dans_annuaire %}Oui{% else %}Non{% endif %}</td>
                     <td class="text-end">
