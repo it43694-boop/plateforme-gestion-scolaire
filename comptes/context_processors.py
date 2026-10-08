@@ -152,3 +152,13 @@ def navigation(request):
         "peut_rechercher_eleves": "eleves" in modules_autorises,
         "app_version": settings.APP_VERSION,
     }
+
+
+def acces_delegue(request):
+    """Indique au gabarit de base qu'un propriétaire est connecté au compte d'une école (bandeau de retour)."""
+    from comptes.middleware import CLE_SESSION_ACCES_DELEGUE
+
+    session = getattr(request, "session", None)
+    if session is not None and session.get(CLE_SESSION_ACCES_DELEGUE):
+        return {"acces_delegue": True}
+    return {}

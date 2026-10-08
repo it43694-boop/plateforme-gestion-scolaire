@@ -94,6 +94,15 @@
             {% endif %}
         </header>
 
+        {% if acces_delegue %}
+        <div class="bandeau-acces-delegue" role="status">
+            <span>Vous êtes connecté au compte de <strong>{{ user.nom_complet }}</strong>{% if etablissement %} ({{ etablissement.nom }}){% endif %} depuis votre compte propriétaire.</span>
+            <form method="post" action="{% url 'comptes:quitter_acces_delegue' %}">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-outline-secondary">Revenir à mon compte</button>
+            </form>
+        </div>
+        {% endif %}
         <main class="app-content" id="contenu-principal">
             {% block contenu %}{% endblock %}
         </main>

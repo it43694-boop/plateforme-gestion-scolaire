@@ -117,6 +117,58 @@ def modifier_plan(request, etablissement_id):
 
 @est_proprietaire_plateforme
 @require_http_methods(["POST"])
+def acceder_etablissement(request, etablissement_id):
+    """
+    Connecte le propriétaire au compte développeur de l'école (le plus ancien
+    compte actif), sans qu'il ait à connaître ses identifiants. Réservé au
+    propriétaire sans établissement, uniquement en POST (CSRF) ; chaque début
+    et fin d'accès est écrit dans le journal d'audit de l'école, et toute
+    action faite pendant l'accès y est marquée « via le propriétaire »
+    (comptes.audit.enregistrer_action). Voir AccesDelegueMiddleware pour les
+    garde-fous (mot de passe/email/2FA du compte protégés).
+    """
+    from django.contrib.auth import login
+
+    from comptes.middleware import (
+        CLE_SESSION_ACCES_DELEGUE, CLE_SESSION_ACCES_DELEGUE_EMAIL, est_proprietaire_sans_etablissement,
+    )
+
+    if not est_proprietaire_sans_etablissement(request.user):
+        messages.error(request, "Seul le propriétaire de la plateforme, sans établissement, peut accéder à une école.")
+        return redirect("espace_plateforme:liste_etablissements")
+
+    etablissement = get_object_or_404(Etablissement, id=etablissement_id)
+    if not etablissement.actif:
+        messages.error(request, f"« {etablissement.nom} » est suspendu : réactivez-le avant d'y accéder.")
+        return redirect("espace_plateforme:liste_etablissements")
+
+    developpeur = Utilisateur.objects.filter(
+        etablissement=etablissement, role=Role.DEVELOPPEUR, statut=StatutCompte.ACTIF,
+        is_active=True, is_superuser=False,
+    ).order_by("date_creation", "id").first()
+    if developpeur is None:
+        messages.error(request, f"« {etablissement.nom} » n'a aucun compte développeur actif.")
+        return redirect("espace_plateforme:liste_etablissements")
+
+    proprietaire = request.user
+    ancienne_connexion = developpeur.last_login
+    login(request, developpeur, backend="django.contrib.auth.backends.ModelBackend")
+    # login() ouvre une session neuve (le compte change) puis met à jour
+    # last_login : on le remet, pour que « dernière connexion » reste celle de
+    # la personne de l'école et non la nôtre.
+    Utilisateur.objects.filter(pk=developpeur.pk).update(last_login=ancienne_connexion)
+    request.session["etablissement_id"] = etablissement.id
+    request.session[CLE_SESSION_ACCES_DELEGUE] = proprietaire.id
+    request.session[CLE_SESSION_ACCES_DELEGUE_EMAIL] = proprietaire.email
+    enregistrer_action(
+        acteur=developpeur, action="acces_delegue_debut", cible=developpeur.email,
+        details={"proprietaire": proprietaire.email}, request=request,
+    )
+    return redirect("comptes:redirection_tableau_de_bord")
+
+
+@est_proprietaire_plateforme
+@require_http_methods(["POST"])
 def basculer_actif(request, etablissement_id):
     etablissement = get_object_or_404(Etablissement, id=etablissement_id)
     etablissement.actif = not etablissement.actif

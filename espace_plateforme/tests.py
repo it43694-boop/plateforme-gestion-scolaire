@@ -311,3 +311,162 @@ class ProprietaireSansEtablissementTests(TestCase):
         self.assertNotContains(reponse, "Classe orpheline")
         titres = [section["titre"] for section in reponse.context["sections_navigation"]]
         self.assertIn("Élèves & classes", titres)
+
+
+class AccesDelegueTests(TestCase):
+    """
+    Le propriétaire de la plateforme clique sur « Accéder » pour entrer dans le
+    compte développeur d'une école, sans connaître ses identifiants.
+    """
+
+    def setUp(self):
+        from permissions_matrix.models import PermissionMatrix
+
+        self.proprietaire = creer_utilisateur_actif("owner-acces@example.com", Role.DEVELOPPEUR, is_superuser=True)
+        self.ecole = Etablissement.objects.create(nom="École Accès")
+        PermissionMatrix.seed_pour(self.ecole)
+        self.developpeur = creer_utilisateur_actif("dev-acces@example.com", Role.DEVELOPPEUR, etablissement=self.ecole)
+        self.url_acces = reverse("espace_plateforme:acceder_etablissement", args=[self.ecole.id])
+
+    def _utilisateur_connecte(self):
+        return int(self.client.session["_auth_user_id"])
+
+    def test_proprietaire_entre_dans_le_compte_developpeur_de_lecole(self):
+        self.client.force_login(self.proprietaire)
+        reponse = self.client.post(self.url_acces)
+        self.assertRedirects(reponse, reverse("comptes:redirection_tableau_de_bord"), fetch_redirect_response=False)
+        self.assertEqual(self._utilisateur_connecte(), self.developpeur.id)
+        # Il voit maintenant les pages de l'école, avec le bandeau de retour.
+        reponse = self.client.get(reverse("scolarite:liste_classes"))
+        self.assertEqual(reponse.status_code, 200)
+        self.assertContains(reponse, "Revenir à mon compte")
+
+    def test_revenir_a_son_compte(self):
+        self.client.force_login(self.proprietaire)
+        self.client.post(self.url_acces)
+        reponse = self.client.post(reverse("comptes:quitter_acces_delegue"))
+        self.assertRedirects(reponse, reverse("espace_plateforme:liste_etablissements"), fetch_redirect_response=False)
+        self.assertEqual(self._utilisateur_connecte(), self.proprietaire.id)
+        self.assertNotContains(self.client.get(reverse("espace_plateforme:liste_etablissements")), "Revenir à mon compte")
+
+    def test_sans_acces_delegue_pas_de_bandeau(self):
+        self.client.force_login(self.developpeur)
+        self.assertNotContains(self.client.get(reverse("scolarite:liste_classes")), "Revenir à mon compte")
+
+    def test_quitter_sans_acces_delegue_ne_change_rien(self):
+        self.client.force_login(self.developpeur)
+        self.client.post(reverse("comptes:quitter_acces_delegue"))
+        self.assertEqual(self._utilisateur_connecte(), self.developpeur.id)
+
+    def test_bouton_acceder_present_pour_une_ecole_active_seulement(self):
+        self.client.force_login(self.proprietaire)
+        self.assertContains(self.client.get(reverse("espace_plateforme:liste_etablissements")), self.url_acces)
+        self.ecole.actif = False
+        self.ecole.save(update_fields=["actif"])
+        self.assertNotContains(self.client.get(reverse("espace_plateforme:liste_etablissements")), self.url_acces)
+
+    def test_get_refuse(self):
+        self.client.force_login(self.proprietaire)
+        self.assertEqual(self.client.get(self.url_acces).status_code, 405)
+
+    def test_developpeur_dune_ecole_ne_peut_pas_acceder_a_une_autre_ecole(self):
+        autre = Etablissement.objects.create(nom="Autre école")
+        creer_utilisateur_actif("dev-autre@example.com", Role.DEVELOPPEUR, etablissement=autre)
+        self.client.force_login(self.developpeur)
+        self.client.post(reverse("espace_plateforme:acceder_etablissement", args=[autre.id]))
+        self.assertEqual(self._utilisateur_connecte(), self.developpeur.id)
+
+    def test_superutilisateur_rattache_a_une_ecole_refuse(self):
+        rattache = creer_utilisateur_actif(
+            "super-rattache@example.com", Role.DEVELOPPEUR, etablissement=self.ecole, is_superuser=True,
+        )
+        self.client.force_login(rattache)
+        self.client.post(self.url_acces)
+        self.assertEqual(self._utilisateur_connecte(), rattache.id)
+
+    def test_ecole_suspendue_refusee(self):
+        self.ecole.actif = False
+        self.ecole.save(update_fields=["actif"])
+        self.client.force_login(self.proprietaire)
+        self.client.post(self.url_acces)
+        self.assertEqual(self._utilisateur_connecte(), self.proprietaire.id)
+
+    def test_ecole_sans_developpeur_actif_refusee(self):
+        self.developpeur.statut = StatutCompte.SUSPENDU
+        self.developpeur.is_active = False
+        self.developpeur.save(update_fields=["statut", "is_active"])
+        self.client.force_login(self.proprietaire)
+        self.client.post(self.url_acces)
+        self.assertEqual(self._utilisateur_connecte(), self.proprietaire.id)
+
+    def test_derniere_connexion_du_compte_de_lecole_inchangee(self):
+        self.client.force_login(self.proprietaire)
+        avant = Utilisateur.objects.get(pk=self.developpeur.pk).last_login
+        self.client.post(self.url_acces)
+        self.client.post(reverse("comptes:quitter_acces_delegue"))
+        self.assertEqual(Utilisateur.objects.get(pk=self.developpeur.pk).last_login, avant)
+
+    def test_journal_audit_de_lecole_trace_lacces_et_les_actions(self):
+        from django.test import RequestFactory
+
+        from comptes.audit import enregistrer_action
+        from comptes.models import JournalAudit
+
+        self.client.force_login(self.proprietaire)
+        self.client.post(self.url_acces)
+        debut = JournalAudit.objects.get(action="acces_delegue_debut")
+        self.assertEqual(debut.etablissement_id, self.ecole.id)  # visible dans le journal de l'école
+        self.assertEqual(debut.details["proprietaire"], self.proprietaire.email)
+
+        # Une action faite pendant l'accès est marquée « via le propriétaire ».
+        requete = RequestFactory().get("/")
+        requete.session = self.client.session
+        enregistrer_action(acteur=self.developpeur, action="test_action", request=requete)
+        self.assertEqual(
+            JournalAudit.objects.get(action="test_action").details["via_proprietaire"], self.proprietaire.email,
+        )
+
+        self.client.post(reverse("comptes:quitter_acces_delegue"))
+        self.assertTrue(JournalAudit.objects.filter(action="acces_delegue_fin", etablissement=self.ecole).exists())
+
+    def test_pages_qui_modifient_lacces_au_compte_bloquees_pendant_lacces(self):
+        self.client.force_login(self.proprietaire)
+        self.client.post(self.url_acces)
+        for nom in ["comptes:changer_mot_de_passe", "comptes:changer_email", "comptes:activer_2fa"]:
+            with self.subTest(page=nom):
+                reponse = self.client.get(reverse(nom))
+                self.assertRedirects(
+                    reponse, reverse("comptes:redirection_tableau_de_bord"), fetch_redirect_response=False,
+                )
+
+    def test_pages_de_securite_normales_hors_acces_delegue(self):
+        self.client.force_login(self.developpeur)
+        self.assertEqual(self.client.get(reverse("comptes:changer_mot_de_passe")).status_code, 200)
+
+    def test_acces_delegue_invalide_si_le_proprietaire_nest_plus_superutilisateur(self):
+        self.client.force_login(self.proprietaire)
+        self.client.post(self.url_acces)
+        Utilisateur.objects.filter(pk=self.proprietaire.pk).update(is_superuser=False)
+        reponse = self.client.get(reverse("scolarite:liste_classes"))
+        self.assertRedirects(reponse, reverse("comptes:connexion"), fetch_redirect_response=False)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_2fa_du_compte_de_lecole_non_imposee_pendant_lacces(self):
+        """
+        Le middleware 2FA est inactif en test (settings.TESTING) : on le réactive
+        pour vérifier que le propriétaire n'est pas poussé à enregistrer SON
+        appareil sur le compte de l'école, alors que ce compte n'a pas de 2FA.
+        """
+        from django.test import override_settings
+
+        self.assertFalse(self.developpeur.deux_facteurs_actif)
+        with override_settings(TESTING=False):
+            self.client.force_login(self.developpeur)
+            sans_acces = self.client.get(reverse("scolarite:liste_classes"))
+            self.assertRedirects(sans_acces, reverse("comptes:activer_2fa"), fetch_redirect_response=False)
+
+            self.client.force_login(self.proprietaire)
+            Utilisateur.objects.filter(pk=self.proprietaire.pk).update(deux_facteurs_actif=True)
+            self.client.post(self.url_acces)
+            avec_acces = self.client.get(reverse("scolarite:liste_classes"))
+            self.assertEqual(avec_acces.status_code, 200)

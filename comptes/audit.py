@@ -15,6 +15,13 @@ def enregistrer_action(acteur, action: str, cible: str = "", details: dict | Non
 
     adresse_ip = ip_client_fiable(request) or None if request is not None else None
 
+    # Accès délégué (le propriétaire de la plateforme connecté au compte d'une
+    # école) : l'acteur affiché est le compte de l'école, donc on marque l'entrée
+    # pour que l'école voie que l'action vient du propriétaire.
+    session = getattr(request, "session", None)
+    if session is not None and session.get("impersonateur_email"):
+        details = {**(details or {}), "via_proprietaire": session["impersonateur_email"]}
+
     JournalAudit.objects.create(
         acteur=acteur if getattr(acteur, "is_authenticated", False) else None,
         etablissement=getattr(acteur, "etablissement", None) if getattr(acteur, "is_authenticated", False) else None,

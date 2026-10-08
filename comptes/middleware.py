@@ -2,8 +2,14 @@ import secrets
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import logout
 from django.shortcuts import redirect
 from django.urls import reverse
+
+# Clés de session posées quand le propriétaire de la plateforme « accède » au
+# compte développeur d'une école (espace_plateforme.views.acceder_etablissement).
+CLE_SESSION_ACCES_DELEGUE = "impersonateur_id"
+CLE_SESSION_ACCES_DELEGUE_EMAIL = "impersonateur_email"
 
 
 class AxesLikeLockoutMiddleware:
@@ -63,6 +69,10 @@ class ForcerActivation2FAMiddleware:
             and user.role in {r.value for r in ROLES_2FA_OBLIGATOIRE}
             and not user.deux_facteurs_actif
             and request.path not in self.CHEMINS_EXEMPTES
+            # Accès délégué : le propriétaire a déjà passé sa propre 2FA. Lui
+            # imposer d'activer celle du compte de l'école reviendrait à
+            # enregistrer SON appareil sur ce compte (voir AccesDelegueMiddleware).
+            and not request.session.get(CLE_SESSION_ACCES_DELEGUE)
         ):
             messages.warning(
                 request,
@@ -124,6 +134,44 @@ class ProprietairePlateformeMiddleware:
                 "utilisez cet espace pour gérer les établissements.",
             )
             return redirect(reverse("espace_plateforme:liste_etablissements"))
+        return self.get_response(request)
+
+
+class AccesDelegueMiddleware:
+    """
+    Garde-fous pendant que le propriétaire de la plateforme est connecté au
+    compte développeur d'une école :
+    - si son compte propriétaire n'est plus valide (désactivé, plus
+      superutilisateur, rattaché à une école), la session est fermée ;
+    - les pages qui modifient l'accès au compte (mot de passe, email, 2FA) sont
+      refusées : il y a accès pour dépanner, pas pour prendre le compte.
+    """
+
+    PREFIXES_REFUSES = (
+        "/comptes/changer-mot-de-passe/", "/comptes/changer-email/", "/comptes/2fa/",
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        proprietaire_id = request.session.get(CLE_SESSION_ACCES_DELEGUE)
+        if proprietaire_id and getattr(request, "user", None) is not None and request.user.is_authenticated:
+            from comptes.models import Utilisateur
+            proprietaire_valide = Utilisateur.objects.filter(
+                pk=proprietaire_id, is_active=True, is_superuser=True, etablissement__isnull=True,
+            ).exists()
+            if not proprietaire_valide:
+                logout(request)
+                messages.error(request, "L'accès délégué n'est plus valide. Veuillez vous reconnecter.")
+                return redirect(reverse("comptes:connexion"))
+            if request.path.startswith(self.PREFIXES_REFUSES):
+                messages.error(
+                    request,
+                    "Cette page modifie l'accès au compte : elle n'est pas disponible depuis votre "
+                    "compte propriétaire. Revenez d'abord à votre compte.",
+                )
+                return redirect(reverse("comptes:redirection_tableau_de_bord"))
         return self.get_response(request)
 
 

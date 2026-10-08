@@ -1235,3 +1235,17 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 .corps-vitrine { background: var(--paper-050); }
 .corps-page-centree { background: var(--ink-900); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
 .texte-encart { font-size: 0.72rem; color: var(--gold-600); font-weight: 600; margin-bottom: 0.4rem; }
+
+/* Bandeau affiché quand le propriétaire de la plateforme est connecté au compte d'une école */
+.bandeau-acces-delegue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 1.25rem;
+  background: var(--bleu-100);
+  color: var(--bleu-700);
+  border-bottom: 1px solid var(--bleu-600);
+  font-size: 0.9rem;
+}

@@ -288,6 +288,42 @@ def deconnexion(request):
 
 
 @login_required
+@require_http_methods(["POST"])
+def quitter_acces_delegue(request):
+    """
+    Fin d'un accès délégué : le propriétaire de la plateforme, connecté au
+    compte développeur d'une école (espace_plateforme.views.acceder_etablissement),
+    retrouve son propre compte. Ne repose que sur la clé de session posée par
+    le serveur au début de l'accès - jamais sur un paramètre de la requête.
+    """
+    from comptes.middleware import CLE_SESSION_ACCES_DELEGUE
+
+    proprietaire_id = request.session.get(CLE_SESSION_ACCES_DELEGUE)
+    if not proprietaire_id:
+        return redirect("comptes:redirection_tableau_de_bord")
+
+    proprietaire = Utilisateur.objects.filter(
+        pk=proprietaire_id, is_active=True, is_superuser=True, etablissement__isnull=True,
+    ).first()
+    compte_ecole = request.user
+    enregistrer_action(
+        acteur=compte_ecole, action="acces_delegue_fin", cible=compte_ecole.email,
+        details={"proprietaire": proprietaire.email if proprietaire else "compte propriétaire invalide"},
+        request=request,
+    )
+    if proprietaire is None:
+        logout(request)
+        messages.error(request, "Votre compte propriétaire n'est plus valide. Veuillez vous reconnecter.")
+        return redirect("comptes:connexion")
+
+    ancienne_connexion = proprietaire.last_login
+    login(request, proprietaire, backend="django.contrib.auth.backends.ModelBackend")
+    Utilisateur.objects.filter(pk=proprietaire.pk).update(last_login=ancienne_connexion)
+    request.session["etablissement_id"] = None
+    return redirect("espace_plateforme:liste_etablissements")
+
+
+@login_required
 def redirection_tableau_de_bord(request):
     """
     Point d'entrée unique après connexion. Les tableaux de bord détaillés par

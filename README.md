@@ -1585,6 +1585,33 @@ documents, annonces, candidats), puis ~70 pages ouvertes avec ce compte.
 7 nouveaux tests ; un test existant ajusté (le tableau de bord du propriétaire
 redirige désormais, le test suit la redirection).
 
+## État du projet : Phase 45 — Accès du propriétaire au compte développeur d'une école
+
+Le propriétaire de la plateforme ne peut pas retenir les identifiants du
+compte développeur de chaque école. Un bouton **Accéder** sur chaque ligne de
+la page Établissements le connecte directement au compte développeur de
+l'école (le plus ancien compte développeur actif), sans mot de passe.
+
+- **Réservé au propriétaire sans établissement**, en POST uniquement (CSRF).
+  Refusé si l'école est suspendue ou n'a aucun compte développeur actif ; un
+  autre superutilisateur n'est jamais ciblé.
+- **Bandeau « Revenir à mon compte »** sur toutes les pages pendant l'accès ;
+  le retour ne repose que sur une clé de session posée par le serveur.
+- **Traçabilité** : le début et la fin de l'accès sont écrits dans le journal
+  d'audit **de l'école** (elle voit qui est entré), et toute action faite
+  pendant l'accès porte `via_proprietaire` dans ses détails. La « dernière
+  connexion » du compte de l'école n'est pas modifiée.
+- **Garde-fous** (`AccesDelegueMiddleware`) : changement de mot de passe,
+  d'email et réglages 2FA refusés pendant l'accès (dépanner, pas prendre le
+  compte) ; la session se ferme si le compte propriétaire n'est plus valide.
+- **2FA** : le propriétaire a déjà passé la sienne. Le compte de l'école n'est
+  donc pas forcé d'en activer une, ce qui enregistrerait l'appareil du
+  propriétaire sur ce compte.
+
+Limite connue : si une école a plusieurs comptes développeur, c'est toujours le
+plus ancien qui est utilisé. Écran non vérifié au navigateur (tests
+automatiques uniquement : 16 nouveaux tests, dont la 2FA réactivée en test).
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

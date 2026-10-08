@@ -94,6 +94,8 @@ MIDDLEWARE = [
     "comptes.middleware.AxesLikeLockoutMiddleware",
     # 2FA obligatoire pour les rôles à privilège élevé (comptes.roles.ROLES_2FA_OBLIGATOIRE)
     "comptes.middleware.ForcerActivation2FAMiddleware",
+    # Accès délégué du propriétaire au compte développeur d'une école (garde-fous)
+    "comptes.middleware.AccesDelegueMiddleware",
     # Le propriétaire de la plateforme (sans établissement) n'accède pas aux pages métier d'une école
     "comptes.middleware.ProprietairePlateformeMiddleware",
     # Content-Security-Policy (défense en profondeur contre l'injection de script)
@@ -115,6 +117,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "comptes.context_processors.etablissement_actif",
                 "comptes.context_processors.navigation",
+                "comptes.context_processors.acces_delegue",
             ],
         },
     },

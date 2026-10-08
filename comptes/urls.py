@@ -13,6 +13,7 @@ urlpatterns = [
     path("connexion/", views.connexion, name="connexion"),
     path("connexion/2fa/", views.verifier_2fa, name="verifier_2fa"),
     path("deconnexion/", views.deconnexion, name="deconnexion"),
+    path("acces-delegue/quitter/", views.quitter_acces_delegue, name="quitter_acces_delegue"),
     path("changer-mot-de-passe/", views.changer_mot_de_passe, name="changer_mot_de_passe"),
     path("changer-email/", views.changer_email, name="changer_email"),
     path("2fa/activer/", views.activer_2fa, name="activer_2fa"),

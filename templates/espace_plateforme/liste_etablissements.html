@@ -50,6 +50,12 @@
                     </td>
                     <td>{% if etablissement.visible_dans_annuaire %}Oui{% else %}Non{% endif %}</td>
                     <td class="text-end">
+                        {% if etablissement.actif %}
+                        <form method="post" action="{% url 'espace_plateforme:acceder_etablissement' etablissement.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-primary">Accéder</button>
+                        </form>
+                        {% endif %}
                         <a href="{% url 'espace_plateforme:voir_comptes_etablissement' etablissement.id %}" class="btn btn-sm btn-outline-secondary">Comptes</a>
                         <a href="{% url 'espace_plateforme:modifier_etablissement' etablissement.id %}" class="btn btn-sm btn-outline-secondary">Modifier</a>
                         <form method="post" action="{% url 'espace_plateforme:basculer_actif' etablissement.id %}" class="d-inline">
