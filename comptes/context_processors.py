@@ -18,7 +18,13 @@ def etablissement_actif(request):
     """
     from etablissement.models import Etablissement
 
+    from comptes.middleware import est_proprietaire_sans_etablissement
+
     utilisateur = getattr(request, "user", None)
+    if est_proprietaire_sans_etablissement(utilisateur):
+        # Le propriétaire de la plateforme n'a pas d'école : ses pages portent la marque de la
+        # plateforme, même quand une seule école existe (et serait sinon choisie par défaut).
+        return {"etablissement": None}
     if utilisateur is not None and utilisateur.is_authenticated and utilisateur.etablissement_id:
         return {"etablissement": utilisateur.etablissement}
 
@@ -162,3 +168,14 @@ def acces_delegue(request):
     if session is not None and session.get(CLE_SESSION_ACCES_DELEGUE):
         return {"acces_delegue": True}
     return {}
+
+
+def identite_plateforme(request):
+    """Nom, slogan et description de la plateforme (Nexora), disponibles dans tous les gabarits."""
+    return {
+        "nom_plateforme": settings.NOM_PLATEFORME,
+        "nom_commercial": settings.NOM_COMMERCIAL,
+        "slogan_plateforme": settings.SLOGAN_PLATEFORME,
+        "positionnement_plateforme": settings.POSITIONNEMENT_PLATEFORME,
+        "description_plateforme": settings.DESCRIPTION_PLATEFORME,
+    }

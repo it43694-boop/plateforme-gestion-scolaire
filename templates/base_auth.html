@@ -4,8 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block titre %}Connexion{% endblock %} - {{ etablissement.nom }}</title>
-    <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
+    <title>{% block titre %}Connexion{% endblock %} - {{ etablissement.nom|default:nom_commercial }}</title>
+    <link rel="icon" href="{% static 'img/favicon.ico' %}" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}">
     <link rel="manifest" href="{% url 'manifeste_pwa' %}">
     <link rel="apple-touch-icon" href="{% static 'img/icons/icone-apple-touch.png' %}">
     <meta name="theme-color" content="#12203D">
@@ -22,12 +23,14 @@
             <a href="{% url 'vitrine:accueil' %}" class="auth-lien-logo">
             {% if etablissement.logo %}
             <img src="{{ etablissement.logo.url }}" alt="{{ etablissement.nom }}" class="auth-logo">
-            {% else %}
+            {% elif etablissement %}
             <div class="auth-emblème">{{ etablissement.initiale }}</div>
+            {% else %}
+            <img src="{% static 'img/logo-nexora.png' %}" alt="{{ nom_plateforme }}" class="auth-logo auth-logo-plateforme">
             {% endif %}
             </a>
-            <h1 class="auth-titre">{% block auth_titre %}{{ etablissement.nom }}{% endblock %}</h1>
-            <p class="auth-sous-titre">{% block auth_sous_titre %}{{ etablissement.devise }}{% endblock %}</p>
+            <h1 class="auth-titre">{% block auth_titre %}{{ etablissement.nom|default:nom_commercial }}{% endblock %}</h1>
+            <p class="auth-sous-titre">{% block auth_sous_titre %}{% if etablissement %}{{ etablissement.devise }}{% else %}{{ slogan_plateforme }}{% endif %}{% endblock %}</p>
 
             {% if messages %}
                 {% for message in messages %}

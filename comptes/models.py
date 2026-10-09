@@ -256,7 +256,7 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
     def uri_provisionnement_2fa(self, secret: str) -> str:
         """URI otpauth:// à encoder en QR code pour une app d'authentification (Google/Microsoft Authenticator...)."""
         import pyotp
-        return pyotp.totp.TOTP(secret).provisioning_uri(name=self.email, issuer_name="Plateforme de gestion scolaire")
+        return pyotp.totp.TOTP(secret).provisioning_uri(name=self.email, issuer_name=settings.NOM_PLATEFORME)
 
     def verifier_code_2fa(self, code: str, secret: str | None = None) -> bool:
         """

@@ -1,6 +1,7 @@
-# Plateforme de gestion scolaire
+# Nexora Éducation — plateforme de gestion scolaire
 
-Logiciel de gestion scolaire multi-établissement, développé en Django.
+**Toute votre école. Une seule vision.** Nexora est le logiciel de gestion scolaire
+multi-établissement développé ici, en Django.
 Le cahier des charges d'Omega Académie (Mali) a servi de spécification
 fonctionnelle de référence pour construire l'application, mais **le
 logiciel lui-même est générique** : chaque établissement qui le déploie
@@ -54,9 +55,9 @@ En plus de la Phase 7, cette livraison ajoute :
   l'utilisateur : hero avec icônes flottantes, bandeau défilant des
   modules, grille de fonctionnalités, bloc sécurité — construite avec le
   système de design du logiciel, pas une copie de la maquette
-- **Nom du logiciel** : « L'éducation du Mali au service de l'avenir »
-  (`settings.NOM_PLATEFORME`) — distinct du nom de chaque établissement,
-  utilisé uniquement sur la page d'accueil et dans la documentation
+- **Nom du logiciel** : voir « Phase 49 — Identité Nexora » plus bas. Distinct
+  du nom de chaque établissement (ancien nom : « L'éducation du Mali au
+  service de l'avenir »)
 - **Deux modules du cahier des charges qui n'avaient aucune vue réelle**
   sont maintenant construits :
   - **Suivi des cours** : vue d'ensemble direction par classe (affectations,
@@ -1712,6 +1713,51 @@ service worker non vérifiés au navigateur : tests automatiques seulement.
 
 Tests : 21 (matricule, mot de passe provisoire, obligation de changement, cache, service
 worker, droits et cloisonnement du mot de passe provisoire).
+
+## État du projet : Phase 49 — Identité Nexora
+
+Changement de nom et de logo de la plateforme.
+
+| Élément | Valeur |
+|---|---|
+| Nom commercial | NEXORA ÉDUCATION (`settings.NOM_COMMERCIAL`) |
+| Nom du logiciel | Nexora (`settings.NOM_PLATEFORME`) |
+| Slogan | Toute votre école. Une seule vision. (`SLOGAN_PLATEFORME`) |
+| Positionnement | La plateforme intelligente de gestion et de pilotage des établissements scolaires. (`POSITIONNEMENT_PLATEFORME`) |
+| Description | `DESCRIPTION_PLATEFORME` (page d'accueil publique) |
+
+Ces valeurs sont injectées dans tous les gabarits par
+`comptes.context_processors.identite_plateforme` (`nom_plateforme`, `nom_commercial`,
+`slogan_plateforme`, `positionnement_plateforme`, `description_plateforme`). Pour renommer
+à nouveau, il suffit de les modifier dans `config/settings.py`.
+
+**Où apparaît l'identité de la plateforme** (et pas celle d'une école) : page d'accueil
+publique, page de connexion tant qu'aucune école n'est choisie, espace du propriétaire de la
+plateforme (barre latérale), page « aucun établissement », emails (en-tête), nom de
+l'application installable (quand personne n'est connecté), nom affiché dans l'application
+d'authentification (2FA, pour les nouveaux enregistrements) et en-tête de l'administration
+Django. Dès qu'une école est choisie ou connectée, son propre nom et son propre logo
+remplacent ceux de Nexora, comme avant.
+
+**Logo.** Source : `design/logo-nexora.png` (aplat bleu marine et turquoise sur fond blanc).
+`python design/generer_identite_visuelle.py` en tire : le logo à fond transparent
+(`static/img/logo-nexora.png`), le favicon (`favicon.ico`, `favicon-32.png`) et les icônes de
+l'application installable (`static/img/icons/` : 192, 512, « maskable » 512, iPhone 180). Le
+fond blanc est retiré proprement (bords nets sur tout fond) ; à relancer si le logo change.
+Le bleu marine du logo disparaît sur le bleu nuit de l'interface : il est donc toujours posé
+sur une pastille blanche dans la barre latérale, l'accueil et l'annuaire.
+
+Non modifié volontairement : le nom du service Render (`plateforme-gestion-scolaire`, donc
+l'adresse du site), le nom interne de la feuille de style (`toumai.css`), et les couleurs de
+l'interface (bleu nuit et or) : le logo est bleu marine et turquoise, un alignement de la
+couleur d'accent sur le turquoise est possible mais demande une décision de design.
+
+À vérifier hors code avant tout usage commercial : disponibilité du nom « Nexora » (recherche
+d'antériorité à l'OAPI, dont le Mali est membre), du nom de domaine et des comptes de réseaux
+sociaux. Les icônes installées sur les téléphones se mettent à jour d'elles-mêmes avec un
+certain délai, ou après une réinstallation.
+
+13 tests (identité, manifeste, images, gabarits).
 
 ## Sauvegardes locales (base de données et médias)
 

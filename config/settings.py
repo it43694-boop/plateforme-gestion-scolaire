@@ -122,6 +122,7 @@ TEMPLATES = [
                 "comptes.context_processors.etablissement_actif",
                 "comptes.context_processors.navigation",
                 "comptes.context_processors.acces_delegue",
+                "comptes.context_processors.identite_plateforme",
             ],
         },
     },
@@ -320,10 +321,20 @@ if SENTRY_DSN:
     except ImportError as erreur:
         raise RuntimeError("SENTRY_DSN est défini mais sentry-sdk n'est pas installé.") from erreur
 
-# Nom/slogan du LOGICIEL lui-même (distinct du nom de chaque établissement,
-# configurable séparément via etablissement.Etablissement) - utilisé sur la
-# page d'accueil publique et dans la documentation.
-NOM_PLATEFORME = "L'éducation du Mali au service de l'avenir"
+# Identité du LOGICIEL lui-même (distincte de celle de chaque établissement, configurable
+# séparément via etablissement.Etablissement) - page d'accueil publique, page de connexion
+# quand aucune école n'est choisie, emails, application installable, double authentification.
+# Injectée dans tous les gabarits par comptes.context_processors.identite_plateforme.
+NOM_PLATEFORME = "Nexora"
+NOM_COMMERCIAL = "NEXORA ÉDUCATION"
+SLOGAN_PLATEFORME = "Toute votre école. Une seule vision."
+POSITIONNEMENT_PLATEFORME = "La plateforme intelligente de gestion et de pilotage des établissements scolaires."
+DESCRIPTION_PLATEFORME = (
+    "Nexora est une plateforme numérique de gestion scolaire qui centralise les opérations "
+    "administratives, financières et pédagogiques d'un ou de plusieurs établissements. Elle permet "
+    "aux directions, aux enseignants, aux équipes administratives, aux parents et aux élèves "
+    "d'accéder à des espaces adaptés à leurs responsabilités, dans un environnement organisé et sécurisé."
+)
 
 # Assistant - mode génératif optionnel (cahier des charges : « mode sans IA
 # générative tant qu'aucune clé API n'est configurée »). Tant que

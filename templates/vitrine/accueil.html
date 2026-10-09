@@ -5,12 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% if etablissement %}{{ etablissement.nom }} - {% endif %}{{ nom_plateforme }}</title>
-    <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
+    <link rel="icon" href="{% static 'img/favicon.ico' %}" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}">
     <meta name="theme-color" content="#12203D">
-    <meta name="description" content="{{ nom_plateforme }} — logiciel de gestion scolaire multi-établissement.">
+    <meta name="description" content="{{ nom_commercial }} - {{ positionnement_plateforme }}">
     <meta property="og:type" content="website">
-    <meta property="og:title" content="{{ nom_plateforme }}">
-    <meta property="og:description" content="Logiciel de gestion scolaire multi-établissement.">
+    <meta property="og:title" content="{{ nom_commercial }}">
+    <meta property="og:description" content="{{ positionnement_plateforme }}">
     <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
     <link href="{% static 'css/toumai.css' %}" rel="stylesheet">
 </head>
@@ -31,9 +32,9 @@
                     {% if etablissement.devise %}<div class="marque-sous-titre">{{ etablissement.devise }}</div>{% endif %}
                 </div>
             {% else %}
-                <div class="marque-emblème">{% icone "pedagogie" 18 %}</div>
+                <img src="{% static 'img/logo-nexora.png' %}" alt="{{ nom_plateforme }}" class="marque-logo marque-logo-plateforme">
                 <div class="marque-texte">
-                    <div class="marque-nom">{{ nom_plateforme }}</div>
+                    <div class="marque-nom">{{ nom_commercial }}</div>
                 </div>
             {% endif %}
         </div>
@@ -51,13 +52,9 @@
 
     <div class="vitrine-hero-corps">
         <div>
-            <h1>{{ nom_plateforme }}</h1>
-            <p class="lead">
-                Une plateforme unique pour piloter l'inscription des élèves, la scolarité,
-                les finances, la pédagogie et la communication{% if etablissement %} de {{ etablissement.nom }}{% endif %},
-                avec des rôles précis et une matrice de permissions qui s'adapte à chaque
-                membre de l'équipe.
-            </p>
+            <h1>{{ nom_commercial }}</h1>
+            <p class="lead vitrine-slogan">{{ slogan_plateforme }}</p>
+            <p class="lead">{{ description_plateforme }}</p>
 
             {% if mode_multi %}
             <div class="vitrine-hero-ctas vitrine-etablissements" id="choisir-etablissement">
@@ -445,7 +442,7 @@
     {% if etablissement %}
     <p><strong>{{ etablissement.nom }}</strong>{% if etablissement.devise %} - {{ etablissement.devise }}{% endif %}</p>
     {% endif %}
-    <p>{{ nom_plateforme }}</p>
+    <p><strong>{{ nom_commercial }}</strong> - {{ positionnement_plateforme }}</p>
 </footer>
 
 </body>

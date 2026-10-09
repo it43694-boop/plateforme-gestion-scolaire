@@ -1249,3 +1249,11 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
   border-bottom: 1px solid var(--bleu-600);
   font-size: 0.9rem;
 }
+
+/* Identité Nexora : le logo (bleu marine et turquoise) se pose sur une pastille blanche, pour rester lisible
+   sur les fonds sombres (barre latérale, accueil, annuaire) comme dans le thème sombre. */
+.marque-logo-plateforme { padding: 4px; border-radius: 8px; }
+.auth-logo-plateforme { background: #fff; padding: 6px; border-radius: 12px; border: 1px solid var(--ink-100, #E3E6EC); }
+.annuaire-marque-logo { width: 30px; height: 30px; object-fit: contain; background: #fff; border-radius: 7px; padding: 4px; flex-shrink: 0; }
+.aucun-etablissement-logo { display: block; width: 72px; height: 72px; object-fit: contain; background: #fff; border-radius: 14px; padding: 8px; margin: 0 auto 1rem; }
+.vitrine-slogan { font-weight: 600; color: var(--gold-400); margin-bottom: 0.6rem; }

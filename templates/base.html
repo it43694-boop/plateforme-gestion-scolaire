@@ -4,15 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block titre %}Tableau de bord{% endblock %} - {{ etablissement.nom|default:"Plateforme" }}</title>
-    <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
+    <title>{% block titre %}Tableau de bord{% endblock %} - {{ etablissement.nom|default:nom_plateforme }}</title>
+    <link rel="icon" href="{% static 'img/favicon.ico' %}" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}">
     <link rel="manifest" href="{% url 'manifeste_pwa' %}">
     <link rel="apple-touch-icon" href="{% static 'img/icons/icone-apple-touch.png' %}">
     <meta name="theme-color" content="#12203D">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="{{ etablissement.nom|default:'Gestion scolaire' }}">
+    <meta name="apple-mobile-web-app-title" content="{{ etablissement.nom|default:nom_plateforme }}">
     <script nonce="{{ request.csp_nonce }}">
         (function () {
             try {
@@ -34,12 +35,14 @@
         <div class="marque">
             {% if etablissement.logo %}
             <img src="{{ etablissement.logo.url }}" alt="{{ etablissement.nom }}" class="marque-logo">
+            {% elif etablissement %}
+            <div class="marque-emblème">{{ etablissement.initiale }}</div>
             {% else %}
-            <div class="marque-emblème">{{ etablissement.initiale|default:"P" }}</div>
+            <img src="{% static 'img/logo-nexora.png' %}" alt="{{ nom_plateforme }}" class="marque-logo marque-logo-plateforme">
             {% endif %}
             <div class="marque-texte">
-                <div class="marque-nom">{{ etablissement.nom|default:"Plateforme de gestion scolaire" }}</div>
-                {% if etablissement.devise %}<div class="marque-sous-titre">{{ etablissement.devise }}</div>{% endif %}
+                <div class="marque-nom">{{ etablissement.nom|default:nom_commercial }}</div>
+                {% if etablissement.devise %}<div class="marque-sous-titre">{{ etablissement.devise }}</div>{% elif not etablissement %}<div class="marque-sous-titre">{{ slogan_plateforme }}</div>{% endif %}
             </div>
         </div>
 

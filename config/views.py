@@ -43,7 +43,7 @@ def manifeste_pwa(request):
     if request.user.is_authenticated and getattr(request.user, "etablissement", None):
         nom = request.user.etablissement.nom
     else:
-        nom = "Plateforme de gestion scolaire"
+        nom = settings.NOM_PLATEFORME
 
     limite = 15
     if len(nom) <= limite:

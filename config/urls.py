@@ -21,6 +21,11 @@ from django.urls import include, path
 
 from config.views import manifeste_pwa, sante, service_worker
 
+# Page d'administration technique (réservée au propriétaire de la plateforme)
+admin.site.site_header = f"{settings.NOM_PLATEFORME} - administration"
+admin.site.site_title = settings.NOM_PLATEFORME
+admin.site.index_title = "Administration de la plateforme"
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("healthz", sante, name="sante"),
