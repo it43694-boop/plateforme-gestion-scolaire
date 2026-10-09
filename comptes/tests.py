@@ -1007,3 +1007,111 @@ class PortailParentTests(TestCase):
         reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"), follow=True)
         self.assertEqual(reponse.status_code, 200)
         self.assertContains(reponse, "Portailenfant")
+
+
+class DiagnosticSmtpTests(TestCase):
+    """
+    Un envoi d'email qui échoue doit laisser une trace exploitable (logs et Sentry),
+    sans jamais exposer le mot de passe SMTP.
+    """
+
+    SECRET = "xsmtpsib-SECRET-A-NE-JAMAIS-AFFICHER"
+
+    @override_settings(EMAIL_HOST="smtp-relay.brevo.com", EMAIL_PORT=2525, EMAIL_HOST_USER="login@smtp-brevo.com",
+                       EMAIL_HOST_PASSWORD=SECRET)
+    def test_diagnostic_decrit_la_configuration_sans_le_mot_de_passe(self):
+        from comptes.mail import diagnostic_smtp
+        diagnostic = diagnostic_smtp()
+        self.assertEqual(diagnostic["hote"], "smtp-relay.brevo.com")
+        self.assertEqual(diagnostic["port"], 2525)
+        self.assertEqual(diagnostic["utilisateur"], "login@smtp-brevo.com")
+        self.assertEqual(diagnostic["longueur_mot_de_passe"], len(self.SECRET))
+        self.assertTrue(diagnostic["mot_de_passe_ressemble_a_une_cle_smtp_brevo"])
+        self.assertFalse(diagnostic["mot_de_passe_ressemble_a_une_cle_api_brevo"])
+        self.assertFalse(diagnostic["mot_de_passe_contient_un_espace_ou_saut_de_ligne"])
+        self.assertNotIn(self.SECRET, str(diagnostic))
+
+    @override_settings(EMAIL_HOST_PASSWORD="xkeysib-abc\n")
+    def test_diagnostic_repere_un_saut_de_ligne_cache_et_une_cle_api(self):
+        from comptes.mail import diagnostic_smtp
+        diagnostic = diagnostic_smtp()
+        self.assertTrue(diagnostic["mot_de_passe_contient_un_espace_ou_saut_de_ligne"])
+        self.assertTrue(diagnostic["mot_de_passe_ressemble_a_une_cle_api_brevo"])
+        self.assertFalse(diagnostic["mot_de_passe_ressemble_a_une_cle_smtp_brevo"])
+
+    @override_settings(EMAIL_ASYNC=False, EMAIL_HOST_PASSWORD=SECRET)
+    def test_echec_denvoi_journalise_la_configuration_sans_le_mot_de_passe(self):
+        import smtplib
+        from comptes.mail import envoyer_email
+
+        with patch("django.core.mail.EmailMultiAlternatives.send", side_effect=smtplib.SMTPAuthenticationError(535, b"5.7.8 Authentication failed")):
+            with self.assertLogs("comptes.mail", level="ERROR") as journal:
+                resultat = envoyer_email(
+                    sujet="Test", contenu="Bonjour", expediteur="a@example.com", destinataires=["b@example.com"],
+                )
+        self.assertEqual(resultat, 0)
+        sortie = "\n".join(journal.output)
+        self.assertIn("SMTPAuthenticationError", sortie)
+        self.assertIn("longueur_mot_de_passe", sortie)
+        self.assertNotIn(self.SECRET, sortie)
+
+
+class CopieCacheeEtLotsTests(TestCase):
+    """Un email à plusieurs destinataires ne doit jamais révéler leurs adresses les uns aux autres."""
+
+    def _adresses(self, nombre):
+        return [f"dest{i}@example.com" for i in range(nombre)]
+
+    def test_plusieurs_destinataires_en_copie_cachee(self):
+        from comptes.mail import envoyer_email
+        with override_settings(EMAIL_ASYNC=False):
+            envoyer_email(sujet="Annonce", contenu="x", expediteur="ecole@example.com", destinataires=self._adresses(3))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["ecole@example.com"])
+        self.assertEqual(mail.outbox[0].bcc, self._adresses(3))
+
+    def test_un_seul_destinataire_reste_dans_a(self):
+        from comptes.mail import envoyer_email
+        with override_settings(EMAIL_ASYNC=False):
+            envoyer_email(sujet="Perso", contenu="x", expediteur="ecole@example.com", destinataires=["seul@example.com"])
+        self.assertEqual(mail.outbox[0].to, ["seul@example.com"])
+        self.assertEqual(mail.outbox[0].bcc, [])
+
+    def test_envoi_decoupe_en_lots_sans_perdre_personne(self):
+        from comptes.mail import TAILLE_LOT_DESTINATAIRES, envoyer_email
+        adresses = self._adresses(TAILLE_LOT_DESTINATAIRES * 2 + 20)
+        with override_settings(EMAIL_ASYNC=False):
+            envoyes = envoyer_email(sujet="Annonce", contenu="x", expediteur="ecole@example.com", destinataires=adresses)
+        self.assertEqual(envoyes, 3)
+        self.assertEqual(len(mail.outbox), 3)
+        self.assertTrue(all(len(m.bcc) <= TAILLE_LOT_DESTINATAIRES for m in mail.outbox))
+        self.assertEqual(sorted(a for m in mail.outbox for a in m.bcc), sorted(adresses))
+
+    def test_aucun_destinataire_naffiche_rien(self):
+        from comptes.mail import envoyer_email
+        with override_settings(EMAIL_ASYNC=False):
+            self.assertEqual(envoyer_email(sujet="x", contenu="x", expediteur="e@example.com", destinataires=[]), 0)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_echec_au_premier_lot_arrete_les_suivants(self):
+        from unittest.mock import patch
+        from comptes.mail import TAILLE_LOT_DESTINATAIRES, envoyer_email
+        adresses = self._adresses(TAILLE_LOT_DESTINATAIRES * 3)
+        with override_settings(EMAIL_ASYNC=False):
+            with patch("django.core.mail.message.EmailMultiAlternatives.send", side_effect=TimeoutError("injoignable")) as envoi:
+                resultat = envoyer_email(sujet="x", contenu="x", expediteur="e@example.com", destinataires=adresses)
+        self.assertEqual(resultat, 0)
+        self.assertEqual(envoi.call_count, 1)  # pas trois délais d'expiration à la suite
+
+    def test_file_differee_un_message_par_lot_puis_copie_cachee_a_lenvoi(self):
+        from django.core.management import call_command
+        from comptes.mail import TAILLE_LOT_DESTINATAIRES, envoyer_email
+        from comptes.models import EmailOutbox
+        adresses = self._adresses(TAILLE_LOT_DESTINATAIRES + 5)
+        with override_settings(EMAIL_ASYNC=True):
+            envoyer_email(sujet="Annonce", contenu="x", expediteur="ecole@example.com", destinataires=adresses)
+        self.assertEqual(EmailOutbox.objects.count(), 2)
+        call_command("envoyer_emails")
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertTrue(all(m.to == ["ecole@example.com"] for m in mail.outbox))
+        self.assertEqual(sorted(a for m in mail.outbox for a in m.bcc), sorted(adresses))

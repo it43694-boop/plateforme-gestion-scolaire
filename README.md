@@ -1648,6 +1648,35 @@ L'admin Django (`/admin/`) montre toujours toutes les écoles au propriétaire.
 Tests ajoutés : isolation complète (4), élève restreint (3), chemins de fichiers
 (5), portail parent (3).
 
+## État du projet : Phase 47 — Envoi d'emails : diagnostic, copie cachée, adresses automatiques
+
+Mise en service de l'envoi d'emails sur Render (formule gratuite). Les ports SMTP
+25, 465 et 587 y sont bloqués depuis septembre 2025 : Gmail (587) est injoignable
+(`OSError: [Errno 101] Network is unreachable` dans Sentry). Solution retenue, sans
+code : un relais SMTP sur le port 2525 (Brevo, 300 emails par jour gratuits), avec
+`EMAIL_HOST`, `EMAIL_PORT=2525`, `EMAIL_HOST_USER` (identifiant `@smtp-brevo.com`),
+`EMAIL_HOST_PASSWORD` (clé de l'onglet « Clés SMTP », pas une clé API) et
+`DEFAULT_FROM_EMAIL` (expéditeur validé chez Brevo). Brevo bloque par défaut les
+adresses IP non autorisées : à désactiver pour les clés SMTP (Sécurité, IPs autorisées),
+car Render gratuit n'a pas d'IP fixe. Un expéditeur `@gmail.com` est réécrit en
+`@brevosend.com` tant qu'aucun domaine n'est authentifié (DKIM).
+
+Dans le code :
+- **Diagnostic d'échec** (`comptes.mail.diagnostic_smtp`) : à chaque envoi qui échoue,
+  logs et contexte Sentry « smtp » indiquent serveur, port, identifiant, longueur du
+  mot de passe et indicateurs de forme (espace ou saut de ligne caché, préfixe d'une
+  clé SMTP ou API Brevo). Jamais le mot de passe ni un morceau de sa valeur.
+- **Copie cachée** : un email à plusieurs destinataires (annonces) montrait l'adresse
+  de tous les destinataires à chacun (champ « À » partagé). Ils sont maintenant en
+  copie cachée, par lots de 50 (`construire_message`, aussi utilisé par la file
+  différée). Au premier lot en échec on s'arrête, pour ne pas multiplier les délais.
+- **Adresses automatiques** : les élèves inscrits par l'école ont une adresse générée
+  `matricule@eleves.local` : elles ne sont plus destinataires d'annonces (rebonds,
+  quota gaspillé, réputation de l'expéditeur).
+
+Tests : 3 (diagnostic), 6 (copie cachée, lots, file différée), 1 (adresses
+automatiques) ; un test existant corrigé (il vérifiait les destinataires dans « À »).
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

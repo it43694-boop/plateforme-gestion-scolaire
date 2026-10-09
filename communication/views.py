@@ -16,6 +16,7 @@ from communication.forms import EnvoyerMessageForm, PublierAnnonceForm
 from communication.models import Annonce, Message, Portee
 from permissions_matrix.modules import Module
 from scolarite.models import Inscription, classes_visibles_pour
+from scolarite.views import DOMAINE_EMAIL_AUTO_ELEVE
 
 
 def _destinataires(annonce) -> list[str]:
@@ -31,7 +32,11 @@ def _destinataires(annonce) -> list[str]:
         )
         parents = Utilisateur.objects.filter(enfants_lies__in=eleves)
         emails = set(eleves.values_list("email", flat=True)) | set(parents.values_list("email", flat=True))
-    return list(emails)
+    # Les élèves inscrits par l'école n'ont pas de vraie boîte mail : leur adresse est générée
+    # (matricule@eleves.local, voir scolarite.views). L'écrire ne ferait que produire des
+    # rebonds, gaspiller le quota d'envoi et abîmer la réputation de l'expéditeur.
+    suffixe_automatique = f"@{DOMAINE_EMAIL_AUTO_ELEVE}"
+    return [email for email in emails if email and not email.lower().endswith(suffixe_automatique)]
 
 
 def _envoyer_notifications(annonce):

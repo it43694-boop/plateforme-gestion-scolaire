@@ -72,9 +72,25 @@ class PubierAnnonceTests(TestCase):
             "titre": "Devoir", "contenu": "Devoir de maths pour vendredi",
             "portee": Portee.MA_CLASSE, "classe_ciblee": self.classe.id,
         })
-        destinataires = mail.outbox[0].to
-        self.assertIn(self.eleve.email, destinataires)
-        self.assertIn(self.parent.email, destinataires)
+        # Plusieurs destinataires : en copie cachée, jamais dans « À » (chacun verrait les adresses des autres).
+        message = mail.outbox[0]
+        self.assertIn(self.eleve.email, message.bcc)
+        self.assertIn(self.parent.email, message.bcc)
+        self.assertNotIn(self.eleve.email, message.to)
+        self.assertNotIn(self.parent.email, message.to)
+
+    def test_adresse_automatique_dun_eleve_jamais_destinataire(self):
+        """Les élèves inscrits par l'école ont une adresse générée (matricule@eleves.local) : pas de vraie boîte mail."""
+        eleve_sans_boite = creer_utilisateur_actif("20269999@eleves.local", Role.ELEVE)
+        Inscription.objects.create(eleve=eleve_sans_boite, classe=self.classe)
+        self.client.force_login(self.enseignant)
+        self.client.post(reverse("communication:publier_annonce"), {
+            "titre": "Devoir", "contenu": "Devoir de maths pour vendredi",
+            "portee": Portee.MA_CLASSE, "classe_ciblee": self.classe.id,
+        })
+        envoyes = mail.outbox[0].bcc + mail.outbox[0].to
+        self.assertNotIn("20269999@eleves.local", envoyes)
+        self.assertIn(self.parent.email, envoyes)
 
     def test_parent_ne_peut_pas_publier_une_annonce(self):
         """
