@@ -4,7 +4,12 @@ from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 
+from comptes.uploads import chemin_upload_unique
 from comptes.validators import valider_contenu_fichier, valider_taille_image_2mo
+
+
+def chemin_upload_logo(instance, nom_fichier):
+    return chemin_upload_unique("etablissement", instance.pk, nom_fichier)
 
 
 class PlanEtablissement(models.TextChoices):
@@ -61,7 +66,7 @@ class Etablissement(models.Model):
                    "5000 correspond à la plus petite coupure courante en FCFA ; ajustez pour une autre monnaie.",
     )
     logo = models.ImageField(
-        upload_to="etablissement/", blank=True, null=True,
+        upload_to=chemin_upload_logo, blank=True, null=True,
         validators=[valider_taille_image_2mo, valider_contenu_fichier],
         help_text="Logo affiché dans la barre latérale et sur la page de connexion. "
                    "Si aucun logo n'est fourni, l'initiale du nom est utilisée à la place. "

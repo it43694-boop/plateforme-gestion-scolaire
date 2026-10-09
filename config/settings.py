@@ -212,6 +212,9 @@ if AWS_STORAGE_BUCKET_NAME and not DEBUG:
                 "access_key": env("AWS_ACCESS_KEY_ID", default=""),
                 "secret_key": env("AWS_SECRET_ACCESS_KEY", default=""),
                 "default_acl": None,
+                # Par défaut le stockage S3 ÉCRASE un fichier de même nom (y compris
+                # celui d'une autre école) : on ne le veut jamais, voir comptes.uploads.
+                "file_overwrite": False,
                 "addressing_style": "path",
                 "custom_domain": "jladyhlthlyvqkvzjuyi.supabase.co/storage/v1/object/public/medias",
                 "querystring_auth": env.bool("AWS_QUERYSTRING_AUTH", default=True),

@@ -1612,6 +1612,42 @@ Limite connue : si une école a plusieurs comptes développeur, c'est toujours l
 plus ancien qui est utilisé. Écran non vérifié au navigateur (tests
 automatiques uniquement : 16 nouveaux tests, dont la 2FA réactivée en test).
 
+## État du projet : Phase 46 — Audit de fuites de données (toutes routes, tous rôles)
+
+Audit demandé sur l'ensemble de l'application. Méthode : deux écoles avec tous
+les rôles et des données dans chaque module ; les routes sont énumérées
+automatiquement (`get_resolver`), puis chaque rôle de l'école A essaie en GET
+et en POST toutes les pages et tous les objets de l'école B, un visiteur non
+connecté essaie tout, et des comptes limités d'une même école essaient les
+données d'un autre élève. Le test est conservé (`comptes/test_isolation_complete.py`) :
+une future page sans filtre par établissement le fera échouer.
+
+**Aucune fuite entre écoles** (17 rôles, ~70 routes, GET et POST) et rien n'est
+modifiable d'une école à l'autre. Un visiteur anonyme n'atteint que les pages
+publiques.
+
+Problèmes trouvés et corrigés :
+- **Un élève voyait tous les élèves de son école** (nom, matricule, classe) dans
+  la liste et la recherche : seul le parent était restreint. Un élève ne voit
+  plus que lui-même.
+- **Fichiers téléversés** (bibliothèque, annonces, justificatifs de transfert,
+  logo) : le stockage les sert par une adresse publique non signée
+  (`custom_domain`, donc `querystring_auth` sans effet) avec un nom prévisible, et
+  S3 écrasait un fichier de même nom, y compris celui d'une autre école. Le chemin
+  contient désormais l'école et un jeton aléatoire (`comptes/uploads.py`) et
+  `file_overwrite` est désactivé. Les fichiers déjà stockés gardent leur ancienne
+  adresse.
+- **Portail parent en erreur 500** dès qu'un enfant était inscrit (import manquant,
+  bogue antérieur sans rapport avec les fuites ; page non couverte par un test).
+
+**À décider hors code** : rendre le bucket Supabase privé et servir les médias par
+URL signée (retirer `custom_domain`), seule façon de protéger aussi les fichiers
+déjà téléversés. Non fait ici car cela dépend d'un réglage Supabase à tester.
+L'admin Django (`/admin/`) montre toujours toutes les écoles au propriétaire.
+
+Tests ajoutés : isolation complète (4), élève restreint (3), chemins de fichiers
+(5), portail parent (3).
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

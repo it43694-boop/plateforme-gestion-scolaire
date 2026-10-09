@@ -2,7 +2,12 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from comptes.roles import Role
+from comptes.uploads import chemin_upload_unique
 from comptes.validators import valider_contenu_fichier, valider_extension_document, valider_taille_fichier_10mo
+
+
+def chemin_upload_annonce(instance, nom_fichier):
+    return chemin_upload_unique("annonces", instance.etablissement_id, nom_fichier)
 
 
 class Portee(models.TextChoices):
@@ -24,7 +29,7 @@ class Annonce(models.Model):
     )
     contenu = models.TextField()
     piece_jointe = models.FileField(
-        upload_to="annonces/", blank=True, null=True,
+        upload_to=chemin_upload_annonce, blank=True, null=True,
         validators=[valider_taille_fichier_10mo, valider_extension_document, valider_contenu_fichier],
     )
     portee = models.CharField(max_length=20, choices=Portee.choices)

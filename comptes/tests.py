@@ -948,3 +948,62 @@ class ContentSecurityPolicyTests(TestCase):
         reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
         entete = reponse["Content-Security-Policy"]
         self.assertIn("script-src 'self' 'nonce-", entete)
+
+
+class PortailParentTests(TestCase):
+    """
+    Page d'arrivée d'un parent après sa connexion. Elle plantait (erreur 500)
+    dès qu'un enfant était inscrit : calculer_total_du n'était pas importé.
+    """
+
+    def setUp(self):
+        import datetime
+        from etablissement.models import Etablissement
+        from permissions_matrix.models import PermissionMatrix
+        from scolarite.models import AnneeScolaire, Classe, Cycle, Inscription
+
+        self.ecole = Etablissement.objects.create(nom="École portail parent")
+        PermissionMatrix.seed_pour(self.ecole)
+        annee = AnneeScolaire.objects.create(
+            etablissement=self.ecole, libelle="2026-2027", date_debut=datetime.date(2026, 10, 1),
+            date_fin=datetime.date(2027, 7, 31), est_active=True,
+        )
+        classe = Classe.objects.create(nom="Classe portail", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=annee)
+        self.parent = creer_utilisateur_actif(
+            "parent-portail@example.com", Role.PARENT, etablissement=self.ecole, telephone="70111111",
+        )
+        self.autre_parent = creer_utilisateur_actif(
+            "autre-parent-portail@example.com", Role.PARENT, etablissement=self.ecole, telephone="70222222",
+        )
+        def creer_eleve(email, matricule, prenom, nom):
+            eleve = Utilisateur(
+                email=email, prenom=prenom, nom=nom, role=Role.ELEVE, etablissement=self.ecole,
+                matricule=matricule, statut=StatutCompte.ACTIF, is_active=True, email_verifie=True,
+            )
+            eleve.set_unusable_password()
+            eleve.save()
+            return eleve
+
+        self.enfant = creer_eleve("enfant-portail@example.com", "20269001", "Awa", "Portailenfant")
+        self.enfant.parents_lies.add(self.parent)
+        autre_enfant = creer_eleve("autre-enfant-portail@example.com", "20269002", "Moussa", "Autreenfant")
+        autre_enfant.parents_lies.add(self.autre_parent)
+        for eleve in (self.enfant, autre_enfant):
+            Inscription.objects.create(eleve=eleve, classe=classe)
+
+    def test_portail_affiche_lenfant_inscrit_sans_erreur(self):
+        self.client.force_login(self.parent)
+        reponse = self.client.get(reverse("comptes:portail_parent"))
+        self.assertEqual(reponse.status_code, 200)
+        self.assertContains(reponse, "Portailenfant")
+
+    def test_portail_ne_montre_pas_lenfant_dun_autre_parent(self):
+        self.client.force_login(self.parent)
+        reponse = self.client.get(reverse("comptes:portail_parent"))
+        self.assertNotContains(reponse, "Autreenfant")
+
+    def test_connexion_dun_parent_mene_au_portail(self):
+        self.client.force_login(self.parent)
+        reponse = self.client.get(reverse("comptes:redirection_tableau_de_bord"), follow=True)
+        self.assertEqual(reponse.status_code, 200)
+        self.assertContains(reponse, "Portailenfant")

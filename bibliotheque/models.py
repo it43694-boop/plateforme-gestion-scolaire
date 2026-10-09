@@ -2,11 +2,12 @@ import os
 
 from django.db import models
 
+from comptes.uploads import chemin_upload_unique
 from comptes.validators import valider_contenu_fichier, valider_extension_document, valider_taille_fichier_10mo
 
 
 def chemin_upload_document(instance, nom_fichier):
-    return f"bibliotheque/{nom_fichier}"
+    return chemin_upload_unique("bibliotheque", instance.etablissement_id, nom_fichier)
 
 
 class Document(models.Model):

@@ -1,8 +1,9 @@
 import io
+import tempfile
 import zipfile
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from comptes.models import Utilisateur
@@ -178,3 +179,46 @@ class IsolationBibliothequeTests(TestCase):
         with zipfile.ZipFile(io.BytesIO(reponse.content)) as zip_fichier:
             self.assertEqual(len(zip_fichier.namelist()), 1)
             self.assertTrue(zip_fichier.namelist()[0].startswith("a"))
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class CheminsDeFichiersTests(TestCase):
+    """
+    Les fichiers téléversés sont servis par une adresse publique non signée et le
+    stockage S3 écrase un fichier de même nom : le chemin doit donc contenir un
+    jeton aléatoire (adresse non devinable) et l'école (pas d'écrasement entre écoles).
+    """
+
+    def test_chemin_unique_contient_ecole_jeton_et_nom_dorigine(self):
+        from comptes.uploads import chemin_upload_unique
+        chemin = chemin_upload_unique("bibliotheque", 7, "reglement.pdf")
+        self.assertRegex(chemin, r"^bibliotheque/7/[0-9a-f]{20}/reglement\.pdf$")
+
+    def test_deux_envois_du_meme_nom_donnent_deux_chemins_differents(self):
+        from comptes.uploads import chemin_upload_unique
+        self.assertNotEqual(
+            chemin_upload_unique("bibliotheque", 1, "reglement.pdf"), chemin_upload_unique("bibliotheque", 1, "reglement.pdf"),
+        )
+
+    def test_nom_tres_long_tronque_sans_perdre_lextension_ni_depasser_la_limite(self):
+        from comptes.uploads import LONGUEUR_MAX_CHEMIN, chemin_upload_unique
+        chemin = chemin_upload_unique("annonces", 12345, "a" * 300 + ".pdf")
+        self.assertLessEqual(len(chemin), LONGUEUR_MAX_CHEMIN)
+        self.assertTrue(chemin.endswith(".pdf"))
+
+    def test_nom_avec_dossiers_neutralise(self):
+        from comptes.uploads import chemin_upload_unique
+        self.assertNotIn("..", chemin_upload_unique("bibliotheque", 1, "../../secret.pdf"))
+
+    def test_deux_ecoles_envoyant_le_meme_nom_gardent_chacune_leur_fichier(self):
+        from django.core.files.base import ContentFile
+        from etablissement.models import Etablissement
+        ecole_a, ecole_b = Etablissement.objects.create(nom="École A fichiers"), Etablissement.objects.create(nom="École B fichiers")
+        doc_a = Document.objects.create(titre="A", etablissement=ecole_a, fichier=ContentFile(b"contenu A", name="reglement.pdf"))
+        doc_b = Document.objects.create(titre="B", etablissement=ecole_b, fichier=ContentFile(b"contenu B", name="reglement.pdf"))
+        self.assertNotEqual(doc_a.fichier.name, doc_b.fichier.name)
+        self.assertIn(f"/{ecole_a.id}/", doc_a.fichier.name)
+        self.assertEqual(doc_a.nom_fichier, "reglement.pdf")  # le nom d'origine reste affiché
+        doc_a.fichier.open("rb")
+        self.assertEqual(doc_a.fichier.read(), b"contenu A")
+        doc_a.fichier.close()

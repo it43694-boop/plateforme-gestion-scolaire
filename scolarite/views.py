@@ -315,6 +315,8 @@ def liste_eleves(request):
     ).select_related("eleve", "classe", "classe__annee_scolaire").order_by("classe__nom", "eleve__nom")
     if request.user.role == Role.PARENT:
         inscriptions = inscriptions.filter(eleve__parents_lies=request.user)
+    elif request.user.role == Role.ELEVE:
+        inscriptions = inscriptions.filter(eleve=request.user)
     if classe_id:
         inscriptions = inscriptions.filter(classe_id=classe_id)
 
@@ -347,6 +349,8 @@ def recherche_globale(request):
         ).select_related("eleve", "classe", "classe__annee_scolaire").order_by("eleve__nom")
         if request.user.role == Role.PARENT:
             inscriptions = inscriptions.filter(eleve__parents_lies=request.user)
+        elif request.user.role == Role.ELEVE:
+            inscriptions = inscriptions.filter(eleve=request.user)
         resultats = inscriptions[:25]
 
     return render(request, "scolarite/recherche_globale.html", {"terme": terme, "resultats": resultats})

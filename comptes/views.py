@@ -444,7 +444,7 @@ def portail_parent(request):
     from django.db.models import Avg, Count, Q, Sum
     from finances.models import Paiement
     from pedagogie.models import Absence, Note
-    from scolarite.models import Inscription
+    from scolarite.models import Inscription, calculer_total_du
 
     enfants = list(request.user.enfants_lies.filter(
         etablissement=request.user.etablissement, role=Role.ELEVE,

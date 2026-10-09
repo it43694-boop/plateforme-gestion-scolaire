@@ -1486,3 +1486,44 @@ class ImporterElevesExcelTests(TestCase):
                 "importer_eleves_excel", self.fichier.name,
                 **{"etablissement": self.ecole.id, "annee_scolaire": 999999},
             )
+
+
+class EleveNeVoitQueLuiMemeTests(TestCase):
+    """
+    Un élève a accès au module Élèves pour consulter son propre dossier, pas
+    pour voir ni rechercher les autres élèves de l'école (nom, matricule, classe).
+    """
+
+    def setUp(self):
+        from etablissement.models import Etablissement
+        from permissions_matrix.models import PermissionMatrix
+        self.ecole = Etablissement.objects.create(nom="École liste élèves")
+        PermissionMatrix.seed_pour(self.ecole)
+        annee = AnneeScolaire.objects.create(
+            etablissement=self.ecole, libelle="2026-2027", date_debut=datetime.date(2026, 10, 1),
+            date_fin=datetime.date(2027, 7, 31), est_active=True,
+        )
+        classe = Classe.objects.create(nom="Classe liste", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=annee)
+        self.eleve_1 = creer_utilisateur_actif("eleve-liste-1@example.com", Role.ELEVE, etablissement=self.ecole, matricule="20260001")
+        self.eleve_2 = creer_utilisateur_actif("eleve-liste-2@example.com", Role.ELEVE, etablissement=self.ecole, matricule="20260002")
+        for eleve in (self.eleve_1, self.eleve_2):
+            Inscription.objects.create(eleve=eleve, classe=classe)
+
+    def test_eleve_ne_voit_que_lui_dans_la_liste(self):
+        self.client.force_login(self.eleve_1)
+        reponse = self.client.get(reverse("scolarite:liste_eleves"))
+        self.assertContains(reponse, "20260001")
+        self.assertNotContains(reponse, "20260002")
+
+    def test_eleve_ne_trouve_pas_les_autres_dans_la_recherche(self):
+        self.client.force_login(self.eleve_1)
+        reponse = self.client.get(reverse("scolarite:recherche_globale"), {"q": "2026000"})
+        self.assertContains(reponse, "20260001")
+        self.assertNotContains(reponse, "20260002")
+
+    def test_la_direction_voit_tous_les_eleves(self):
+        fondateur = creer_utilisateur_actif("fondateur-liste@example.com", Role.FONDATEUR, etablissement=self.ecole)
+        self.client.force_login(fondateur)
+        reponse = self.client.get(reverse("scolarite:liste_eleves"))
+        self.assertContains(reponse, "20260001")
+        self.assertContains(reponse, "20260002")

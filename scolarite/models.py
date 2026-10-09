@@ -5,8 +5,15 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
+from comptes.uploads import chemin_upload_unique
 from comptes.validators import valider_contenu_fichier, valider_extension_document, valider_taille_fichier_10mo
 from etablissement.models import PlanEtablissement
+
+
+def chemin_upload_transfert(instance, nom_fichier):
+    # Justificatif de transfert : donnée personnelle sensible, jamais un nom devinable.
+    etablissement_id = instance.enregistre_par.etablissement_id if instance.enregistre_par_id else None
+    return chemin_upload_unique("transferts", etablissement_id, nom_fichier)
 
 
 class Cycle(models.TextChoices):
@@ -540,7 +547,7 @@ class TransfertEleve(models.Model):
     date_transfert = models.DateField()
     motif = models.CharField(max_length=255)
     justificatif = models.FileField(
-        upload_to="transferts/", blank=True,
+        upload_to=chemin_upload_transfert, blank=True,
         validators=[valider_taille_fichier_10mo, valider_extension_document, valider_contenu_fichier],
     )
     enregistre_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.PROTECT, related_name="transferts_enregistres")
