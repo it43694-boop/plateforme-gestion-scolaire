@@ -1115,3 +1115,132 @@ class CopieCacheeEtLotsTests(TestCase):
         self.assertEqual(len(mail.outbox), 2)
         self.assertTrue(all(m.to == ["ecole@example.com"] for m in mail.outbox))
         self.assertEqual(sorted(a for m in mail.outbox for a in m.bcc), sorted(adresses))
+
+
+def creer_eleve_pour_connexion(matricule, mot_de_passe="MotDePasse#2026", **kwargs):
+    eleve = Utilisateur(
+        email=f"{matricule}@eleves.local", prenom="Awa", nom="Connexion", role=Role.ELEVE, matricule=matricule,
+        statut=StatutCompte.ACTIF, is_active=True, email_verifie=True, **kwargs,
+    )
+    eleve.set_password(mot_de_passe)
+    eleve.save()
+    return eleve
+
+
+class ConnexionParMatriculeTests(TestCase):
+    """Un élève se connecte avec son matricule (la plupart n'ont pas de vraie adresse email)."""
+
+    def setUp(self):
+        # La connexion est limitée à 10 essais par minute et par adresse IP (compteur en cache) : vider
+        # le compteur avant ET après, pour que ces tests ne fassent jamais échouer ceux qui suivent.
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.eleve = creer_eleve_pour_connexion("20261111")
+        self.url = reverse("comptes:connexion")
+
+    def test_connexion_avec_le_matricule(self):
+        reponse = self.client.post(self.url, {"email": "20261111", "mot_de_passe": "MotDePasse#2026"})
+        self.assertEqual(reponse.status_code, 302)
+        self.assertEqual(int(self.client.session["_auth_user_id"]), self.eleve.id)
+
+    def test_mauvais_mot_de_passe_message_generique(self):
+        reponse = self.client.post(self.url, {"email": "20261111", "mot_de_passe": "mauvais"})
+        self.assertContains(reponse, "Email ou mot de passe incorrect")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_matricule_inconnu_meme_message_que_mauvais_mot_de_passe(self):
+        reponse = self.client.post(self.url, {"email": "20260000", "mot_de_passe": "MotDePasse#2026"})
+        self.assertContains(reponse, "Email ou mot de passe incorrect")
+
+    def test_matricule_dun_compte_qui_nest_pas_un_eleve_refuse(self):
+        enseignant = Utilisateur(
+            email="prof-matricule@example.com", prenom="Test", nom="Prof", role=Role.ENSEIGNANT, matricule="99999999",
+            statut=StatutCompte.ACTIF, is_active=True, email_verifie=True,
+        )
+        enseignant.set_password("MotDePasse#2026")
+        enseignant.save()
+        reponse = self.client.post(self.url, {"email": "99999999", "mot_de_passe": "MotDePasse#2026"})
+        self.assertContains(reponse, "Email ou mot de passe incorrect")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_verrouillage_apres_trop_dechecs_aussi_par_matricule(self):
+        from django.conf import settings
+        for _ in range(settings.NB_TENTATIVES_CONNEXION_AVANT_VERROUILLAGE):
+            self.client.post(self.url, {"email": "20261111", "mot_de_passe": "mauvais"})
+        reponse = self.client.post(self.url, {"email": "20261111", "mot_de_passe": "MotDePasse#2026"})
+        self.assertContains(reponse, "verrouillé")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_connexion_par_email_toujours_possible(self):
+        reponse = self.client.post(self.url, {"email": "20261111@eleves.local", "mot_de_passe": "MotDePasse#2026"})
+        self.assertEqual(reponse.status_code, 302)
+        self.assertEqual(int(self.client.session["_auth_user_id"]), self.eleve.id)
+
+
+class MotDePasseProvisoireConnexionTests(TestCase):
+    """Mot de passe provisoire remis par l'école : à changer dès la première connexion, et il expire."""
+
+    def setUp(self):
+        # La connexion est limitée à 10 essais par minute et par adresse IP (compteur en cache) : vider
+        # le compteur avant ET après, pour que ces tests ne fassent jamais échouer ceux qui suivent.
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.eleve = creer_eleve_pour_connexion(
+            "20262222", mot_de_passe="Prov-1234", doit_changer_mot_de_passe=True,
+            mot_de_passe_provisoire_expire_le=timezone.now() + timedelta(hours=10),
+        )
+
+    def _connecter(self):
+        return self.client.post(reverse("comptes:connexion"), {"email": "20262222", "mot_de_passe": "Prov-1234"})
+
+    def test_toute_page_mene_au_changement_de_mot_de_passe(self):
+        self._connecter()
+        for nom in ["comptes:redirection_tableau_de_bord", "comptes:liste_notifications", "scolarite:liste_eleves"]:
+            with self.subTest(page=nom):
+                reponse = self.client.get(reverse(nom))
+                self.assertRedirects(reponse, reverse("comptes:changer_mot_de_passe"), fetch_redirect_response=False)
+
+    def test_changement_du_mot_de_passe_leve_lobligation(self):
+        self._connecter()
+        reponse = self.client.post(reverse("comptes:changer_mot_de_passe"), {
+            "old_password": "Prov-1234", "new_password1": "MotDePasseNeuf#2026", "new_password2": "MotDePasseNeuf#2026",
+        })
+        self.assertEqual(reponse.status_code, 302)
+        self.eleve.refresh_from_db()
+        self.assertFalse(self.eleve.doit_changer_mot_de_passe)
+        self.assertIsNone(self.eleve.mot_de_passe_provisoire_expire_le)
+        self.assertTrue(self.eleve.check_password("MotDePasseNeuf#2026"))
+        reponse = self.client.get(reverse("comptes:liste_notifications"))
+        self.assertEqual(reponse.status_code, 200)
+
+    def test_deconnexion_reste_possible_avant_le_changement(self):
+        self._connecter()
+        reponse = self.client.post(reverse("comptes:deconnexion"))
+        self.assertRedirects(reponse, reverse("comptes:connexion"), fetch_redirect_response=False)
+
+    def test_mot_de_passe_provisoire_expire_refuse(self):
+        self.eleve.mot_de_passe_provisoire_expire_le = timezone.now() - timedelta(minutes=1)
+        self.eleve.save(update_fields=["mot_de_passe_provisoire_expire_le"])
+        reponse = self._connecter()
+        self.assertContains(reponse, "expiré")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+
+class NavigateurPartageTests(TestCase):
+    """Ordinateurs partagés : rien d'un utilisateur connecté ne doit rester dans les caches."""
+
+    def test_page_dun_utilisateur_connecte_jamais_mise_en_cache(self):
+        eleve = creer_eleve_pour_connexion("20263333")
+        self.client.force_login(eleve)
+        reponse = self.client.get(reverse("comptes:liste_notifications"))
+        self.assertIn("no-store", reponse["Cache-Control"])
+
+    def test_service_worker_efface_les_pages_hors_ligne_a_la_deconnexion_et_a_la_connexion(self):
+        from pathlib import Path
+        from django.conf import settings
+        sw = (Path(settings.BASE_DIR) / "static" / "js" / "sw.js").read_text(encoding="utf-8")
+        self.assertIn('"/comptes/deconnexion/"', sw)
+        self.assertIn('"/comptes/connexion/"', sw)
+        self.assertIn("caches.delete(CACHE_PAGES)", sw)

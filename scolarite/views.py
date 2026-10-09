@@ -7,7 +7,7 @@ from django.views.decorators.http import require_http_methods
 from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
 from comptes.models import Utilisateur, creer_avec_matricule_unique, generer_matricule
-from comptes.roles import Role, StatutCompte
+from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role, StatutCompte
 from permissions_matrix.modules import Module
 from scolarite.forms import AffecterEnseignantForm, CloturerInscriptionForm, CreerClasseForm, InscrireEleveForm
 from scolarite.models import (
@@ -17,6 +17,14 @@ from scolarite.models import (
 )
 
 DOMAINE_EMAIL_AUTO_ELEVE = "eleves.local"
+
+# Qui peut remettre un mot de passe provisoire à un élève : la direction et le secrétariat, qui gèrent
+# déjà les dossiers (jamais un enseignant, un parent, un comptable, le Censeur ou le Surveillant
+# général), et seulement pour un élève qu'ils peuvent voir (cloisonnement par école et par cycle).
+ROLES_MOT_DE_PASSE_PROVISOIRE_ELEVE = {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL} | {
+    Role.SECRETAIRE.value, Role.SUPER_ADMINISTRATEUR.value,
+    Role.DIRECTEUR_1ER_CYCLE.value, Role.DIRECTEUR_2EME_CYCLE.value, Role.DIRECTEUR_LYCEE.value,
+}
 
 # Un parent ou un élève a accès au module Élèves pour consulter son
 # propre dossier (ou celui de son enfant), jamais pour en créer un
@@ -125,6 +133,7 @@ def dossier_eleve(request, matricule):
         "parents": eleve.parents_lies.all(), "parents_en_attente": eleve.parents_en_attente.all(),
         "peut_voir_notes": peut_voir_notes, "peut_voir_absences": peut_voir_absences, "peut_voir_finances": peut_voir_finances,
         "peut_cloturer_inscription": request.user.role not in ROLES_INSCRIPTION_ELEVE_INTERDITE,
+        "peut_mot_de_passe_provisoire": request.user.role in ROLES_MOT_DE_PASSE_PROVISOIRE_ELEVE,
     }
 
     if peut_voir_absences:
@@ -145,6 +154,51 @@ def dossier_eleve(request, matricule):
             contexte["solde_annee_active"] = total_du - paye_annee
 
     return render(request, "scolarite/dossier_eleve.html", contexte)
+
+
+@module_requis(Module.ELEVES)
+@require_http_methods(["POST"])
+def mot_de_passe_provisoire(request, matricule):
+    """
+    Remet à un élève un mot de passe provisoire, pour les familles sans email (le lien de
+    réinitialisation par email, lui, part chez le parent). Affiché UNE seule fois, à imprimer :
+    il n'est jamais conservé en clair, jamais écrit dans le journal d'audit ni dans un message
+    de session. L'élève doit le remplacer dès sa première connexion et il expire au bout de
+    DUREE_MOT_DE_PASSE_PROVISOIRE_HEURES s'il n'est pas utilisé. En générer un nouveau annule
+    le précédent et déverrouille le compte.
+    """
+    from datetime import timedelta
+
+    from django.core.exceptions import PermissionDenied
+    from django.utils import timezone
+
+    from comptes.utils import DUREE_MOT_DE_PASSE_PROVISOIRE_HEURES, generer_mot_de_passe_provisoire
+
+    if request.user.role not in ROLES_MOT_DE_PASSE_PROVISOIRE_ELEVE:
+        raise PermissionDenied("Vous n'avez pas le droit de remettre un mot de passe à un élève.")
+    eleve = get_object_or_404(Utilisateur, matricule=matricule, role=Role.ELEVE)
+    if eleve.etablissement_id != request.user.etablissement_id or not eleve_visible_pour(request.user, eleve):
+        raise PermissionDenied("Vous n'avez pas accès à cet élève.")
+
+    mot_de_passe = generer_mot_de_passe_provisoire()
+    expire_le = timezone.now() + timedelta(hours=DUREE_MOT_DE_PASSE_PROVISOIRE_HEURES)
+    eleve.set_password(mot_de_passe)
+    eleve.doit_changer_mot_de_passe = True
+    eleve.mot_de_passe_provisoire_expire_le = expire_le
+    eleve.tentatives_connexion_echouees = 0
+    eleve.verrouille_jusqu_a = None
+    eleve.save(update_fields=[
+        "password", "doit_changer_mot_de_passe", "mot_de_passe_provisoire_expire_le",
+        "tentatives_connexion_echouees", "verrouille_jusqu_a",
+    ])
+    enregistrer_action(
+        acteur=request.user, action="mot_de_passe_provisoire_eleve", cible=eleve.matricule,
+        details={"expire_le": expire_le.isoformat()}, request=request,
+    )
+    return render(request, "scolarite/mot_de_passe_provisoire.html", {
+        "eleve": eleve, "mot_de_passe": mot_de_passe, "expire_le": expire_le,
+        "duree_heures": DUREE_MOT_DE_PASSE_PROVISOIRE_HEURES,
+    })
 
 
 @module_requis(Module.ELEVES)

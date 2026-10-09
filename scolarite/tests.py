@@ -1527,3 +1527,134 @@ class EleveNeVoitQueLuiMemeTests(TestCase):
         reponse = self.client.get(reverse("scolarite:liste_eleves"))
         self.assertContains(reponse, "20260001")
         self.assertContains(reponse, "20260002")
+
+
+class MotDePasseProvisoireEleveTests(TestCase):
+    """L'école remet un mot de passe provisoire à un élève (familles sans email)."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from etablissement.models import Etablissement
+        from permissions_matrix.models import PermissionMatrix
+        cache.clear()  # compteur de la limite de connexion (10 par minute) : voir comptes.tests
+        self.addCleanup(cache.clear)
+        self.ecole = Etablissement.objects.create(nom="École mot de passe provisoire")
+        self.autre_ecole = Etablissement.objects.create(nom="Autre école")
+        for ecole in (self.ecole, self.autre_ecole):
+            PermissionMatrix.seed_pour(ecole)
+        annee = AnneeScolaire.objects.create(
+            etablissement=self.ecole, libelle="2026-2027", date_debut=datetime.date(2026, 10, 1),
+            date_fin=datetime.date(2027, 7, 31), est_active=True,
+        )
+        classe = Classe.objects.create(nom="Classe provisoire", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=annee)
+        self.eleve = creer_utilisateur_actif(
+            "20267001@eleves.local", Role.ELEVE, etablissement=self.ecole, matricule="20267001",
+        )
+        Inscription.objects.create(eleve=self.eleve, classe=classe)
+        self.url = reverse("scolarite:mot_de_passe_provisoire", args=["20267001"])
+
+        def compte(role, email):
+            return creer_utilisateur_actif(email, role, etablissement=self.ecole)
+
+        self.secretaire = compte(Role.SECRETAIRE, "secretaire-prov@example.com")
+        self.fondateur = compte(Role.FONDATEUR, "fondateur-prov@example.com")
+        self.directeur_1er = compte(Role.DIRECTEUR_1ER_CYCLE, "dir1-prov@example.com")
+        self.directeur_lycee = compte(Role.DIRECTEUR_LYCEE, "dirl-prov@example.com")
+        self.interdits = {
+            "enseignant": compte(Role.ENSEIGNANT, "prof-prov@example.com"),
+            "comptable": compte(Role.COMPTABLE, "compt-prov@example.com"),
+            "censeur": compte(Role.CENSEUR, "censeur-prov@example.com"),
+            "bibliothecaire": compte(Role.BIBLIOTHECAIRE, "biblio-prov@example.com"),
+            "personnel": compte(Role.PERSONNEL, "perso-prov@example.com"),
+            "eleve": self.eleve,
+            "secretaire_autre_ecole": creer_utilisateur_actif(
+                "secretaire-autre@example.com", Role.SECRETAIRE, etablissement=self.autre_ecole,
+            ),
+        }
+        parent = creer_utilisateur_actif(
+            "parent-prov@example.com", Role.PARENT, etablissement=self.ecole, telephone="70777001", profession="X",
+        )
+        self.eleve.parents_lies.add(parent)
+        self.interdits["parent"] = parent
+
+    def _generer(self, compte):
+        self.client.force_login(compte)
+        reponse = self.client.post(self.url)
+        mot_de_passe = reponse.context["mot_de_passe"] if reponse.status_code == 200 else None
+        return reponse, mot_de_passe
+
+    def test_secretaire_obtient_un_mot_de_passe_utilisable_une_seule_fois_affiche(self):
+        from django.utils import timezone
+        reponse, mot_de_passe = self._generer(self.secretaire)
+        self.assertEqual(reponse.status_code, 200)
+        self.assertIsNotNone(mot_de_passe)
+        self.assertRegex(mot_de_passe, r"^[A-HJ-NP-Za-km-z2-9]{4}-[A-HJ-NP-Za-km-z2-9]{4}$")
+        self.assertContains(reponse, mot_de_passe)
+        self.eleve.refresh_from_db()
+        self.assertTrue(self.eleve.check_password(mot_de_passe))
+        self.assertTrue(self.eleve.doit_changer_mot_de_passe)
+        self.assertGreater(self.eleve.mot_de_passe_provisoire_expire_le, timezone.now() + datetime.timedelta(hours=71))
+        # L'élève se connecte avec son matricule, et doit alors choisir son mot de passe.
+        self.client.logout()
+        connexion = self.client.post(reverse("comptes:connexion"), {"email": "20267001", "mot_de_passe": mot_de_passe})
+        self.assertEqual(connexion.status_code, 302)
+        redirection = self.client.get(reverse("comptes:redirection_tableau_de_bord"))
+        self.assertRedirects(redirection, reverse("comptes:changer_mot_de_passe"), fetch_redirect_response=False)
+
+    def test_mot_de_passe_jamais_conserve_en_clair_ni_journalise(self):
+        from comptes.models import JournalAudit
+        _, mot_de_passe = self._generer(self.secretaire)
+        self.eleve.refresh_from_db()
+        self.assertNotIn(mot_de_passe, self.eleve.password)
+        entree = JournalAudit.objects.get(action="mot_de_passe_provisoire_eleve")
+        self.assertNotIn(mot_de_passe, f"{entree.cible} {entree.details}")
+        self.assertEqual(entree.cible, "20267001")
+
+    def test_reponse_jamais_mise_en_cache(self):
+        reponse, _ = self._generer(self.secretaire)
+        self.assertIn("no-store", reponse["Cache-Control"])
+
+    def test_direction_peut_aussi(self):
+        for compte in (self.fondateur, self.directeur_1er):
+            with self.subTest(role=compte.role):
+                reponse, mot_de_passe = self._generer(compte)
+                self.assertEqual(reponse.status_code, 200)
+                self.assertIsNotNone(mot_de_passe)
+
+    def test_directeur_dun_autre_cycle_refuse(self):
+        self.client.force_login(self.directeur_lycee)
+        self.assertEqual(self.client.post(self.url).status_code, 403)
+
+    def test_roles_sans_rapport_et_autre_ecole_refuses(self):
+        for libelle, compte in self.interdits.items():
+            with self.subTest(acteur=libelle):
+                self.client.force_login(compte)
+                self.assertEqual(self.client.post(self.url).status_code, 403)
+        self.eleve.refresh_from_db()
+        self.assertFalse(self.eleve.doit_changer_mot_de_passe)
+
+    def test_get_refuse(self):
+        self.client.force_login(self.secretaire)
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+
+    def test_un_nouveau_mot_de_passe_annule_le_precedent_et_deverrouille(self):
+        from django.utils import timezone
+        _, premier = self._generer(self.secretaire)
+        self.eleve.refresh_from_db()
+        self.eleve.tentatives_connexion_echouees = 9
+        self.eleve.verrouille_jusqu_a = timezone.now() + datetime.timedelta(minutes=30)
+        self.eleve.save(update_fields=["tentatives_connexion_echouees", "verrouille_jusqu_a"])
+        _, second = self._generer(self.secretaire)
+        self.eleve.refresh_from_db()
+        self.assertNotEqual(premier, second)
+        self.assertFalse(self.eleve.check_password(premier))
+        self.assertTrue(self.eleve.check_password(second))
+        self.assertIsNone(self.eleve.verrouille_jusqu_a)
+        self.assertEqual(self.eleve.tentatives_connexion_echouees, 0)
+
+    def test_bouton_visible_pour_la_direction_pas_pour_un_parent(self):
+        self.client.force_login(self.secretaire)
+        dossier = reverse("scolarite:dossier_eleve", args=["20267001"])
+        self.assertContains(self.client.get(dossier), "Mot de passe provisoire")
+        self.client.force_login(self.interdits["parent"])
+        self.assertNotContains(self.client.get(dossier), "Mot de passe provisoire")

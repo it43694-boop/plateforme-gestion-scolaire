@@ -175,6 +175,54 @@ class AccesDelegueMiddleware:
         return self.get_response(request)
 
 
+class ChangementMotDePasseObligatoireMiddleware:
+    """
+    Tant qu'un compte porte un mot de passe provisoire remis par l'école, seules la page de
+    changement de mot de passe et la déconnexion sont accessibles : un mot de passe imprimé sur
+    une fiche ne doit pas donner un accès durable au dossier de l'élève.
+    """
+
+    CHEMINS_AUTORISES = (
+        "/comptes/changer-mot-de-passe/", "/comptes/deconnexion/", "/static/", "/healthz", "/sw.js",
+        "/manifest.webmanifest",
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        utilisateur = getattr(request, "user", None)
+        if (
+            utilisateur is not None and utilisateur.is_authenticated
+            and getattr(utilisateur, "doit_changer_mot_de_passe", False)
+            and not request.path.startswith(self.CHEMINS_AUTORISES)
+        ):
+            messages.warning(request, "Choisissez maintenant votre mot de passe personnel pour continuer.")
+            return redirect(reverse("comptes:changer_mot_de_passe"))
+        return self.get_response(request)
+
+
+class PagesPriveesNonMisesEnCacheMiddleware:
+    """
+    Aucune page servie à un utilisateur connecté ne doit rester dans le cache du navigateur :
+    sur un ordinateur partagé (cybercafé, salle informatique), le bouton « Précédent » après
+    déconnexion réafficherait sinon les noms et notes de la personne précédente.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from django.utils.cache import add_never_cache_headers
+
+        reponse = self.get_response(request)
+        utilisateur = getattr(request, "user", None)
+        if utilisateur is not None and utilisateur.is_authenticated and not request.path.startswith(("/static/", "/media/")):
+            add_never_cache_headers(reponse)
+            reponse["Cache-Control"] = "no-store, private"
+        return reponse
+
+
 class ContentSecurityPolicyMiddleware:
     """
     Défense en profondeur contre l'injection de script (XSS) : seuls les

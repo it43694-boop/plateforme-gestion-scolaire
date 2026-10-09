@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titre %}Mot de passe provisoire - {{ eleve.nom_complet }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div>
+            <h1>Mot de passe provisoire</h1>
+            <p>{{ eleve.nom_complet }}</p>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <p class="mb-1">Identifiant (matricule)</p>
+        <p class="fs-4 fw-bold font-monospace">{{ eleve.matricule }}</p>
+        <p class="mb-1">Mot de passe provisoire</p>
+        <p class="fs-2 fw-bold font-monospace">{{ mot_de_passe }}</p>
+        <p class="text-muted small mb-0">Valable {{ duree_heures }} heures, jusqu'au {{ expire_le|date:"d/m/Y à H:i" }}.</p>
+    </div>
+</div>
+
+<div class="alert alert-warning">
+    <strong>Ce mot de passe ne sera plus affiché.</strong> Imprimez cette page ou notez-le maintenant, puis remettez-le
+    à l'élève ou à sa famille. À sa première connexion, l'élève saisit son matricule et ce mot de passe, puis choisit
+    un mot de passe personnel. Si la fiche est perdue, générez-en un nouveau depuis le dossier de l'élève : l'ancien
+    cessera de fonctionner.
+</div>
+
+<div class="d-flex gap-2">
+    <button type="button" class="btn btn-primary" data-imprimer>Imprimer</button>
+    <a href="{% url 'scolarite:dossier_eleve' eleve.matricule %}" class="btn btn-outline-secondary">Retour au dossier</a>
+</div>
+{% endblock %}

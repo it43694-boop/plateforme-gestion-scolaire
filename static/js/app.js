@@ -1,4 +1,8 @@
 document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll("[data-imprimer]").forEach(function (bouton) {
+        bouton.addEventListener("click", function () { window.print(); });
+    });
+
     document.querySelectorAll("[data-auto-submit]").forEach(function (champ) {
         champ.addEventListener("change", function () { champ.form.submit(); });
     });

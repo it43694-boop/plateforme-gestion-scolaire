@@ -49,3 +49,17 @@ def ip_client_fiable(request) -> str:
         return sauts[index]
 
     return request.META.get("REMOTE_ADDR", "")
+
+
+# Mot de passe provisoire remis par l'école : lisible à voix haute et sur papier (pas de
+# 0/O, 1/l/I), assez long pour résister à une devinette malgré le verrouillage de compte.
+ALPHABET_MOT_DE_PASSE_PROVISOIRE = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+DUREE_MOT_DE_PASSE_PROVISOIRE_HEURES = 72
+
+
+def generer_mot_de_passe_provisoire() -> str:
+    """Mot de passe provisoire aléatoire au format XXXX-XXXX (jamais déduit du matricule ni du nom)."""
+    import secrets
+
+    caracteres = [secrets.choice(ALPHABET_MOT_DE_PASSE_PROVISOIRE) for _ in range(8)]
+    return "".join(caracteres[:4]) + "-" + "".join(caracteres[4:])

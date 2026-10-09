@@ -13,6 +13,10 @@ urlpatterns = [
         views.generer_attestation_scolarite, name="generer_attestation_scolarite",
     ),
     path(
+        "eleves/<str:matricule>/mot-de-passe-provisoire/",
+        views.mot_de_passe_provisoire, name="mot_de_passe_provisoire",
+    ),
+    path(
         "eleves/<str:matricule>/cloturer/",
         views.cloturer_inscription_vue, name="cloturer_inscription",
     ),

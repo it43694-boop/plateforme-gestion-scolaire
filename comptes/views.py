@@ -175,13 +175,15 @@ def connexion(request):
 
     formulaire = ConnexionForm(request.POST or None)
     if request.method == "POST" and formulaire.is_valid():
-        email = formulaire.cleaned_data["email"].strip().lower()
+        identifiant = formulaire.cleaned_data["email"].strip().lower()
         mot_de_passe = formulaire.cleaned_data["mot_de_passe"]
 
-        try:
-            utilisateur_cible = Utilisateur.objects.get(email=email)
-        except Utilisateur.DoesNotExist:
-            utilisateur_cible = None
+        # Email, ou matricule (élèves uniquement : un matricule est unique pour toute la base).
+        if "@" in identifiant:
+            utilisateur_cible = Utilisateur.objects.filter(email=identifiant).first()
+        else:
+            utilisateur_cible = Utilisateur.objects.filter(role=Role.ELEVE, matricule=identifiant).first()
+        email = utilisateur_cible.email if utilisateur_cible else identifiant
 
         if utilisateur_cible and utilisateur_cible.verrouille():
             messages.error(
@@ -212,6 +214,14 @@ def connexion(request):
             )
         elif utilisateur.statut in {StatutCompte.SUSPENDU, StatutCompte.DESACTIVE}:
             messages.error(request, "Ce compte n'est plus actif. Contactez l'administration.")
+        elif (
+            utilisateur.doit_changer_mot_de_passe and utilisateur.mot_de_passe_provisoire_expire_le
+            and utilisateur.mot_de_passe_provisoire_expire_le < timezone.now()
+        ):
+            messages.error(
+                request,
+                "Votre mot de passe provisoire a expiré. Demandez-en un nouveau au secrétariat de l'école.",
+            )
         elif utilisateur.etablissement_id and not utilisateur.etablissement.actif:
             messages.error(
                 request,
@@ -558,6 +568,11 @@ def changer_mot_de_passe(request):
         formulaire = ChangerMotDePasseForm(request.user, request.POST)
         if formulaire.is_valid():
             utilisateur = formulaire.save()
+            if utilisateur.doit_changer_mot_de_passe:
+                # Mot de passe provisoire remis par l'école : remplacé, il ne reste plus rien à imposer.
+                utilisateur.doit_changer_mot_de_passe = False
+                utilisateur.mot_de_passe_provisoire_expire_le = None
+                utilisateur.save(update_fields=["doit_changer_mot_de_passe", "mot_de_passe_provisoire_expire_le"])
             update_session_auth_hash(request, utilisateur)  # évite une déconnexion forcée
             enregistrer_action(acteur=utilisateur, action="changement_mot_de_passe", request=request)
             messages.success(request, "Mot de passe modifié avec succès.")

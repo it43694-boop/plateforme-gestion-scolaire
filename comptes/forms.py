@@ -87,7 +87,9 @@ class VerificationEmailForm(BootstrapFormMixin, forms.Form):
 
 
 class ConnexionForm(BootstrapFormMixin, forms.Form):
-    email = forms.EmailField(label="Adresse email")
+    # Le champ s'appelle toujours « email » (formulaires et tests existants), mais accepte
+    # aussi le matricule d'un élève : la plupart n'ont pas de vraie adresse email.
+    email = forms.CharField(label="Email ou matricule", max_length=254)
     mot_de_passe = forms.CharField(label="Mot de passe", widget=forms.PasswordInput, strip=False)
 
 

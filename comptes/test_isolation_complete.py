@@ -33,9 +33,10 @@ from permissions_matrix.models import PermissionMatrix
 from scolarite.models import Affectation, AnneeScolaire, Classe, Cycle, Inscription
 from tests_niveau.models import Candidat
 
-# Marqueurs volontairement longs et improbables : un marqueur court (3 lettres) apparaît par
-# hasard dans la clé 2FA ou le QR code (texte base32/base64 aléatoire) et ferait un faux positif.
-PREFIXE = {"a": "zqxa", "b": "zqxb"}
+# Marqueurs volontairement longs et improbables : un marqueur court apparaît par hasard dans la
+# clé 2FA ou le QR code (texte base32/base64 aléatoire) et ferait un faux positif - c'est arrivé
+# avec 3 puis 4 lettres. Voir aussi texte(), qui retire ce texte aléatoire avant la recherche.
+PREFIXE = {"a": "zqxjka", "b": "zqxjkb"}
 TOUS_LES_ROLES = list(Role)
 TELEPHONES = iter(range(70000000, 79999999))
 
@@ -184,7 +185,11 @@ class IsolationCompleteTests(TestCase):
     def texte(reponse):
         if reponse.status_code != 200 or any(t in reponse.get("Content-Type", "") for t in ("pdf", "zip", "image")):
             return ""
-        return reponse.content.decode("utf-8", errors="ignore").lower()
+        texte = reponse.content.decode("utf-8", errors="ignore").lower()
+        # Texte aléatoire sans rapport avec des données : images en base64 (QR code de la 2FA) et longs
+        # jetons (CSRF, clé TOTP). Les noms de comptes les plus longs restent bien sous le seuil.
+        texte = re.sub(r"data:[^\"')\s]+", " ", texte)
+        return re.sub(r"[a-z0-9+/=_-]{40,}", " ", texte)
 
     @staticmethod
     def ignorer(nom, route):

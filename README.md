@@ -1677,6 +1677,42 @@ Dans le code :
 Tests : 3 (diagnostic), 6 (copie cachée, lots, file différée), 1 (adresses
 automatiques) ; un test existant corrigé (il vérifiait les destinataires dans « À »).
 
+## État du projet : Phase 48 — Connexion des élèves, mot de passe provisoire, ordinateurs partagés
+
+**Connexion des élèves.** Un élève inscrit par l'école n'a pas de vraie adresse email
+(`matricule@eleves.local`, mot de passe aléatoire inconnu). Jusqu'ici il lui fallait « Mot
+de passe oublié » puis l'email du parent, puis taper `matricule@eleves.local` à la
+connexion. Désormais :
+- la page de connexion accepte le **matricule** à la place de l'email (élèves seulement ;
+  même message d'erreur générique, même verrouillage après échecs) ;
+- la direction et le secrétariat peuvent remettre un **mot de passe provisoire** depuis le
+  dossier de l'élève (`scolarite.views.mot_de_passe_provisoire`) : format `XXXX-XXXX`,
+  affiché une seule fois sur une page à imprimer, jamais conservé en clair ni écrit dans le
+  journal d'audit, valable 72 h, annulé par le suivant, déverrouille le compte. Réservé à
+  fondateur, administrateur général, développeur, super administrateur, secrétaire et
+  directeurs de cycle, pour un élève de leur école et de leur cycle (pas d'enseignant, de
+  parent, de comptable, de Censeur ni de Surveillant général).
+- À sa première connexion l'élève ne peut rien faire d'autre que choisir son mot de passe
+  (`ChangementMotDePasseObligatoireMiddleware`).
+
+**Fuites corrigées en vérifiant l'application :**
+- Les pages de saisie hors-ligne (absences, notes : listes d'élèves) restaient dans le cache
+  du navigateur après la déconnexion, lisibles hors-ligne par la personne suivante sur un
+  ordinateur partagé : le service worker les efface à la déconnexion et à l'affichage de la
+  page de connexion.
+- Aucune page d'un utilisateur connecté n'est plus mise en cache par le navigateur
+  (`Cache-Control: no-store`) : le bouton « Précédent » après déconnexion ne réaffiche rien.
+- Sentry ne joint plus les variables locales aux erreurs (`include_local_variables=False`) :
+  il enregistrait le texte des emails, donc les liens de réinitialisation de mot de passe.
+
+Limites connues : un mot de passe imprimé reste valable jusqu'à sa première utilisation ou
+72 h ; la file de saisies hors-ligne en attente (IndexedDB) n'est pas vidée à la déconnexion
+(elle est rejouée avec la session de la personne connectée au retour du réseau). Écran et
+service worker non vérifiés au navigateur : tests automatiques seulement.
+
+Tests : 21 (matricule, mot de passe provisoire, obligation de changement, cache, service
+worker, droits et cloisonnement du mot de passe provisoire).
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

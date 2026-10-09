@@ -98,6 +98,10 @@ MIDDLEWARE = [
     "comptes.middleware.AccesDelegueMiddleware",
     # Le propriétaire de la plateforme (sans établissement) n'accède pas aux pages métier d'une école
     "comptes.middleware.ProprietairePlateformeMiddleware",
+    # Mot de passe provisoire (remis par l'école) : à changer avant toute autre page
+    "comptes.middleware.ChangementMotDePasseObligatoireMiddleware",
+    # Pas de cache navigateur pour les pages d'un utilisateur connecté (ordinateurs partagés)
+    "comptes.middleware.PagesPriveesNonMisesEnCacheMiddleware",
     # Content-Security-Policy (défense en profondeur contre l'injection de script)
     "comptes.middleware.ContentSecurityPolicyMiddleware",
 ]
@@ -305,7 +309,14 @@ SENTRY_DSN = env("SENTRY_DSN", default="")
 if SENTRY_DSN:
     try:
         import sentry_sdk
-        sentry_sdk.init(dsn=SENTRY_DSN, traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.1))
+        # include_local_variables=False : par défaut Sentry joint à chaque erreur les variables
+        # locales de chaque fonction de la pile - donc le texte des emails (liens de
+        # réinitialisation de mot de passe, codes de vérification), les destinataires, les
+        # mots de passe provisoires. La trace et le message d'erreur restent complets.
+        sentry_sdk.init(
+            dsn=SENTRY_DSN, traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.1),
+            include_local_variables=False,
+        )
     except ImportError as erreur:
         raise RuntimeError("SENTRY_DSN est défini mais sentry-sdk n'est pas installé.") from erreur
 

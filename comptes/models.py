@@ -170,6 +170,12 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
     tentatives_connexion_echouees = models.PositiveSmallIntegerField(default=0)
     verrouille_jusqu_a = models.DateTimeField(null=True, blank=True)
 
+    # Mot de passe provisoire remis par l'école à un élève (scolarite.views.
+    # mot_de_passe_provisoire) : il doit être changé dès la première connexion
+    # (ChangementMotDePasseObligatoireMiddleware) et expire s'il n'est pas utilisé.
+    doit_changer_mot_de_passe = models.BooleanField("doit changer son mot de passe", default=False)
+    mot_de_passe_provisoire_expire_le = models.DateTimeField(null=True, blank=True)
+
     # Authentification à deux facteurs (TOTP, ex. Google/Microsoft Authenticator) -
     # activable par tout compte, recommandée pour les rôles à privilège élevé.
     # totp_secret n'est renseigné qu'à l'activation confirmée (un code valide a

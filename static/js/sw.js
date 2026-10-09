@@ -40,6 +40,17 @@ self.addEventListener("fetch", function (evenement) {
     var requete = evenement.request;
     var chemin = new URL(requete.url).pathname;
 
+    // Appareil partagé : les pages de saisie en cache contiennent des noms d'élèves et resteraient
+    // lisibles hors-ligne par la personne suivante. On les efface à la déconnexion, et dès que la
+    // page de connexion est demandée (session expirée sans déconnexion explicite).
+    if (
+        (requete.method === "POST" && chemin === "/comptes/deconnexion/") ||
+        (requete.method === "GET" && chemin === "/comptes/connexion/")
+    ) {
+        evenement.waitUntil(caches.delete(CACHE_PAGES));
+        return;
+    }
+
     var estPageHorsLigne = REGEX_PAGES_HORS_LIGNE.some(function (regex) { return regex.test(chemin); });
     if (requete.method === "GET" && estPageHorsLigne) {
         evenement.respondWith(

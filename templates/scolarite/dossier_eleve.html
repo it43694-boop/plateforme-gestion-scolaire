@@ -58,6 +58,13 @@
     {% if peut_voir_notes %}<a href="{% url 'pedagogie:bulletin_eleve' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Voir le bulletin</a>{% endif %}
     {% if peut_voir_absences %}<a href="{% url 'pedagogie:historique_absences' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Historique des absences</a>{% endif %}
     {% if inscription_active %}<a href="{% url 'scolarite:generer_attestation_scolarite' eleve.matricule %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Attestation de scolarité</a>{% endif %}
+    {% if peut_mot_de_passe_provisoire %}
+    <form method="post" action="{% url 'scolarite:mot_de_passe_provisoire' eleve.matricule %}" class="d-inline"
+          data-confirmer="Générer un nouveau mot de passe provisoire ? L'ancien mot de passe de cet élève ne fonctionnera plus.">
+        {% csrf_token %}
+        <button class="btn btn-sm btn-outline-secondary">Mot de passe provisoire</button>
+    </form>
+    {% endif %}
     {% if inscription_active and peut_cloturer_inscription %}<a href="{% url 'scolarite:cloturer_inscription' eleve.matricule %}" class="btn btn-sm btn-outline-danger">Clôturer l'inscription (abandon/transfert)</a>{% endif %}
 </div>
 
