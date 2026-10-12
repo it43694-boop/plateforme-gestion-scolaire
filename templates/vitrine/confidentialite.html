@@ -1,0 +1,109 @@
+{% extends "vitrine/base_legal.html" %}
+{% block titre %}Politique de confidentialité{% endblock %}
+{% block titre_page %}Politique de confidentialité{% endblock %}
+{% block contenu_legal %}
+<p>
+    Cette politique explique quelles données personnelles {{ nom_commercial }} traite, pourquoi, qui peut les voir,
+    où elles sont hébergées et comment exercer vos droits, conformément à la législation malienne sur la protection
+    des données à caractère personnel (loi n° 2013-015 du 21 mai 2013).
+</p>
+
+<h2>1. Qui est responsable de vos données</h2>
+<ul>
+    <li>
+        <strong>L'établissement</strong> est le responsable du traitement des données de ses élèves, de leurs parents
+        et de son personnel : c'est lui qui décide de les collecter et de les utiliser. Pour toute demande concernant
+        vos données (accès, correction, suppression), adressez-vous d'abord à lui.
+    </li>
+    <li>
+        <strong>{{ editeur.nom|default:"L'éditeur de la plateforme" }}</strong> agit comme sous-traitant de
+        l'établissement : il héberge et sécurise les données sur ses instructions, sans les utiliser pour son propre
+        compte ni les vendre. Il est responsable du traitement pour les seuls comptes de gestion de la plateforme
+        (propriétaire de la plateforme).
+    </li>
+</ul>
+
+<h2>2. Données traitées</h2>
+<ul>
+    <li><strong>Identité :</strong> nom, prénom, sexe, date et lieu de naissance, numéro d'extrait d'acte de naissance, matricule de l'élève.</li>
+    <li><strong>Coordonnées :</strong> adresse email et téléphone (parents, personnel, élèves).</li>
+    <li><strong>Vie scolaire :</strong> inscriptions, classes, notes, moyennes et classements, bulletins, absences et motifs, résultats aux examens, emplois du temps.</li>
+    <li><strong>Finances :</strong> paiements de scolarité et reçus ; pour le personnel, contrats, congés, bulletins de paie.</li>
+    <li>
+        <strong>Données sensibles :</strong> situation de handicap et situation de déplacement d'un élève, lorsque l'établissement
+        les renseigne pour ses statistiques. Elles ne sont visibles que de l'administration de l'établissement, de l'élève et de
+        ses parents, jamais des enseignants ni du personnel comptable, et ne sont jamais envoyées à un service externe.
+    </li>
+    <li><strong>Données techniques :</strong> journal de connexion et des actions sensibles (qui a fait quoi, quand), adresse IP, identifiants de session.</li>
+</ul>
+<p>Les élèves sont en grande partie mineurs : leurs données sont saisies par l'établissement ou par leurs parents.</p>
+
+<h2>3. Pourquoi ces données sont utilisées</h2>
+<ul>
+    <li>Gérer l'inscription, la scolarité, les notes, les absences et les documents officiels de l'élève.</li>
+    <li>Gérer les paiements, la caisse, la comptabilité et la paie de l'établissement.</li>
+    <li>Permettre la communication entre l'établissement, les familles et les enseignants.</li>
+    <li>Établir des statistiques de l'établissement (effectifs, parité, résultats aux examens), sous forme de totaux, sans noms.</li>
+    <li>Sécuriser les accès, détecter les usages anormaux et conserver une trace des actions sensibles.</li>
+</ul>
+
+<h2>4. Qui peut voir vos données</h2>
+<ul>
+    <li>Un <strong>parent</strong> voit uniquement ses enfants ; un <strong>élève</strong> uniquement son propre dossier.</li>
+    <li>Un <strong>enseignant</strong> voit les élèves de ses classes ; la <strong>direction d'un cycle</strong> ne voit que son cycle ; le secrétariat et la direction voient les dossiers de leur établissement.</li>
+    <li>Les données d'un établissement ne sont <strong>jamais visibles</strong> d'un autre établissement.</li>
+    <li>Le propriétaire de la plateforme n'accède au compte d'un établissement que pour la maintenance et l'assistance ; chaque action réalisée ainsi est notée dans le journal de l'établissement.</li>
+</ul>
+
+<h2>5. Prestataires techniques et transferts hors du Mali</h2>
+<p>Pour fonctionner, la plateforme fait appel à des prestataires situés hors du Mali. Ils n'accèdent aux données que pour rendre leur service :</p>
+<ul>
+    <li><strong>Render</strong> (États-Unis) : hébergement de l'application.</li>
+    <li><strong>Supabase</strong> (États-Unis) : base de données et fichiers (logos, justificatifs).</li>
+    <li><strong>Brevo</strong> (France) : envoi des emails.</li>
+    {% if supervision_active %}<li><strong>Sentry</strong> (États-Unis) : détection des erreurs techniques ; configuré pour ne transmettre ni contenu de formulaire ni donnée personnelle.</li>{% endif %}
+    {% if ia_active %}<li><strong>Groq</strong> (États-Unis) : assistant à questions libres ; il ne reçoit ni le nom ni le matricule de l'élève, et la question saisie est nettoyée des noms, emails et numéros avant envoi. N'écrivez pas le nom d'une personne dans une question à l'assistant.</li>{% endif %}
+</ul>
+<p>
+    Ces transferts sont nécessaires au fonctionnement du service. L'éditeur choisit des prestataires qui appliquent des
+    mesures de sécurité reconnues et leur demande de ne traiter les données que sur instruction.
+</p>
+
+<h2>6. Combien de temps les données sont conservées</h2>
+<p>
+    La durée de conservation est fixée par l'établissement, responsable du traitement, selon ses obligations
+    (bulletins, attestations, comptabilité). Tant que le compte de l'établissement est actif, ses données sont
+    conservées ; en fin d'abonnement, il peut les exporter, puis leur suppression est effectuée sur demande. Un
+    élève qui quitte l'établissement (abandon ou transfert) reste archivé dans l'historique de l'établissement.
+</p>
+
+<h2>7. Comment vos données sont protégées</h2>
+<ul>
+    <li>Connexion chiffrée (HTTPS) et mots de passe stockés sous forme irréversible.</li>
+    <li>Double authentification (application d'authentification) et verrouillage temporaire après plusieurs échecs de connexion.</li>
+    <li>Cloisonnement strict des données par établissement et par rôle, vérifié par des tests automatiques.</li>
+    <li>Fichiers (logos, justificatifs) servis par des liens temporaires signés.</li>
+    <li>Journal des actions sensibles et limitation du nombre de tentatives sur les pages publiques.</li>
+    <li>Sur un ordinateur partagé, les pages de saisie conservées pour le travail hors connexion sont effacées à la déconnexion.</li>
+</ul>
+
+<h2>8. Cookies et stockage dans votre navigateur</h2>
+<p>
+    La plateforme n'utilise <strong>aucun cookie publicitaire ni outil de suivi</strong>. Elle dépose uniquement des cookies
+    strictement nécessaires (session de connexion, protection contre les formulaires frauduleux) et conserve dans votre
+    navigateur les saisies de notes et d'absences faites hors connexion, jusqu'à leur synchronisation.
+</p>
+
+<h2>9. Vos droits</h2>
+<p>
+    Vous pouvez demander l'accès à vos données, leur rectification, leur suppression, ou vous opposer à un traitement
+    pour un motif légitime. Pour un élève mineur, ce droit s'exerce par ses parents ou son tuteur. Adressez votre
+    demande à la direction de votre établissement ; pour un compte de gestion de la plateforme, écrivez à
+    {% if editeur.email %}<a href="mailto:{{ editeur.email }}">{{ editeur.email }}</a>{% else %}l'éditeur de la plateforme{% endif %}.
+    Si vous estimez que vos droits ne sont pas respectés, vous pouvez saisir l'Autorité de Protection des Données à
+    caractère Personnel (APDP) du Mali.
+</p>
+
+<h2>10. Modifications</h2>
+<p>Cette politique peut évoluer ; la date de dernière mise à jour figure en haut de la page.</p>
+{% endblock %}

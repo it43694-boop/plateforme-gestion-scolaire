@@ -1,0 +1,57 @@
+{% extends "comptabilite/base_compta.html" %}
+{% block titre_compta %}Plan comptable{% endblock %}
+{% block corps %}
+<div class="row g-3">
+    <div class="col-lg-8">
+        <form method="get" class="d-flex gap-2 mb-3">
+            {% if exercice %}<input type="hidden" name="exercice" value="{{ exercice.id }}">{% endif %}
+            <input type="search" name="q" value="{{ recherche }}" class="form-control mw-320" placeholder="Numéro ou intitulé (ex. 571, caisse)">
+            <button class="btn btn-outline-secondary">Rechercher</button>
+        </form>
+        {% for classe, titre, comptes in classes %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <p class="titre-section-large">Classe {{ classe }} - {{ titre }}</p>
+                <table class="table table-sm mb-0">
+                    <tbody>
+                        {% for compte in comptes %}
+                        <tr>
+                            <td class="plan-numero">{{ compte.numero }}</td>
+                            <td>{{ compte.libelle }}</td>
+                            <td class="text-end">{% if not compte.systeme %}<span class="badge bg-info text-dark">Ajouté par l'école</span>{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% empty %}
+        <div class="card"><div class="card-body"><div class="etat-vide"><p>Aucun compte ne correspond.</p></div></div></div>
+        {% endfor %}
+    </div>
+    <div class="col-lg-4">
+        {% if formulaire %}
+        <div class="card">
+            <div class="card-body">
+                <p class="titre-section-large">Ajouter un compte</p>
+                <p class="text-muted small">Pour affiner un compte du plan (par exemple 52101 « Banque BDM »). Les comptes du plan de base ne se modifient pas.</p>
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% for erreur in formulaire.non_field_errors %}<div class="alert alert-danger">{{ erreur }}</div>{% endfor %}
+                    {% for champ in formulaire %}
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                            {{ champ }}
+                            {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                            {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                        </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary w-100">Ajouter le compte</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+        <p class="text-muted small mt-3">Plan de base : sous-ensemble du plan SYSCOHADA révisé utile à une école, à faire valider par un expert-comptable.</p>
+    </div>
+</div>
+{% endblock %}

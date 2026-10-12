@@ -535,10 +535,10 @@ def journal_caisse_syscohada(request):
     """
     Journal de caisse au format SYSCOHADA (compte de contrepartie, débit/
     crédit de la Caisse), dérivé des mouvements de Caisse déjà enregistrés -
-    aucune nouvelle saisie, aucun nouveau modèle. Portée volontairement
-    limitée à un journal de caisse exportable pour un comptable externe,
-    PAS une comptabilité en partie double complète (plan de comptes, grand
-    livre, bilan) - voir README.
+    aucune nouvelle saisie, aucun nouveau modèle. Simple journal de caisse
+    exportable pour un comptable externe ; la comptabilité en partie double
+    complète (plan de comptes, grand livre, bilan) est dans l'application
+    `comptabilite` - voir README.
     """
     from django.db.models import Sum
 

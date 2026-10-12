@@ -34,7 +34,7 @@
                 </div>
                 {% endif %}
             {% endfor %}
-            <div class="mb-3" id="periodes-bloc" style="display: none;">
+            <div class="mb-3" id="periodes-bloc" hidden>
                 <label class="form-label">{{ formulaire.periodes.label }}</label>
                 <div id="periodes-conteneur" data-periodes-url="{% url 'finances:periodes_eleve_json' %}"
                      data-periodes-cible="{{ formulaire.matricule_eleve.id_for_label }}"></div>

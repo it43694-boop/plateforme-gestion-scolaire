@@ -34,6 +34,7 @@ urlpatterns = [
     path("comptes/", include("comptes.urls")),
     path("scolarite/", include("scolarite.urls")),
     path("finances/", include("finances.urls")),
+    path("comptabilite/", include("comptabilite.urls")),
     path("pedagogie/", include("pedagogie.urls")),
     path("tests-de-niveau/", include("tests_niveau.urls")),
     path("assistant/", include("assistant.urls")),

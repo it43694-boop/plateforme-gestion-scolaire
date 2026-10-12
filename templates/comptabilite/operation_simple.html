@@ -1,0 +1,25 @@
+{% extends "comptabilite/base_compta.html" %}
+{% block titre_compta %}Dépense ou recette{% endblock %}
+{% block corps %}
+<div class="card mw-560">
+    <div class="card-body">
+        <p class="text-muted small">
+            Indiquez ce qui a été payé ou encaissé : la plateforme trouve le débit et le crédit. N'enregistrez pas ici un paiement de
+            scolarité ni un salaire passés par le module Finances : ils arrivent seuls avec « Mettre à jour la comptabilité ».
+        </p>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for erreur in formulaire.non_field_errors %}<div class="alert alert-danger">{{ erreur }}</div>{% endfor %}
+            {% for champ in formulaire %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary w-100">Enregistrer</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

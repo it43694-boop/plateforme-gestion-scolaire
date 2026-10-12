@@ -11,7 +11,13 @@
         </div>
     </div>
     {% if peut_inscrire %}
-    <a href="{% url 'scolarite:inscrire_eleve' %}" class="btn btn-primary btn-sm">Inscrire un élève</a>
+    <div class="d-flex gap-2">
+        {% if classe_exportable %}
+        <a href="{% url 'scolarite:exporter_liste_classe_xlsx' classe_exportable.id %}" class="btn btn-outline-secondary btn-sm" data-telechargement>Exporter la classe (Excel)</a>
+        {% endif %}
+        <a href="{% url 'scolarite:importer_eleves' %}" class="btn btn-outline-secondary btn-sm">Importer depuis Excel</a>
+        <a href="{% url 'scolarite:inscrire_eleve' %}" class="btn btn-primary btn-sm">Inscrire un élève</a>
+    </div>
     {% endif %}
 </div>
 

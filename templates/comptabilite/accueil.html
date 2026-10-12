@@ -1,0 +1,45 @@
+{% extends "comptabilite/base_compta.html" %}
+{% load humanize %}
+{% block titre_compta %}Comptabilité{% endblock %}
+{% block corps %}
+{% if not exercice %}
+<div class="card"><div class="card-body">
+    <div class="etat-vide">
+        <p>Aucun exercice comptable pour le moment. Un exercice couvre en principe douze mois (par exemple du 1er janvier au 31 décembre) ; toutes les écritures s'y rattachent.</p>
+        <a href="{% url 'comptabilite:exercices' %}" class="btn btn-primary btn-sm">{% if peut_ecrire %}Créer le premier exercice{% else %}Voir les exercices{% endif %}</a>
+    </div>
+</div></div>
+{% else %}
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="card mini-stat"><div class="mini-stat-label">Produits</div><div class="mini-stat-valeur">{{ fiche.produits|intcomma }}</div></div></div>
+    <div class="col-6 col-md-3"><div class="card mini-stat"><div class="mini-stat-label">Charges</div><div class="mini-stat-valeur">{{ fiche.charges|intcomma }}</div></div></div>
+    <div class="col-6 col-md-3"><div class="card mini-stat"><div class="mini-stat-label">Résultat ({% if fiche.resultat >= 0 %}bénéfice{% else %}perte{% endif %})</div><div class="mini-stat-valeur">{{ fiche.resultat|intcomma }}</div></div></div>
+    <div class="col-6 col-md-3"><div class="card mini-stat"><div class="mini-stat-label">Trésorerie (caisse, banque, mobile money)</div><div class="mini-stat-valeur">{{ fiche.tresorerie|intcomma }}</div></div></div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <p class="titre-section-large">Dernières écritures</p>
+        {% if dernieres %}
+        <table class="table table-sm">
+            <thead><tr><th>Date</th><th>N°</th><th>Libellé</th><th class="text-end">Montant</th></tr></thead>
+            <tbody>
+                {% for ecriture in dernieres %}
+                <tr><td>{{ ecriture.date_ecriture|date:"d/m/Y" }}</td><td>{{ ecriture.numero }}</td><td>{{ ecriture.libelle }}</td><td class="text-end montant-val">{{ ecriture.total|intcomma }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <a href="{% url 'comptabilite:journal' %}?exercice={{ exercice.id }}" class="btn btn-outline-secondary btn-sm">Voir tout le journal</a>
+        {% else %}
+        <div class="etat-vide"><p>Aucune écriture dans cet exercice. Les paiements de scolarité et les salaires s'y ajoutent avec « Mettre à jour la comptabilité » ; pour le reste, utilisez « Dépense ou recette ».</p></div>
+        {% endif %}
+    </div>
+</div>
+<p class="text-muted small mt-3">
+    Les paiements de scolarité et les salaires payés alimentent la comptabilité depuis la caisse ; les autres dépenses et recettes
+    (électricité, loyer, subventions, achats...) se saisissent ici. Le registre de caisse (menu Finances) ne montre que les paiements de
+    scolarité et les salaires : la comptabilité, elle, est la référence complète. Ces états sont des aides à la gestion, à faire valider
+    par un expert-comptable.
+</p>
+{% endif %}
+{% endblock %}

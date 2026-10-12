@@ -1,0 +1,55 @@
+{% extends "comptabilite/base_compta.html" %}
+{% load humanize %}
+{% block titre_compta %}Grand livre{% endblock %}
+{% block corps %}
+{% if exercice %}
+<form method="get" class="d-flex flex-wrap gap-2 align-items-end mb-3">
+    <input type="hidden" name="exercice" value="{{ exercice.id }}">
+    <div>
+        <label class="form-label small mb-1" for="choix-compte">Compte</label>
+        <select name="compte" id="choix-compte" class="form-select form-select-sm" data-auto-submit>
+            <option value="">Choisir un compte mouvementé</option>
+            {% for c in comptes_mouvementes %}<option value="{{ c.numero }}" {% if numero == c.numero %}selected{% endif %}>{{ c.numero }} - {{ c.libelle }}</option>{% endfor %}
+        </select>
+    </div>
+    <div><label class="form-label small mb-1" for="gl-du">Du</label><input type="date" name="du" id="gl-du" value="{{ du }}" class="form-control form-control-sm"></div>
+    <div><label class="form-label small mb-1" for="gl-au">Au</label><input type="date" name="au" id="gl-au" value="{{ au }}" class="form-control form-control-sm"></div>
+    <button class="btn btn-sm btn-outline-secondary">Afficher</button>
+</form>
+
+{% if compte %}
+<div class="card">
+    <div class="card-body">
+        <p class="titre-section-large">{{ compte.numero }} - {{ compte.libelle }}</p>
+        {% if lignes %}
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead><tr><th>Date</th><th>N°</th><th>Libellé</th><th>Pièce</th><th class="text-end">Débit</th><th class="text-end">Crédit</th><th class="text-end">Solde cumulé</th></tr></thead>
+                <tbody>
+                    {% for l in lignes %}
+                    <tr>
+                        <td>{{ l.date|date:"d/m/Y" }}</td><td>{{ l.numero }}</td><td>{{ l.libelle }}</td><td>{{ l.piece }}</td>
+                        <td class="text-end montant-val">{% if l.debit %}{{ l.debit|intcomma }}{% endif %}</td>
+                        <td class="text-end montant-val">{% if l.credit %}{{ l.credit|intcomma }}{% endif %}</td>
+                        <td class="text-end montant-val">{{ l.solde|intcomma }}{% if l.solde > 0 %} D{% elif l.solde < 0 %} C{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot><tr><th colspan="4">Total</th><th class="text-end">{{ total_debit|intcomma }}</th><th class="text-end">{{ total_credit|intcomma }}</th><th></th></tr></tfoot>
+            </table>
+        </div>
+        <p class="text-muted small mb-0">D : solde débiteur, C : solde créditeur. Le grand livre montre toutes les écritures, y compris celles de clôture.</p>
+        {% else %}
+        <div class="etat-vide"><p>Aucun mouvement sur ce compte pour ces critères.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% elif comptes_mouvementes %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Choisissez un compte pour voir ses mouvements et son solde cumulé.</p></div></div></div>
+{% else %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Aucune écriture dans cet exercice.</p></div></div></div>
+{% endif %}
+{% else %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Créez d'abord un exercice comptable.</p><a href="{% url 'comptabilite:exercices' %}" class="btn btn-primary btn-sm">Exercices</a></div></div></div>
+{% endif %}
+{% endblock %}

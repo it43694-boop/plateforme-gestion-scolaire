@@ -32,7 +32,7 @@
                         {% if contrat.est_actif %}
                         <form method="post" action="{% url 'finances:cloturer_contrat' contrat.id %}" class="d-flex gap-1 justify-content-end" data-confirmer="Clôturer ce contrat ?">
                             {% csrf_token %}
-                            <input type="date" name="date_fin" class="form-control form-control-sm" style="width:auto;" required>
+                            <input type="date" name="date_fin" class="form-control form-control-sm w-auto" required>
                             <button class="btn btn-sm btn-outline-danger">Clôturer</button>
                         </form>
                         {% endif %}

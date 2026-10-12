@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block titre %}Abonnements{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Abonnements des établissements</h1>
+        <p>Situation de paiement de chaque école et factures à suivre. Montants en FCFA.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'espace_plateforme:liste_factures' %}" class="btn btn-outline-secondary btn-sm">Toutes les factures</a>
+        <a href="{% url 'espace_plateforme:emettre_facture' %}" class="btn btn-primary btn-sm">Émettre une facture</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="card mini-stat"><div class="mini-stat-label">Encaissé en {{ totaux.annee }}</div><div class="mini-stat-valeur">{{ totaux.encaisse_annee }}</div></div></div>
+    <div class="col-6 col-md-3"><div class="card mini-stat"><div class="mini-stat-label">À encaisser (dans les délais)</div><div class="mini-stat-valeur">{{ totaux.a_encaisser }}</div></div></div>
+    <div class="col-6 col-md-3"><div class="card mini-stat"><div class="mini-stat-label">En retard de paiement</div><div class="mini-stat-valeur">{{ totaux.en_retard }}</div></div></div>
+    <div class="col-6 col-md-3"><div class="card mini-stat"><div class="mini-stat-label">Écoles à jour / en retard</div><div class="mini-stat-valeur">{{ totaux.ecoles_a_jour }} / {{ totaux.ecoles_en_retard }}</div></div></div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if lignes %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>École</th><th>Formule</th><th>Abonnement</th><th>Payé jusqu'au</th>
+                    <th class="text-end">Reste à payer</th><th>Compte</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for etablissement, situation in lignes %}
+                <tr>
+                    <td>{{ etablissement.nom }}</td>
+                    <td>{{ etablissement.get_plan_display }}</td>
+                    <td>
+                        <span class="badge {% if situation.code == 'a_jour' %}bg-success{% elif situation.code == 'en_retard' %}bg-danger{% elif situation.code == 'en_attente' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ situation.libelle }}</span>
+                        {% if situation.nombre_en_retard %}<div class="small text-danger">{{ situation.nombre_en_retard }} facture{{ situation.nombre_en_retard|pluralize }} en retard ({{ situation.montant_en_retard }} FCFA)</div>{% endif %}
+                    </td>
+                    <td>{{ situation.couvert_jusqu_au|date:"d/m/Y"|default:"-" }}</td>
+                    <td class="text-end montant-val">{{ situation.montant_a_payer }}</td>
+                    <td>
+                        <span class="badge {% if etablissement.actif %}bg-success{% else %}bg-danger{% endif %}">{% if etablissement.actif %}Actif{% else %}Désactivé{% endif %}</span>
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'espace_plateforme:emettre_facture' %}?etablissement={{ etablissement.id }}" class="btn btn-sm btn-outline-secondary">Émettre une facture</a>
+                        <a href="{% url 'espace_plateforme:liste_factures' %}?etablissement={{ etablissement.id }}" class="btn btn-sm btn-outline-secondary">Factures</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="text-muted small mb-0">
+            Une école « en retard » n'est pas désactivée automatiquement : c'est vous qui décidez, depuis la liste des
+            établissements (bouton « Désactiver »), et vous la réactivez après son règlement.
+        </p>
+        {% else %}
+        <div class="etat-vide"><p>Aucun établissement pour le moment.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block titre %}Émettre une facture{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Émettre une facture d'abonnement</h1>
+        <p>Une période ne se facture qu'une fois : la facture est refusée si elle chevauche une facture existante.</p>
+    </div>
+</div>
+<div class="card mw-520">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for erreur in formulaire.non_field_errors %}<div class="alert alert-danger">{{ erreur }}</div>{% endfor %}
+            {% for champ in formulaire %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary w-100">Émettre la facture</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "vitrine/base_legal.html" %}
+{% block titre %}Mentions légales{% endblock %}
+{% block titre_page %}Mentions légales{% endblock %}
+{% block contenu_legal %}
+<h2>Éditeur de la plateforme</h2>
+<p>
+    {{ nom_commercial }} est une plateforme numérique de gestion scolaire éditée par
+    <strong>{{ editeur.nom|default:"l'éditeur de la plateforme (identité non renseignée)" }}</strong>{% if editeur.statut %}, {{ editeur.statut }}{% endif %}.
+</p>
+<ul>
+    {% if editeur.adresse %}<li>Adresse : {{ editeur.adresse }}</li>{% endif %}
+    {% if editeur.immatriculation %}<li>Immatriculation (RCCM / NIF) : {{ editeur.immatriculation }}</li>{% endif %}
+    {% if editeur.email %}<li>Email : <a href="mailto:{{ editeur.email }}">{{ editeur.email }}</a></li>{% endif %}
+    {% if editeur.telephone %}<li>Téléphone : {{ editeur.telephone }}</li>{% endif %}
+    {% if editeur.directeur_publication %}<li>Directeur de la publication : {{ editeur.directeur_publication }}</li>{% endif %}
+</ul>
+
+<h2>Hébergement et prestataires techniques</h2>
+<p>La plateforme s'appuie sur des prestataires techniques, dont le siège est situé hors du Mali. L'emplacement exact des serveurs dépend de la région choisie lors du déploiement.</p>
+<ul>
+    <li><strong>Render Services, Inc.</strong> (États-Unis) : hébergement de l'application.</li>
+    <li><strong>Supabase, Inc.</strong> (États-Unis) : base de données et stockage des fichiers.</li>
+    <li><strong>Brevo</strong> (France) : envoi des emails (codes de vérification, notifications).</li>
+    {% if supervision_active %}<li><strong>Sentry (Functional Software, Inc.)</strong> (États-Unis) : détection des erreurs techniques, sans données personnelles des élèves.</li>{% endif %}
+    {% if ia_active %}<li><strong>Groq, Inc.</strong> (États-Unis) : réponses de l'assistant à partir de données anonymisées (ni nom ni matricule).</li>{% endif %}
+</ul>
+
+<h2>Responsabilité des données saisies</h2>
+<p>
+    Chaque établissement est responsable des informations qu'il enregistre dans la plateforme (élèves, parents,
+    personnel, notes, paiements). L'éditeur met à disposition l'outil et en assure la sécurité technique ; il
+    n'utilise pas ces données pour son propre compte. Voir la <a href="{% url 'vitrine:confidentialite' %}">politique de confidentialité</a>.
+</p>
+
+<h2>Propriété intellectuelle</h2>
+<p>
+    Le nom {{ nom_commercial }}, le logo, les textes, les interfaces et le code de la plateforme sont protégés.
+    Toute reproduction ou réutilisation sans autorisation écrite de l'éditeur est interdite. Les logos, noms et
+    contenus propres à chaque établissement restent la propriété de cet établissement.
+</p>
+
+<h2>Contact</h2>
+<p>
+    {% if editeur.email %}Pour toute question, écrivez à <a href="mailto:{{ editeur.email }}">{{ editeur.email }}</a>.{% else %}Pour toute question, contactez la direction de votre établissement, qui vous indiquera l'interlocuteur de la plateforme.{% endif %}
+</p>
+{% endblock %}

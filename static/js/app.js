@@ -304,8 +304,8 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         var tableau = document.querySelector("[data-tableau-resultats]");
         var videMsg = document.querySelector("[data-etat-vide-resultats]");
-        if (tableau) tableau.style.display = "";
-        if (videMsg) videMsg.style.display = "none";
+        if (tableau) { tableau.hidden = false; tableau.style.display = ""; }
+        if (videMsg) { videMsg.hidden = true; videMsg.style.display = "none"; }
     }
 
     function synchroniserFileHorsLigne(conteneur) {

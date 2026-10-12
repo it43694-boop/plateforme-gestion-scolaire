@@ -18,6 +18,7 @@
                     <th class="text-end">Notes saisies</th>
                     <th class="text-end">Absences saisies</th>
                     <th>Dernière activité</th>
+                    {% if peut_exporter_liste or peut_exporter_notes or peut_exporter_absences %}<th>Excel</th>{% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -29,6 +30,13 @@
                     <td class="text-end montant-val">{{ ligne.nb_notes }}</td>
                     <td class="text-end montant-val">{{ ligne.nb_absences }}</td>
                     <td>{{ ligne.derniere_activite|date:"d/m/Y H:i"|default:"-" }}</td>
+                    {% if peut_exporter_liste or peut_exporter_notes or peut_exporter_absences %}
+                    <td>
+                        {% if peut_exporter_liste %}<a href="{% url 'scolarite:exporter_liste_classe_xlsx' ligne.classe.id %}" data-telechargement>Liste</a>{% endif %}
+                        {% if peut_exporter_notes %}<a href="{% url 'pedagogie:exporter_releve_notes_xlsx' ligne.classe.id %}" data-telechargement>Notes</a>{% endif %}
+                        {% if peut_exporter_absences %}<a href="{% url 'pedagogie:exporter_absences_xlsx' ligne.classe.id %}" data-telechargement>Absences</a>{% endif %}
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>

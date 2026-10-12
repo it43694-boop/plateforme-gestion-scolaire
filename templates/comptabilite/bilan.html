@@ -1,0 +1,57 @@
+{% extends "comptabilite/base_compta.html" %}
+{% load humanize %}
+{% block titre_compta %}Bilan{% endblock %}
+{% block corps %}
+{% if exercice %}
+<form method="get" class="d-flex flex-wrap gap-2 align-items-end mb-3">
+    <input type="hidden" name="exercice" value="{{ exercice.id }}">
+    <div><label class="form-label small mb-1" for="jusqu-au">Situation au</label><input type="date" name="jusqu_au" id="jusqu-au" value="{{ jusqu_au }}" class="form-control form-control-sm"></div>
+    <button class="btn btn-sm btn-outline-secondary">Afficher</button>
+</form>
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card"><div class="card-body">
+            <p class="titre-section-large">Actif</p>
+            <table class="table table-sm">
+                <tbody>
+                    <tr class="table-light"><th>Actif immobilisé</th><th class="text-end">{{ etat.sous_totaux_actif.immobilisations|intcomma }}</th></tr>
+                    {% for solde, montant in etat.actif.immobilisations %}<tr><td class="plan-detail">{{ solde.numero }} - {{ solde.libelle }}</td><td class="text-end montant-val">{{ montant|intcomma }}</td></tr>{% endfor %}
+                    <tr class="table-light"><th>Stocks</th><th class="text-end">{{ etat.sous_totaux_actif.stocks|intcomma }}</th></tr>
+                    {% for solde, montant in etat.actif.stocks %}<tr><td class="plan-detail">{{ solde.numero }} - {{ solde.libelle }}</td><td class="text-end montant-val">{{ montant|intcomma }}</td></tr>{% endfor %}
+                    <tr class="table-light"><th>Créances et emplois assimilés</th><th class="text-end">{{ etat.sous_totaux_actif.creances|intcomma }}</th></tr>
+                    {% for solde, montant in etat.actif.creances %}<tr><td class="plan-detail">{{ solde.numero }} - {{ solde.libelle }}</td><td class="text-end montant-val">{{ montant|intcomma }}</td></tr>{% endfor %}
+                    <tr class="table-light"><th>Trésorerie - actif</th><th class="text-end">{{ etat.sous_totaux_actif.tresorerie|intcomma }}</th></tr>
+                    {% for solde, montant in etat.actif.tresorerie %}<tr><td class="plan-detail">{{ solde.numero }} - {{ solde.libelle }}</td><td class="text-end montant-val">{{ montant|intcomma }}</td></tr>{% endfor %}
+                </tbody>
+                <tfoot><tr><th>TOTAL ACTIF</th><th class="text-end">{{ etat.total_actif|intcomma }}</th></tr></tfoot>
+            </table>
+        </div></div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card"><div class="card-body">
+            <p class="titre-section-large">Passif</p>
+            <table class="table table-sm">
+                <tbody>
+                    <tr class="table-light"><th>Capitaux propres</th><th class="text-end">{{ etat.sous_totaux_passif.capitaux|intcomma }}</th></tr>
+                    {% for solde, montant in etat.passif.capitaux %}<tr><td class="plan-detail">{{ solde.numero }} - {{ solde.libelle }}</td><td class="text-end montant-val">{{ montant|intcomma }}</td></tr>{% endfor %}
+                    <tr class="table-light"><th>Résultat de l'exercice ({% if etat.resultat >= 0 %}bénéfice{% else %}perte{% endif %})</th><th class="text-end">{{ etat.resultat|intcomma }}</th></tr>
+                    <tr class="table-light"><th>Dettes financières</th><th class="text-end">{{ etat.sous_totaux_passif.dettes_financieres|intcomma }}</th></tr>
+                    {% for solde, montant in etat.passif.dettes_financieres %}<tr><td class="plan-detail">{{ solde.numero }} - {{ solde.libelle }}</td><td class="text-end montant-val">{{ montant|intcomma }}</td></tr>{% endfor %}
+                    <tr class="table-light"><th>Dettes circulantes</th><th class="text-end">{{ etat.sous_totaux_passif.dettes|intcomma }}</th></tr>
+                    {% for solde, montant in etat.passif.dettes %}<tr><td class="plan-detail">{{ solde.numero }} - {{ solde.libelle }}</td><td class="text-end montant-val">{{ montant|intcomma }}</td></tr>{% endfor %}
+                    <tr class="table-light"><th>Trésorerie - passif</th><th class="text-end">{{ etat.sous_totaux_passif.tresorerie|intcomma }}</th></tr>
+                    {% for solde, montant in etat.passif.tresorerie %}<tr><td class="plan-detail">{{ solde.numero }} - {{ solde.libelle }}</td><td class="text-end montant-val">{{ montant|intcomma }}</td></tr>{% endfor %}
+                </tbody>
+                <tfoot><tr><th>TOTAL PASSIF</th><th class="text-end">{{ etat.total_passif|intcomma }}</th></tr></tfoot>
+            </table>
+        </div></div>
+    </div>
+</div>
+<p class="mt-3">
+    <span class="badge {% if etat.equilibre %}bg-success{% else %}bg-danger{% endif %}">{% if etat.equilibre %}Actif et passif sont égaux{% else %}Actif et passif ne sont pas égaux : vérifiez les écritures{% endif %}</span>
+</p>
+<p class="text-muted small">Bilan simplifié (avant écritures de clôture). Aide à la gestion, à faire valider par un expert-comptable.</p>
+{% else %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Créez d'abord un exercice comptable.</p><a href="{% url 'comptabilite:exercices' %}" class="btn btn-primary btn-sm">Exercices</a></div></div></div>
+{% endif %}
+{% endblock %}

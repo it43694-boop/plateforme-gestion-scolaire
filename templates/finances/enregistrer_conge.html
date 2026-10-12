@@ -24,7 +24,7 @@
                 </div>
                 {{ formulaire.email_employe }}
                 {% for erreur in formulaire.email_employe.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
-                <div class="form-text" style="display:none;" data-solde-url="{% url 'finances:solde_conges_json' %}"
+                <div class="form-text" hidden data-solde-url="{% url 'finances:solde_conges_json' %}"
                      data-solde-cible="{{ formulaire.email_employe.id_for_label }}"></div>
             </div>
             {% for champ in formulaire %}

@@ -66,6 +66,7 @@ def navigation(request):
                 }]},
                 {"titre": "Plateforme", "icone": "plateforme", "liens": [
                     {"label": "Établissements", "url": "espace_plateforme:liste_etablissements"},
+                    {"label": "Abonnements", "url": "espace_plateforme:abonnements"},
                 ]},
             ],
             "notifications_non_lues": non_lues, "peut_rechercher_eleves": False, "app_version": settings.APP_VERSION,
@@ -105,6 +106,8 @@ def navigation(request):
         finances.append({"label": "Paiements", "url": "finances:liste_paiements"})
     if "caisse" in modules_autorises:
         finances.append({"label": "Caisse", "url": "finances:registre_caisse"})
+        if request.user.etablissement_id:
+            finances.append({"label": "Comptabilité", "url": "comptabilite:accueil"})
     if "salaires" in modules_autorises:
         finances.append({"label": "Salaires", "url": "finances:liste_salaires"})
     if finances:
@@ -148,7 +151,10 @@ def navigation(request):
         sections.append({
             "titre": "Plateforme",
             "icone": "plateforme",
-            "liens": [{"label": "Établissements", "url": "espace_plateforme:liste_etablissements"}],
+            "liens": [
+                {"label": "Établissements", "url": "espace_plateforme:liste_etablissements"},
+                {"label": "Abonnements", "url": "espace_plateforme:abonnements"},
+            ],
         })
 
     return {

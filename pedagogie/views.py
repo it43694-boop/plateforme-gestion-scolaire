@@ -23,6 +23,7 @@ from pedagogie.models import (
     appreciation_pour, saisir_note,
 )
 from permissions_matrix.modules import Module
+from scolarite.views_exports import droits_export_listes
 from scolarite.models import (
     Affectation, Classe, CYCLE_PAR_ROLE_DIRECTION, Inscription, classes_visibles_pour, eleve_de_l_etablissement_ou_404,
     eleve_visible_pour,
@@ -91,7 +92,7 @@ def suivi_des_cours(request):
             "derniere_activite": max(dates) if dates else None,
         })
 
-    return render(request, "pedagogie/suivi_des_cours.html", {"lignes": lignes})
+    return render(request, "pedagogie/suivi_des_cours.html", {"lignes": lignes, **droits_export_listes(request.user)})
 
 
 @module_requis(Module.NOTES_BULLETINS)

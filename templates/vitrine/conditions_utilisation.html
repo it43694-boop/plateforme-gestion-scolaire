@@ -1,0 +1,85 @@
+{% extends "vitrine/base_legal.html" %}
+{% block titre %}Conditions d'utilisation{% endblock %}
+{% block titre_page %}Conditions d'utilisation{% endblock %}
+{% block contenu_legal %}
+<h2>1. Objet</h2>
+<p>
+    Les présentes conditions encadrent l'utilisation de {{ nom_commercial }}, plateforme de gestion scolaire
+    (élèves, classes, notes, absences, finances, communication, statistiques). En créant un compte ou en vous
+    connectant, vous déclarez les avoir lues et les accepter.
+</p>
+
+<h2>2. Qui est qui</h2>
+<ul>
+    <li><strong>L'éditeur</strong> met la plateforme à disposition et en assure le fonctionnement et la sécurité technique.</li>
+    <li><strong>L'établissement</strong> (école, collège, lycée, centre de formation) est le client. Il décide de qui utilise la plateforme, avec quels droits, et il est responsable des données qu'il y enregistre.</li>
+    <li><strong>L'utilisateur</strong> est toute personne disposant d'un compte : direction, personnel, enseignant, parent, élève.</li>
+</ul>
+
+<h2>3. Comptes et accès</h2>
+<ul>
+    <li>Un compte est personnel : ne communiquez jamais votre mot de passe ni vos codes de double authentification, et ne laissez personne utiliser votre session.</li>
+    <li>Les comptes des élèves sont créés par l'établissement. Un mot de passe provisoire remis à l'élève doit être changé dès la première connexion.</li>
+    <li>Les parents et le personnel qui s'inscrivent eux-mêmes voient leur compte activé par l'établissement après vérification de leur email.</li>
+    <li>Chaque rôle n'accède qu'aux informations nécessaires à ses fonctions : un enseignant ne voit que ses classes, un parent que ses enfants, une direction de cycle que son cycle.</li>
+    <li>Sur un ordinateur partagé, déconnectez-vous toujours à la fin de votre session.</li>
+</ul>
+
+<h2>4. Engagements de l'utilisateur</h2>
+<ul>
+    <li>Fournir des informations exactes et les tenir à jour.</li>
+    <li>Utiliser la plateforme uniquement pour les besoins de la vie scolaire de l'établissement.</li>
+    <li>Ne pas chercher à accéder aux données d'un autre établissement ou d'un autre utilisateur, ne pas contourner les protections, ne pas perturber le service.</li>
+    <li>Respecter la confidentialité des informations consultées (notes, situation familiale, paiements, état de santé ou handicap d'un élève) et ne pas les diffuser hors du cadre scolaire.</li>
+</ul>
+
+<h2>5. Responsabilité de l'établissement</h2>
+<p>
+    L'établissement veille à l'exactitude des données qu'il saisit, attribue les rôles de façon appropriée,
+    informe les parents, les élèves et son personnel de l'utilisation de leurs données et répond à leurs demandes
+    d'accès, de rectification ou de suppression (voir la <a href="{% url 'vitrine:confidentialite' %}">politique de confidentialité</a>).
+    Il désigne les personnes habilitées à gérer les comptes et les paiements.
+</p>
+
+<h2>6. Disponibilité et sécurité</h2>
+<p>
+    L'éditeur met en œuvre des moyens raisonnables pour que la plateforme soit disponible et sécurisée (connexion
+    chiffrée, mots de passe protégés, double authentification, journal des actions sensibles). Elle
+    peut être interrompue pour maintenance ou en cas d'incident ; l'éditeur n'est pas tenu à une disponibilité
+    continue. La saisie des notes et des absences reste possible hors connexion et se synchronise au retour du réseau.
+</p>
+
+<h2>7. Données financières et documents</h2>
+<p>
+    Les reçus, bulletins, attestations et états générés par la plateforme reposent sur les données saisies par
+    l'établissement. Les états comptables sont des aides à la gestion : ils ne remplacent pas la validation d'un
+    expert-comptable ni les obligations légales de l'établissement.
+</p>
+
+<h2>8. Suspension et fin d'utilisation</h2>
+<p>
+    L'éditeur peut suspendre l'accès d'un établissement (par exemple en cas d'impayé de l'abonnement ou d'usage
+    abusif) et d'un utilisateur (en cas de manquement aux présentes conditions). L'établissement peut exporter ses
+    données avant la fin de son abonnement ; leur suppression est ensuite effectuée sur demande.
+</p>
+
+<h2>9. Propriété intellectuelle</h2>
+<p>La plateforme reste la propriété de l'éditeur. Les données saisies par l'établissement restent la sienne.</p>
+
+<h2>10. Responsabilité de l'éditeur</h2>
+<p>
+    La responsabilité de l'éditeur est limitée aux dommages directs résultant d'un manquement à ses obligations,
+    et exclut les pertes indirectes. Elle ne couvre pas l'usage fait de la plateforme par les utilisateurs, ni les
+    conséquences d'informations inexactes saisies par l'établissement.
+</p>
+
+<h2>11. Modification des conditions et droit applicable</h2>
+<p>
+    Les conditions peuvent évoluer ; la date de dernière mise à jour figure en haut de cette page. Elles sont
+    régies par le droit de la République du Mali. En cas de litige, les parties recherchent d'abord une solution
+    amiable ; à défaut, les juridictions maliennes sont compétentes.
+</p>
+
+<h2>12. Contact</h2>
+<p>{% if editeur.email %}<a href="mailto:{{ editeur.email }}">{{ editeur.email }}</a>{% else %}Adressez-vous à la direction de votre établissement.{% endif %}</p>
+{% endblock %}

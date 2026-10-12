@@ -1,0 +1,72 @@
+{% extends "comptabilite/base_compta.html" %}
+{% load humanize %}
+{% block titre_compta %}Journal{% endblock %}
+{% block corps %}
+{% if exercice %}
+<form method="get" class="d-flex flex-wrap gap-2 align-items-end mb-3">
+    <input type="hidden" name="exercice" value="{{ exercice.id }}">
+    <div>
+        <label class="form-label small mb-1" for="filtre-journal">Journal</label>
+        <select name="journal" id="filtre-journal" class="form-select form-select-sm" data-auto-submit>
+            <option value="">Tous les journaux</option>
+            {% for valeur, libelle in journaux %}<option value="{{ valeur }}" {% if code == valeur %}selected{% endif %}>{{ libelle }}</option>{% endfor %}
+        </select>
+    </div>
+    <div><label class="form-label small mb-1" for="filtre-du">Du</label><input type="date" name="du" id="filtre-du" value="{{ du }}" class="form-control form-control-sm"></div>
+    <div><label class="form-label small mb-1" for="filtre-au">Au</label><input type="date" name="au" id="filtre-au" value="{{ au }}" class="form-control form-control-sm"></div>
+    <button class="btn btn-sm btn-outline-secondary">Filtrer</button>
+</form>
+
+{% if ecritures %}
+{% for ecriture in ecritures %}
+<div class="card mb-2">
+    <div class="card-body py-2">
+        <div class="d-flex flex-wrap justify-content-between gap-2">
+            <div>
+                <strong>{{ ecriture.numero }}</strong> - {{ ecriture.date_ecriture|date:"d/m/Y" }} - {{ ecriture.libelle }}
+                {% if ecriture.piece %}<span class="text-muted small">(pièce {{ ecriture.piece }})</span>{% endif %}
+                {% if ecriture.origine != "manuelle" %}<span class="badge bg-secondary">{{ ecriture.get_origine_display }}</span>{% endif %}
+                {% if ecriture.contrepasse_de_id %}<span class="badge bg-warning text-dark">Annule une écriture</span>{% endif %}
+                {% if ecriture.contrepassation %}<span class="badge bg-warning text-dark">Annulée par {{ ecriture.contrepassation.numero }}</span>{% endif %}
+            </div>
+            {% if peut_ecrire and ecriture.origine == "manuelle" and not ecriture.contrepassation %}
+            <form method="post" action="{% url 'comptabilite:contrepasser' ecriture.id %}" class="d-inline-flex gap-1"
+                  data-confirmer="Annuler l'écriture {{ ecriture.numero }} par une écriture inverse ? L'écriture d'origine est conservée.">
+                {% csrf_token %}
+                <input type="text" name="motif" class="form-control form-control-sm" placeholder="Motif (facultatif)" maxlength="150">
+                <button class="btn btn-sm btn-outline-danger">Contre-passer</button>
+            </form>
+            {% endif %}
+        </div>
+        <table class="table table-sm mb-0 mt-2">
+            <thead><tr><th>Compte</th><th>Intitulé</th><th class="text-end">Débit</th><th class="text-end">Crédit</th></tr></thead>
+            <tbody>
+                {% for ligne in ecriture.lignes.all %}
+                <tr>
+                    <td class="plan-numero">{{ ligne.compte.numero }}</td>
+                    <td>{{ ligne.compte.libelle }}{% if ligne.libelle %} <span class="text-muted small">- {{ ligne.libelle }}</span>{% endif %}</td>
+                    <td class="text-end montant-val">{% if ligne.debit %}{{ ligne.debit|intcomma }}{% endif %}</td>
+                    <td class="text-end montant-val">{% if ligne.credit %}{{ ligne.credit|intcomma }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}
+{% if page_obj.has_other_pages %}
+<nav class="d-flex justify-content-between align-items-center mt-3">
+    <span class="pagination-info">Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} écritures)</span>
+    <div>
+        {% if page_obj.has_previous %}<a href="?{{ filtres }}page={{ page_obj.previous_page_number }}" class="btn btn-sm btn-outline-secondary">Précédent</a>{% endif %}
+        {% if page_obj.has_next %}<a href="?{{ filtres }}page={{ page_obj.next_page_number }}" class="btn btn-sm btn-outline-secondary">Suivant</a>{% endif %}
+    </div>
+</nav>
+{% endif %}
+{% else %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Aucune écriture pour ces critères.</p></div></div></div>
+{% endif %}
+{% else %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Créez d'abord un exercice comptable.</p><a href="{% url 'comptabilite:exercices' %}" class="btn btn-primary btn-sm">Exercices</a></div></div></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block titre %}Factures d'abonnement{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Factures d'abonnement</h1>
+        <p>{{ page_obj.paginator.count }} facture{{ page_obj.paginator.count|pluralize }}. Montants en FCFA.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'espace_plateforme:exporter_factures_xlsx' %}?{{ filtres }}" class="btn btn-outline-secondary btn-sm" data-telechargement>Exporter en Excel</a>
+        <a href="{% url 'espace_plateforme:abonnements' %}" class="btn btn-outline-secondary btn-sm">Vue d'ensemble</a>
+        <a href="{% url 'espace_plateforme:emettre_facture' %}" class="btn btn-primary btn-sm">Émettre une facture</a>
+    </div>
+</div>
+
+<form method="get" class="d-flex flex-wrap gap-2 mb-3">
+    <select name="statut" class="form-select mw-320" data-auto-submit>
+        <option value="">Tous les statuts</option>
+        {% for valeur, libelle in statuts %}<option value="{{ valeur }}" {% if statut == valeur %}selected{% endif %}>{{ libelle }}</option>{% endfor %}
+    </select>
+    <select name="etablissement" class="form-select mw-320" data-auto-submit>
+        <option value="">Tous les établissements</option>
+        {% for e in etablissements %}<option value="{{ e.id }}" {% if ecole == e.id|stringformat:"s" %}selected{% endif %}>{{ e.nom }}</option>{% endfor %}
+    </select>
+</form>
+
+<div class="card">
+    <div class="card-body">
+        {% if factures %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>N°</th><th>École</th><th>Période</th><th class="text-end">Montant</th>
+                    <th>Émise le</th><th>À payer avant</th><th>Statut</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for facture in factures %}
+                <tr>
+                    <td>{{ facture.numero }}</td>
+                    <td>{{ facture.etablissement.nom }}</td>
+                    <td>{{ facture.periode_debut|date:"d/m/Y" }} - {{ facture.periode_fin|date:"d/m/Y" }}</td>
+                    <td class="text-end montant-val">{{ facture.montant }}</td>
+                    <td>{{ facture.date_emission|date:"d/m/Y" }}</td>
+                    <td>{{ facture.date_echeance|date:"d/m/Y" }}</td>
+                    <td>
+                        {% if facture.statut == "payee" %}
+                        <span class="badge bg-success">Payée</span>
+                        <div class="small text-muted">{{ facture.date_paiement|date:"d/m/Y" }}{% if facture.mode_reglement %} - {{ facture.get_mode_reglement_display }}{% endif %}</div>
+                        {% elif facture.statut == "annulee" %}
+                        <span class="badge bg-secondary">Annulée</span>
+                        <div class="small text-muted">{{ facture.motif_annulation }}</div>
+                        {% elif facture.en_retard %}
+                        <span class="badge bg-danger">En retard</span>
+                        <div class="small text-danger">{{ facture.jours_de_retard }} jour{{ facture.jours_de_retard|pluralize }}</div>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">À payer</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'espace_plateforme:facture_pdf' facture.id %}" class="btn btn-sm btn-outline-secondary" data-telechargement>PDF</a>
+                        {% if facture.statut == "emise" %}
+                        <a href="{% url 'espace_plateforme:payer_facture' facture.id %}" class="btn btn-sm btn-success">Enregistrer le règlement</a>
+                        <form method="post" action="{% url 'espace_plateforme:annuler_facture' facture.id %}" class="d-inline-flex gap-1">
+                            {% csrf_token %}
+                            <input type="text" name="motif" class="form-control form-control-sm" placeholder="Motif d'annulation" required maxlength="255">
+                            <button class="btn btn-sm btn-outline-danger">Annuler</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if page_obj.has_other_pages %}
+        <nav class="d-flex justify-content-between align-items-center mt-3">
+            <span class="pagination-info">Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}</span>
+            <div>
+                {% if page_obj.has_previous %}<a href="?{{ filtres }}page={{ page_obj.previous_page_number }}" class="btn btn-sm btn-outline-secondary">Précédent</a>{% endif %}
+                {% if page_obj.has_next %}<a href="?{{ filtres }}page={{ page_obj.next_page_number }}" class="btn btn-sm btn-outline-secondary">Suivant</a>{% endif %}
+            </div>
+        </nav>
+        {% endif %}
+        {% else %}
+        <div class="etat-vide"><p>Aucune facture pour ces critères.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

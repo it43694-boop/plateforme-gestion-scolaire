@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Importer des élèves{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "eleves" 24 %}</div>
+        <div>
+            <h1>Importer des élèves depuis Excel</h1>
+            <p>Inscrivez toute une liste d'élèves d'un coup. Un aperçu vérifie chaque ligne avant la moindre création.</p>
+        </div>
+    </div>
+    <a href="{% url 'scolarite:inscrire_eleve' %}" class="btn btn-outline-secondary btn-sm">Inscrire un seul élève</a>
+</div>
+
+{% if not annee %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Aucune année scolaire n'est encore créée : créez-la, puis ses classes, avant d'importer des élèves.</p></div></div></div>
+
+{% elif crees %}
+<div class="card mb-3">
+    <div class="card-body">
+        <p class="titre-section-large">{{ crees|length }} élève{{ crees|length|pluralize }} inscrit{{ crees|length|pluralize }}</p>
+        <p class="mb-3">
+            Notez les matricules ci-dessous (ou imprimez cette page) : cette liste ne sera pas affichée de nouveau.
+            Pour qu'un élève puisse se connecter, remettez-lui un mot de passe provisoire depuis son dossier.
+        </p>
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead><tr><th>Matricule</th><th>Élève</th><th>Classe</th></tr></thead>
+                <tbody>
+                    {% for eleve, classe in crees %}
+                    <tr><td>{{ eleve.matricule }}</td><td>{{ eleve.nom_complet }}</td><td>{{ classe }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-imprimer>Imprimer</button>
+            <a href="{% url 'scolarite:liste_eleves' %}" class="btn btn-primary btn-sm">Voir la liste des élèves</a>
+        </div>
+    </div>
+</div>
+
+{% elif jeton %}
+<div class="card mb-3">
+    <div class="card-body">
+        <p class="titre-section-large">Aperçu : {{ nombre_lignes }} élève{{ nombre_lignes|pluralize }} prêt{{ nombre_lignes|pluralize }} à être inscrit{{ nombre_lignes|pluralize }}</p>
+        <div class="alert alert-success">Toutes les lignes sont correctes. <strong>Rien n'est encore créé</strong> : vérifiez la liste puis confirmez.</div>
+        {% if colonnes_ignorees %}
+        <div class="alert alert-warning">Colonnes ignorées (titre non reconnu) : {{ colonnes_ignorees|join:", " }}.</div>
+        {% endif %}
+        <div class="table-responsive mb-3">
+            <table class="table table-sm">
+                <thead><tr><th>Ligne</th><th>Élève</th><th>Sexe</th><th>Classe</th><th>Email du parent 1</th></tr></thead>
+                <tbody>
+                    {% for ligne in resultats %}
+                    <tr>
+                        <td>{{ ligne.numero }}</td><td>{{ ligne.resume }}</td><td>{{ ligne.donnees_validees.sexe }}</td>
+                        <td>{{ ligne.classe }}</td><td>{{ ligne.donnees.parent_email_1 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex gap-2">
+            <form method="post" data-attente>
+                {% csrf_token %}
+                <input type="hidden" name="action" value="confirmer">
+                <input type="hidden" name="annee" value="{{ annee.id }}">
+                <input type="hidden" name="jeton" value="{{ jeton }}">
+                <button type="submit" class="btn btn-primary">Confirmer : inscrire ces {{ nombre_lignes }} élève{{ nombre_lignes|pluralize }}</button>
+            </form>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="annuler">
+                <input type="hidden" name="annee" value="{{ annee.id }}">
+                <button type="submit" class="btn btn-outline-secondary">Annuler</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% else %}
+{% if refusees %}
+<div class="card mb-3">
+    <div class="card-body">
+        <p class="titre-section-large">{{ nombre_refusees }} ligne{{ nombre_refusees|pluralize }} à corriger sur {{ nombre_lignes }}</p>
+        <div class="alert alert-danger">Aucun élève n'a été créé. Corrigez votre fichier Excel, puis envoyez-le de nouveau.</div>
+        {% if colonnes_ignorees %}
+        <div class="alert alert-warning">Colonnes ignorées (titre non reconnu) : {{ colonnes_ignorees|join:", " }}.</div>
+        {% endif %}
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead><tr><th>Ligne</th><th>Élève</th><th>Problème</th></tr></thead>
+                <tbody>
+                    {% for ligne in refusees %}
+                    <tr>
+                        <td>{{ ligne.numero }}</td><td>{{ ligne.resume|default:"—" }}</td>
+                        <td>{% for erreur in ligne.erreurs %}<div class="text-danger">{{ erreur }}</div>{% endfor %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if erreurs_masquees %}<p class="text-secondary small">… et {{ erreurs_masquees }} autre{{ erreurs_masquees|pluralize }} ligne{{ erreurs_masquees|pluralize }} à corriger.</p>{% endif %}
+    </div>
+</div>
+{% endif %}
+
+<div class="card mb-3 mw-560">
+    <div class="card-body">
+        <form method="get" class="mb-3">
+            <label class="form-label" for="annee-import">Année scolaire</label>
+            <select name="annee" id="annee-import" class="form-select" data-auto-submit>
+                {% for a in annees %}<option value="{{ a.id }}" {% if a.id == annee.id %}selected{% endif %}>{{ a.libelle }}</option>{% endfor %}
+            </select>
+        </form>
+
+        <p class="titre-section-espace">1. Téléchargez le modèle</p>
+        <p>Il contient les titres de colonnes, la liste de vos classes de {{ annee.libelle }} et un mode d'emploi.
+           Les colonnes obligatoires sont : {% for cle, libelle, obligatoire, aide in colonnes %}{% if obligatoire %}{{ libelle }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}.</p>
+        <a href="{% url 'scolarite:modele_import_eleves' %}?annee={{ annee.id }}" class="btn btn-outline-secondary btn-sm mb-3" data-telechargement>Télécharger le modèle Excel</a>
+
+        <p class="titre-section-espace">2. Envoyez votre fichier</p>
+        <form method="post" enctype="multipart/form-data" data-attente>
+            {% csrf_token %}
+            <input type="hidden" name="action" value="apercu">
+            <input type="hidden" name="annee" value="{{ annee.id }}">
+            <input type="file" name="fichier" accept=".xlsx" class="form-control mb-2" required>
+            <p class="form-text">Format .xlsx, 2 Mo et {{ lignes_max }} élèves au plus par fichier.</p>
+            <button type="submit" class="btn btn-primary w-100">Vérifier le fichier (aperçu)</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
@@ -221,3 +222,90 @@ class Etablissement(models.Model):
     @property
     def initiale(self):
         return (self.nom or "?").strip()[:1].upper()
+
+
+class FactureAbonnement(models.Model):
+    """
+    Facture de l'abonnement d'un établissement à la plateforme (propriétaire de la plateforme -> école), en FCFA.
+
+    Une facture n'est jamais supprimée : elle est émise, puis payée ou annulée (avec un motif). Une facture payée ne
+    s'annule pas (ce serait réécrire l'historique des encaissements). Les périodes facturées d'un même établissement
+    ne se chevauchent pas (sauf facture annulée), pour ne jamais facturer deux fois la même période.
+    """
+
+    class Statut(models.TextChoices):
+        EMISE = "emise", "Émise"
+        PAYEE = "payee", "Payée"
+        ANNULEE = "annulee", "Annulée"
+
+    class ModeReglement(models.TextChoices):
+        ESPECES = "especes", "Espèces"
+        MOBILE_MONEY = "mobile_money", "Mobile Money"
+        VIREMENT = "virement", "Virement bancaire"
+        CHEQUE = "cheque", "Chèque"
+
+    etablissement = models.ForeignKey(Etablissement, on_delete=models.PROTECT, related_name="factures_abonnement")
+    numero = models.CharField(max_length=20, unique=True, editable=False)
+    libelle = models.CharField(max_length=200)
+    plan = models.CharField(
+        "formule facturée", max_length=30, choices=PlanEtablissement.choices, blank=True,
+        help_text="Formule de l'établissement au moment de l'émission (conservée même si elle change ensuite).",
+    )
+    periode_debut = models.DateField("début de la période")
+    periode_fin = models.DateField("fin de la période")
+    montant = models.PositiveIntegerField("montant (FCFA)")
+    date_emission = models.DateField("émise le", default=timezone.localdate)
+    date_echeance = models.DateField("à payer avant le")
+    statut = models.CharField(max_length=10, choices=Statut.choices, default=Statut.EMISE)
+    date_paiement = models.DateField("payée le", null=True, blank=True)
+    mode_reglement = models.CharField(max_length=20, choices=ModeReglement.choices, blank=True)
+    reference_reglement = models.CharField("référence du règlement", max_length=100, blank=True)
+    motif_annulation = models.CharField(max_length=255, blank=True)
+    cree_par = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+    )
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "facture d'abonnement"
+        verbose_name_plural = "factures d'abonnement"
+        ordering = ["-date_emission", "-id"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(periode_fin__gt=models.F("periode_debut")), name="facture_abonnement_periode_valide"),
+            models.CheckConstraint(condition=models.Q(montant__gt=0), name="facture_abonnement_montant_positif"),
+            models.CheckConstraint(
+                condition=~models.Q(statut="payee") | models.Q(date_paiement__isnull=False),
+                name="facture_abonnement_payee_a_une_date",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.numero} - {self.etablissement.nom} - {self.montant} FCFA"
+
+    def clean(self):
+        super().clean()
+        if self.periode_debut and self.periode_fin and self.periode_fin <= self.periode_debut:
+            raise ValidationError("La fin de la période doit être postérieure à son début.")
+        if self.montant is not None and self.montant <= 0:
+            raise ValidationError("Le montant doit être strictement positif.")
+        if self.date_echeance and self.date_emission and self.date_echeance < self.date_emission:
+            raise ValidationError("L'échéance ne peut pas précéder la date d'émission.")
+        if self.statut != self.Statut.ANNULEE and self.etablissement_id and self.periode_debut and self.periode_fin:
+            chevauche = FactureAbonnement.objects.filter(
+                etablissement_id=self.etablissement_id,
+                periode_debut__lte=self.periode_fin, periode_fin__gte=self.periode_debut,
+            ).exclude(statut=self.Statut.ANNULEE).exclude(pk=self.pk).first()
+            if chevauche:
+                raise ValidationError(
+                    f"Cette période chevauche la facture {chevauche.numero} "
+                    f"({chevauche.periode_debut:%d/%m/%Y} - {chevauche.periode_fin:%d/%m/%Y}) : une période ne se "
+                    "facture qu'une fois (annulez d'abord l'autre facture si elle est erronée)."
+                )
+
+    @property
+    def en_retard(self) -> bool:
+        return self.statut == self.Statut.EMISE and self.date_echeance < timezone.localdate()
+
+    @property
+    def jours_de_retard(self) -> int:
+        return (timezone.localdate() - self.date_echeance).days if self.en_retard else 0

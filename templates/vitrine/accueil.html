@@ -443,6 +443,11 @@
     <p><strong>{{ etablissement.nom }}</strong>{% if etablissement.devise %} - {{ etablissement.devise }}{% endif %}</p>
     {% endif %}
     <p><strong>{{ nom_commercial }}</strong> - {{ positionnement_plateforme }}</p>
+    <p class="legal-pied-liens">
+        <a href="{% url 'vitrine:mentions_legales' %}">Mentions légales</a> ·
+        <a href="{% url 'vitrine:conditions' %}">Conditions d'utilisation</a> ·
+        <a href="{% url 'vitrine:confidentialite' %}">Confidentialité</a>
+    </p>
 </footer>
 
 </body>

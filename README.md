@@ -1873,6 +1873,88 @@ nom d'école commençant par `=` reste du texte (jamais une formule). Chaque exp
 (`export_fiche_statistique_annuelle`, format `xlsx`). Le format reste celui d'une fiche de travail, pas celui du
 questionnaire officiel de la CPS.
 
+## État du projet : Phase 52 — Import Excel des élèves depuis l'écran
+
+Jusqu'ici l'import en masse n'existait que sous forme de commande technique (`importer_eleves_excel`). Il est maintenant
+dans l'application : **Élèves → Importer depuis Excel** (`scolarite/eleves/importer/`), pour le personnel qui peut inscrire
+un élève (jamais un parent ni un élève).
+
+1. **Télécharger le modèle** (`modele.xlsx`) : feuille « Élèves » (titres, listes déroulantes Sexe et Classe), feuille
+   « Classes » (noms exacts des classes de l'année choisie, limitées au cycle d'un directeur de cycle) et « Mode d'emploi ».
+2. **Envoyer le fichier** → un **aperçu** vérifie chaque ligne et signale les erreurs avec leur numéro de ligne Excel.
+   Rien n'est créé à ce stade.
+3. **Confirmer** → les élèves sont inscrits, avec la liste des matricules (affichée une seule fois, imprimable). Chaque
+   élève reçoit ensuite son mot de passe provisoire depuis son dossier, comme pour une inscription isolée.
+
+Colonnes obligatoires : prénom, nom, sexe, classe, email du parent 1 (même règle que l'inscription d'un élève). Facultatif :
+date de naissance (jj/mm/aaaa), lieu et acte de naissance, matricule à reprendre, parent 2, noms et téléphones des parents.
+Le handicap et la situation de déplacement ne s'importent pas (ils se renseignent dans l'espace développeur).
+
+**Garanties** (`scolarite/test_import_eleves.py`, 46 tests) :
+- **Mêmes règles que l'inscription isolée** : chaque ligne passe par `InscrireEleveForm` et la création par
+  `scolarite.inscription_eleve.creer_eleve_inscrit`, fonction désormais partagée par les deux chemins.
+- **Tout ou rien** : une seule erreur et aucun élève n'est créé ; une création qui échoue en cours de route annule les
+  précédentes. La confirmation revalide les données (une classe supprimée ou un élève inscrit entre-temps font tout refuser).
+- **Pas de doublons** : un fichier rechargé deux fois est refusé (« déjà inscrit dans cette classe ») ; la confirmation ne
+  sert qu'une fois (jeton à usage unique en session : un rechargement ou un double clic ne recrée rien).
+- **Cloisonnement** : uniquement les classes visibles de l'utilisateur (école, année, cycle) ; une classe d'une autre école
+  ou d'un autre cycle est « introuvable » ; l'année d'une autre école est une page introuvable.
+- **Fichier borné** : .xlsx de 2 Mo au plus, 500 élèves, 40 colonnes lues, 5000 lignes parcourues. Un nom commençant par
+  `=` reste du texte. Le journal d'audit ne note que le nombre d'élèves et les classes, jamais de nom ni d'email, et les
+  données du fichier ne sont gardées en session que le temps de l'aperçu : effacées à la confirmation, à l'annulation ou
+  au prochain aperçu.
+
+## État du projet : Phase 53 — Exports Excel, pages légales, facturation des abonnements, comptabilité
+
+Livraison préparée avant le déploiement de la version 1.2.0. Chaque bloc a ses tests ; la suite complète est exécutée avant toute mise en ligne.
+
+### Exports Excel des listes (`comptes/excel.py`, `pedagogie/exports.py`, `scolarite/views_exports.py`)
+- **Liste d'une classe** (`classes/<id>/eleves.xlsx`) : matricule, nom, prénom, sexe, statut ; la date de naissance seulement pour
+  l'administration qui a le droit de voir l'état civil (jamais pour un enseignant).
+- **Relevé de notes** (`pedagogie/notes/classe/<id>/releve.xlsx`) : récapitulatif annuel, une feuille par trimestre (matières par
+  ordre alphabétique, moyenne pondérée, rang de compétition, moyenne de la classe) et détail des notes. Mêmes calculs que le
+  bulletin (test de comparaison). Un enseignant n'obtient que SES matières, sans moyenne générale ni rang.
+- **Absences** (`pedagogie/absences/classe/<id>/export.xlsx?du=&au=`) : synthèse par élève et détail.
+- Boutons dans « Classes », « Suivi des cours », « Mes classes » (enseignant) et « Élèves » (classe choisie). Une classe d'une autre
+  école ou d'un autre cycle est introuvable ; chaque export est noté au journal d'audit (sans nom d'élève).
+
+### Pages légales (`vitrine/`, `docs/dossier_apdp.md`)
+Mentions légales, conditions d'utilisation et politique de confidentialité, publiques, liées depuis l'accueil, la connexion,
+l'inscription et le pied de page de l'application. L'identité de l'éditeur vient de l'environnement (`EDITEUR_NOM`,
+`EDITEUR_ADRESSE`, `EDITEUR_EMAIL`...) ; tant que `PAGES_LEGALES_VALIDEES` n'est pas à `True`, un bandeau « version provisoire,
+en cours de validation juridique » s'affiche. Les prestataires facultatifs (Sentry, Groq) ne sont cités que s'ils sont configurés.
+`docs/dossier_apdp.md` : registre des traitements, sous-traitants, mesures de sécurité et questions à poser à un juriste pour la
+déclaration auprès de l'APDP (**ce n'est pas un avis juridique**).
+
+### Facturation des abonnements (`etablissement/abonnements.py`, `espace_plateforme/`)
+Réservée au propriétaire de la plateforme (menu Plateforme → Abonnements). Factures numérotées `ABO-AAAA-NNNN`, en FCFA : émission
+(une période ne se facture qu'une fois), règlement (date, mode, référence), annulation avec motif (une facture payée ne s'annule
+pas), PDF, export Excel, vue d'ensemble par école (à jour, facture à payer, en retard, expiré). Une école en retard n'est **pas**
+désactivée automatiquement : le propriétaire décide. `ABONNEMENT_INSTRUCTIONS_PAIEMENT` s'imprime sur les factures.
+
+### Comptabilité SYSCOHADA en partie double (`comptabilite/`)
+Menu Finances → Comptabilité (module « Caisse » : direction, comptable ; le super administrateur consulte seulement).
+- **Plan comptable** de base d'école (classes 1 à 8, niveau 3 chiffres + subdivisions de scolarité sur 5 chiffres), extensible.
+- **Exercices** qui ne se chevauchent pas ; **écritures équilibrées**, jamais modifiées ni supprimées (une erreur se corrige par une
+  contre-passation) ; numérotation par journal (CAI, BQ, OD, AN) ; cloisonnement strict par école.
+- **Comptabilisation automatique de la caisse** (bouton « Mettre à jour la comptabilité ») : un paiement débite caisse, monnaie
+  électronique ou banque selon son mode et crédite les droits d'inscription ou frais de scolarité ; un salaire payé est passé au net,
+  ou avec le bulletin détaillé (brut, charges patronales, INPS, AMO, ITS). Corrections de montant ou de mode et annulations sont
+  reprises par des écritures de régularisation (méthode de l'écart : attendu moins déjà passé), idempotent.
+- **Saisie** : « Dépense ou recette » (deux lignes trouvées seules) et écriture libre à plusieurs lignes.
+- **États** : journal, grand livre (solde cumulé), balance, compte de résultat (avec soldes intermédiaires), bilan simplifié ; export
+  Excel de tous les états. Ces états sont des **aides à la gestion, à faire valider par un expert-comptable** : plan de base réduit,
+  compte 551 (monnaie électronique) et subdivisions 706xx à confirmer, pas de TVA, ni de provisions, ni d'amortissements automatiques.
+- **Clôture** : solde les comptes de charges et de produits dans le résultat (131 bénéfice, 139 perte) puis verrouille l'exercice
+  (irréversible) ; **report à nouveau** des soldes de bilan dans l'exercice suivant.
+- Le registre de caisse (Finances) ne montre toujours que la scolarité et les salaires ; la comptabilité est la référence complète.
+
+### Corrections liées
+- Les attributs `style=""` en ligne, bloqués par la politique de sécurité du site, laissaient visibles des blocs censés être cachés
+  (bandeau hors connexion vide, « mois couverts » du paiement) : remplacés par l'attribut `hidden`, avec un test qui interdit leur retour.
+- La saisie hors connexion des notes et des absences existait déjà (file locale, synchronisation au retour du réseau, nettoyage à la
+  déconnexion) ; à essayer sur un téléphone réel après le déploiement.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

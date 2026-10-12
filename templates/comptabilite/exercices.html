@@ -1,0 +1,71 @@
+{% extends "comptabilite/base_compta.html" %}
+{% block titre_compta %}Exercices comptables{% endblock %}
+{% block corps %}
+{% if formulaire %}
+<div class="card mb-3 mw-560">
+    <div class="card-body">
+        <p class="titre-section-large">Créer un exercice</p>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for erreur in formulaire.non_field_errors %}<div class="alert alert-danger">{{ erreur }}</div>{% endfor %}
+            {% for champ in formulaire %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">Créer l'exercice</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body">
+        {% if lignes %}
+        <table class="table">
+            <thead><tr><th>Exercice</th><th>Période</th><th>Situation</th><th class="text-end">Écritures</th>{% if peut_ecrire %}<th></th>{% endif %}</tr></thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td>{{ ligne.exercice.libelle }}</td>
+                    <td>{{ ligne.exercice.date_debut|date:"d/m/Y" }} - {{ ligne.exercice.date_fin|date:"d/m/Y" }}</td>
+                    <td>
+                        <span class="badge {% if ligne.exercice.cloture %}bg-secondary{% else %}bg-success{% endif %}">{% if ligne.exercice.cloture %}Clôturé{% else %}Ouvert{% endif %}</span>
+                        {% if ligne.reporte %}<span class="badge bg-info text-dark">Soldes reportés</span>{% endif %}
+                    </td>
+                    <td class="text-end montant-val">{{ ligne.nombre_ecritures }}</td>
+                    {% if peut_ecrire %}
+                    <td class="text-end">
+                        {% if not ligne.exercice.cloture %}
+                        <form method="post" action="{% url 'comptabilite:cloturer' ligne.exercice.id %}" class="d-inline"
+                              data-confirmer="Clôturer « {{ ligne.exercice.libelle }} » ? Le résultat sera enregistré et plus aucune écriture ne pourra y être passée. Cette action est irréversible.">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-outline-danger">Clôturer</button>
+                        </form>
+                        {% elif ligne.suivant and not ligne.reporte %}
+                        <form method="post" action="{% url 'comptabilite:reporter' ligne.exercice.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-primary">Reporter les soldes dans « {{ ligne.suivant.libelle }} »</button>
+                        </form>
+                        {% elif not ligne.suivant and not ligne.reporte %}
+                        <span class="text-muted small">Créez l'exercice suivant pour reporter les soldes.</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="text-muted small mb-0">
+            Clôturer un exercice solde les comptes de charges et de produits dans le résultat (compte 131 en cas de bénéfice, 139 en cas de
+            perte) puis le verrouille. Reportez ensuite les soldes de bilan dans l'exercice suivant : il démarre avec les bons montants.
+        </p>
+        {% else %}
+        <div class="etat-vide"><p>Aucun exercice. {% if peut_ecrire %}Créez le premier ci-dessus (par exemple du 1er janvier au 31 décembre).{% endif %}</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

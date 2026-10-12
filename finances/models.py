@@ -424,9 +424,10 @@ def creer_bulletin_paie(*, employe, periode, salaire_brut, its, enregistre_par):
 # syscohada) - imputation fixe, puisque chaque mouvement de Caisse ne
 # provient que d'exactement deux origines possibles (paiement ou salaire
 # payé, voir la contrainte mouvement_caisse_origine_unique ci-dessous).
-# Portée volontairement limitée à un journal de caisse exportable, PAS une
-# comptabilité en partie double complète (plan de comptes, grand livre,
-# bilan) - voir README.
+# Ce journal de caisse reste un export simple pour un comptable externe. La
+# comptabilité en partie double complète (plan de comptes, écritures, grand
+# livre, balance, résultat, bilan, clôture) est dans l'application
+# `comptabilite`, qui reprend ces mouvements de caisse - voir README.
 COMPTE_SYSCOHADA_CAISSE = "571"
 COMPTE_SYSCOHADA_PRODUITS_SCOLARITE = "706"
 COMPTE_SYSCOHADA_CHARGES_PERSONNEL = "661"

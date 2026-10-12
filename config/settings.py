@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     "permissions_matrix",
     "scolarite",
     "finances",
+    "comptabilite",
     "pedagogie",
     "tests_niveau",
     "assistant",
@@ -356,6 +357,21 @@ DESCRIPTION_PLATEFORME = (
     "aux directions, aux enseignants, aux équipes administratives, aux parents et aux élèves "
     "d'accéder à des espaces adaptés à leurs responsabilités, dans un environnement organisé et sécurisé."
 )
+
+# Pages légales (mentions légales, conditions d'utilisation, politique de confidentialité).
+# L'identité de l'éditeur vient de l'environnement : elle ne s'écrit jamais dans ce dépôt public. Tant que
+# PAGES_LEGALES_VALIDEES n'est pas à True, les pages affichent « version provisoire, en cours de validation
+# juridique » : à passer à True seulement après relecture par un juriste (voir docs/dossier_apdp.md).
+EDITEUR_NOM = env("EDITEUR_NOM", default="")
+EDITEUR_STATUT = env("EDITEUR_STATUT", default="")  # forme juridique, ex. « SARL », « Entreprise individuelle »
+EDITEUR_ADRESSE = env("EDITEUR_ADRESSE", default="")
+EDITEUR_EMAIL = env("EDITEUR_EMAIL", default="")
+EDITEUR_TELEPHONE = env("EDITEUR_TELEPHONE", default="")
+EDITEUR_IMMATRICULATION = env("EDITEUR_IMMATRICULATION", default="")  # RCCM, NIF
+DIRECTEUR_PUBLICATION = env("DIRECTEUR_PUBLICATION", default="")
+PAGES_LEGALES_VALIDEES = env.bool("PAGES_LEGALES_VALIDEES", default=False)
+# Texte imprimé en bas des factures d'abonnement : comment payer (numéro Mobile Money, compte bancaire...).
+ABONNEMENT_INSTRUCTIONS_PAIEMENT = env("ABONNEMENT_INSTRUCTIONS_PAIEMENT", default="")
 
 # Assistant - mode génératif optionnel (cahier des charges : « mode sans IA
 # générative tant qu'aucune clé API n'est configurée »). Tant que

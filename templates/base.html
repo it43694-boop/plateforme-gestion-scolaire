@@ -108,6 +108,11 @@
         {% endif %}
         <main class="app-content" id="contenu-principal">
             {% block contenu %}{% endblock %}
+            <p class="pied-legal">
+                <a href="{% url 'vitrine:mentions_legales' %}">Mentions légales</a> ·
+                <a href="{% url 'vitrine:conditions' %}">Conditions d'utilisation</a> ·
+                <a href="{% url 'vitrine:confidentialite' %}">Confidentialité</a>
+            </p>
         </main>
         {% if messages %}
         <div class="toasts-conteneur" aria-live="polite">

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from scolarite import views
+from scolarite import views, views_exports, views_import
 
 app_name = "scolarite"
 
@@ -22,6 +22,9 @@ urlpatterns = [
     ),
     path("verifier/<uuid:jeton>/", views.verifier_document, name="verifier_document"),
     path("eleves/inscrire/", views.inscrire_eleve, name="inscrire_eleve"),
+    path("eleves/importer/", views_import.importer_eleves, name="importer_eleves"),
+    path("eleves/importer/modele.xlsx", views_import.modele_import_eleves, name="modele_import_eleves"),
+    path("classes/<int:classe_id>/eleves.xlsx", views_exports.exporter_liste_classe_xlsx, name="exporter_liste_classe_xlsx"),
     path("classes/", views.liste_classes, name="liste_classes"),
     path("classes/niveaux/", views.definir_niveaux, name="definir_niveaux"),
     path("matieres/", views.liste_matieres, name="liste_matieres"),

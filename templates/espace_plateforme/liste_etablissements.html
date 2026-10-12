@@ -6,7 +6,10 @@
         <h1>Établissements</h1>
         <p>Chaque établissement a ses propres élèves, classes, finances et comptes.</p>
     </div>
-    <a href="{% url 'espace_plateforme:creer_etablissement' %}" class="btn btn-primary btn-sm">Créer un établissement</a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'espace_plateforme:abonnements' %}" class="btn btn-outline-secondary btn-sm">Abonnements et factures</a>
+        <a href="{% url 'espace_plateforme:creer_etablissement' %}" class="btn btn-primary btn-sm">Créer un établissement</a>
+    </div>
 </div>
 <div class="card">
     <div class="card-body">

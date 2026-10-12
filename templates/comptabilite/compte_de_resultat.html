@@ -1,0 +1,52 @@
+{% extends "comptabilite/base_compta.html" %}
+{% load humanize %}
+{% block titre_compta %}Compte de résultat{% endblock %}
+{% block corps %}
+{% if exercice %}
+<form method="get" class="d-flex flex-wrap gap-2 align-items-end mb-3">
+    <input type="hidden" name="exercice" value="{{ exercice.id }}">
+    <div><label class="form-label small mb-1" for="jusqu-au">Situation au</label><input type="date" name="jusqu_au" id="jusqu-au" value="{{ jusqu_au }}" class="form-control form-control-sm"></div>
+    <button class="btn btn-sm btn-outline-secondary">Afficher</button>
+</form>
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card"><div class="card-body">
+            <p class="titre-section-large">Produits</p>
+            {% for groupe in etat.produits %}
+            <table class="table table-sm mb-2">
+                <thead><tr><th>{{ groupe.code }} - {{ groupe.libelle }}</th><th class="text-end">{{ groupe.total|intcomma }}</th></tr></thead>
+                <tbody>{% for solde, montant in groupe.comptes %}<tr><td class="plan-detail">{{ solde.numero }} - {{ solde.libelle }}</td><td class="text-end montant-val">{{ montant|intcomma }}</td></tr>{% endfor %}</tbody>
+            </table>
+            {% empty %}<p class="text-muted">Aucun produit.</p>{% endfor %}
+            <p class="mb-0"><strong>Total des produits : {{ etat.total_produits|intcomma }}</strong></p>
+        </div></div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card"><div class="card-body">
+            <p class="titre-section-large">Charges</p>
+            {% for groupe in etat.charges %}
+            <table class="table table-sm mb-2">
+                <thead><tr><th>{{ groupe.code }} - {{ groupe.libelle }}</th><th class="text-end">{{ groupe.total|intcomma }}</th></tr></thead>
+                <tbody>{% for solde, montant in groupe.comptes %}<tr><td class="plan-detail">{{ solde.numero }} - {{ solde.libelle }}</td><td class="text-end montant-val">{{ montant|intcomma }}</td></tr>{% endfor %}</tbody>
+            </table>
+            {% empty %}<p class="text-muted">Aucune charge.</p>{% endfor %}
+            <p class="mb-0"><strong>Total des charges : {{ etat.total_charges|intcomma }}</strong></p>
+        </div></div>
+    </div>
+</div>
+<div class="card mt-3">
+    <div class="card-body">
+        <p class="titre-section-large">Résultat</p>
+        <table class="table table-sm mw-560">
+            <tbody>
+                {% for libelle, montant in etat.soldes %}<tr><td>{{ libelle }}</td><td class="text-end montant-val">{{ montant|intcomma }}</td></tr>{% endfor %}
+                <tr><th>Résultat net de l'exercice ({% if etat.resultat >= 0 %}bénéfice{% else %}perte{% endif %})</th><th class="text-end">{{ etat.resultat|intcomma }}</th></tr>
+            </tbody>
+        </table>
+        <p class="text-muted small mb-0">Avant les écritures de clôture : identique que l'exercice soit clôturé ou non. Aide à la gestion, à faire valider par un expert-comptable.</p>
+    </div>
+</div>
+{% else %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Créez d'abord un exercice comptable.</p><a href="{% url 'comptabilite:exercices' %}" class="btn btn-primary btn-sm">Exercices</a></div></div></div>
+{% endif %}
+{% endblock %}

@@ -18,7 +18,7 @@
     <div class="card-body">
         {% if classes %}
         <table class="table">
-            <thead><tr><th>Nom</th><th>Cycle</th><th>Année scolaire</th><th>Effectif</th><th></th></tr></thead>
+            <thead><tr><th>Nom</th><th>Cycle</th><th>Année scolaire</th><th>Effectif</th>{% if peut_exporter_liste or peut_exporter_notes or peut_exporter_absences %}<th>Excel</th>{% endif %}<th></th></tr></thead>
             <tbody>
                 {% for classe in classes %}
                 <tr>
@@ -26,6 +26,13 @@
                     <td>{{ classe.get_cycle_display }}{% if classe.niveau %} — {{ classe.get_niveau_display }}{% endif %}{% if classe.serie %} — {{ classe.get_serie_display }}{% endif %}{% if classe.filiere_professionnelle %} — {{ classe.get_filiere_professionnelle_display }}{% endif %}{% if classe.domaine_professionnel %} ({{ classe.get_domaine_professionnel_display|lower }}){% endif %}</td>
                     <td>{{ classe.annee_scolaire.libelle }}</td>
                     <td class="montant-val">{{ classe.effectif }}</td>
+                    {% if peut_exporter_liste or peut_exporter_notes or peut_exporter_absences %}
+                    <td>
+                        {% if peut_exporter_liste %}<a href="{% url 'scolarite:exporter_liste_classe_xlsx' classe.id %}" data-telechargement>Liste</a>{% endif %}
+                        {% if peut_exporter_notes %}<a href="{% url 'pedagogie:exporter_releve_notes_xlsx' classe.id %}" data-telechargement>Notes</a>{% endif %}
+                        {% if peut_exporter_absences %}<a href="{% url 'pedagogie:exporter_absences_xlsx' classe.id %}" data-telechargement>Absences</a>{% endif %}
+                    </td>
+                    {% endif %}
                     <td class="text-end">
                         {% if peut_voir_emploi_du_temps %}
                         <a href="{% url 'pedagogie:gerer_emploi_du_temps' classe.id %}" class="btn btn-sm btn-outline-secondary">Emploi du temps</a>

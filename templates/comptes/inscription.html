@@ -16,6 +16,10 @@
             {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
         </div>
     {% endfor %}
+    <p class="text-muted small">
+        En créant un compte, vous acceptez les <a href="{% url 'vitrine:conditions' %}">conditions d'utilisation</a>
+        et reconnaissez avoir pris connaissance de la <a href="{% url 'vitrine:confidentialite' %}">politique de confidentialité</a>.
+    </p>
     <button type="submit" class="btn btn-primary w-100">S'inscrire</button>
 </form>
 <p class="mt-3 text-center" class="texte-auth-note">

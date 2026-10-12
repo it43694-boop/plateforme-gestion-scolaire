@@ -10,6 +10,8 @@ from comptes.models import Utilisateur, creer_avec_matricule_unique, generer_mat
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role, StatutCompte
 from permissions_matrix.modules import Module
 from scolarite.forms import AffecterEnseignantForm, CloturerInscriptionForm, CreerClasseForm, InscrireEleveForm
+from scolarite.inscription_eleve import DOMAINE_EMAIL_AUTO_ELEVE, creer_eleve_inscrit  # noqa: F401 (réexporté)
+from scolarite.views_exports import droits_export_listes
 from scolarite.models import (
     Affectation, AnneeScolaire, Classe, Inscription, ParentEnAttente, TypeDocumentVerifiable, VerificationDocument,
     classes_visibles_pour, cloturer_inscription, dossier_complet, eleve_visible_pour, lier_parent_a_eleve, passer_eleve,
@@ -17,8 +19,6 @@ from scolarite.models import (
     peut_voir_etat_civil_eleve,
     calculer_total_du,
 )
-
-DOMAINE_EMAIL_AUTO_ELEVE = "eleves.local"
 
 # Qui peut remettre un mot de passe provisoire à un élève : la direction et le secrétariat, qui gèrent
 # déjà les dossiers (jamais un enseignant, un parent, un comptable, le Censeur ou le Surveillant
@@ -50,44 +50,11 @@ def inscrire_eleve(request):
     )
 
     if request.method == "POST" and formulaire.is_valid():
-        def _construire_eleve():
-            matricule = formulaire.cleaned_data["matricule"] or generer_matricule()
-            email_auto = f"{matricule}@{DOMAINE_EMAIL_AUTO_ELEVE}"
-            nouvel_eleve = Utilisateur(
-                email=email_auto,
-                prenom=formulaire.cleaned_data["prenom"],
-                nom=formulaire.cleaned_data["nom"],
-                role=Role.ELEVE,
-                matricule=matricule,
-                etablissement=request.user.etablissement,
-                sexe=formulaire.cleaned_data["sexe"],
-                date_naissance=formulaire.cleaned_data.get("date_naissance"),
-                lieu_naissance=formulaire.cleaned_data.get("lieu_naissance", "").strip(),
-                numero_acte_naissance=formulaire.cleaned_data.get("numero_acte_naissance", "").strip(),
-                handicap=formulaire.cleaned_data.get("handicap", ""),
-                statut_deplacement=formulaire.cleaned_data.get("statut_deplacement", ""),
-                statut=StatutCompte.ACTIF,
-                is_active=True,
-                email_verifie=True,
-            )
-            nouvel_eleve.set_password(get_random_string(32))
-            nouvel_eleve.full_clean(exclude=["password"])
-            nouvel_eleve.save()
-            return nouvel_eleve
-
         # Atomique : si le lien à un parent ou la création de l'inscription
         # échoue après coup (ex. incohérence inattendue), l'élève tout juste
         # créé ne doit jamais rester orphelin, sans classe ni parent, en base.
         with transaction.atomic():
-            eleve = creer_avec_matricule_unique(_construire_eleve)
-
-            for parent in filter(None, [formulaire.cleaned_data["parent_1"], formulaire.cleaned_data["parent_2"]]):
-                lier_parent_a_eleve(eleve, parent)
-
-            for info in formulaire.cleaned_data["parents_en_attente"]:
-                ParentEnAttente.objects.create(eleve=eleve, **info)
-
-            Inscription.objects.create(eleve=eleve, classe=formulaire.cleaned_data["classe"])
+            eleve = creer_eleve_inscrit(formulaire.cleaned_data, request.user.etablissement)
 
             enregistrer_action(
                 acteur=request.user, action="inscription_eleve",
@@ -399,6 +366,10 @@ def liste_eleves(request):
         "peut_voir_bulletin": PermissionMatrix.a_acces(request.user.role, "notes_bulletins", etablissement=request.user.etablissement),
         "peut_voir_absences": PermissionMatrix.a_acces(request.user.role, "absences", etablissement=request.user.etablissement),
         "peut_inscrire": request.user.role not in ROLES_INSCRIPTION_ELEVE_INTERDITE,
+        "classe_exportable": (
+            classes.filter(id=classe_id).first()
+            if classe_id and str(classe_id).isdigit() and droits_export_listes(request.user)["peut_exporter_liste"] else None
+        ),
     })
 
 
@@ -597,6 +568,7 @@ def liste_classes(request):
         "peut_voir_emploi_du_temps": PermissionMatrix.a_acces(request.user.role, "emploi_du_temps", etablissement=request.user.etablissement),
         "peut_voir_statistiques": PermissionMatrix.a_acces(request.user.role, "statistiques", etablissement=request.user.etablissement),
         "peut_saisir_resultats": request.user.role in ROLES_RESULTATS_EXAMEN,
+        **droits_export_listes(request.user),
     })
 
 

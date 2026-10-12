@@ -43,6 +43,11 @@
         <p class="auth-lien-retour">
             <a href="{% url 'vitrine:accueil' %}">← Retour à l'accueil</a>
         </p>
+        <p class="auth-lien-retour">
+            <a href="{% url 'vitrine:mentions_legales' %}">Mentions légales</a> ·
+            <a href="{% url 'vitrine:conditions' %}">Conditions d'utilisation</a> ·
+            <a href="{% url 'vitrine:confidentialite' %}">Confidentialité</a>
+        </p>
     </div>
 </div>
 <script src="{% static 'js/app.js' %}" defer></script>

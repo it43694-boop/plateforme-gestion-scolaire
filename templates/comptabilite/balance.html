@@ -1,0 +1,43 @@
+{% extends "comptabilite/base_compta.html" %}
+{% load humanize %}
+{% block titre_compta %}Balance{% endblock %}
+{% block corps %}
+{% if exercice %}
+<form method="get" class="d-flex flex-wrap gap-2 align-items-end mb-3">
+    <input type="hidden" name="exercice" value="{{ exercice.id }}">
+    <div><label class="form-label small mb-1" for="jusqu-au">Situation au</label><input type="date" name="jusqu_au" id="jusqu-au" value="{{ jusqu_au }}" class="form-control form-control-sm"></div>
+    <button class="btn btn-sm btn-outline-secondary">Afficher</button>
+</form>
+<div class="card">
+    <div class="card-body">
+        <p class="titre-section-large">Balance générale <span class="badge {% if totaux.equilibree %}bg-success{% else %}bg-danger{% endif %}">{% if totaux.equilibree %}Équilibrée{% else %}Déséquilibrée{% endif %}</span></p>
+        {% if lignes %}
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead><tr><th>Compte</th><th>Intitulé</th><th class="text-end">Débit</th><th class="text-end">Crédit</th><th class="text-end">Solde débiteur</th><th class="text-end">Solde créditeur</th></tr></thead>
+                <tbody>
+                    {% for s in lignes %}
+                    <tr>
+                        <td class="plan-numero">{{ s.numero }}</td><td>{{ s.libelle }}</td>
+                        <td class="text-end montant-val">{{ s.debit|intcomma }}</td><td class="text-end montant-val">{{ s.credit|intcomma }}</td>
+                        <td class="text-end montant-val">{% if s.solde_debiteur %}{{ s.solde_debiteur|intcomma }}{% endif %}</td>
+                        <td class="text-end montant-val">{% if s.solde_crediteur %}{{ s.solde_crediteur|intcomma }}{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr><th colspan="2">Total</th><th class="text-end">{{ totaux.debit|intcomma }}</th><th class="text-end">{{ totaux.credit|intcomma }}</th>
+                        <th class="text-end">{{ totaux.solde_debiteur|intcomma }}</th><th class="text-end">{{ totaux.solde_crediteur|intcomma }}</th></tr>
+                </tfoot>
+            </table>
+        </div>
+        <p class="text-muted small mb-0">Avant les écritures de clôture : les charges et les produits restent visibles même sur un exercice clôturé.</p>
+        {% else %}
+        <div class="etat-vide"><p>Aucune écriture dans cet exercice.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Créez d'abord un exercice comptable.</p><a href="{% url 'comptabilite:exercices' %}" class="btn btn-primary btn-sm">Exercices</a></div></div></div>
+{% endif %}
+{% endblock %}
