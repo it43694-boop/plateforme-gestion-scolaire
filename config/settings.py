@@ -16,6 +16,7 @@ import importlib.util
 import sys
 import environ
 import dj_database_url
+from config.stockage import signer_les_liens
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -233,7 +234,11 @@ if AWS_STORAGE_BUCKET_NAME and not DEBUG:
                 # fichier devient lisible par quiconque connaît son adresse). Aucun identifiant de projet n'est
                 # écrit ici : ce dépôt est public.
                 "custom_domain": env("AWS_S3_CUSTOM_DOMAIN", default="") or None,
-                "querystring_auth": env.bool("AWS_QUERYSTRING_AUTH", default=True),
+                # Sans domaine public on signe toujours (voir config/stockage.py) : AWS_QUERYSTRING_AUTH=False
+                # rendait les logos « Missing signature ».
+                "querystring_auth": signer_les_liens(
+                    env("AWS_S3_CUSTOM_DOMAIN", default="") or None, env.bool("AWS_QUERYSTRING_AUTH", default=True),
+                ),
                 "querystring_expire": env.int("AWS_QUERYSTRING_EXPIRE", default=3600),
             },
         },

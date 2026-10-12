@@ -1838,7 +1838,9 @@ qu'une liste fixe de champs.
 - **Médias en liens signés temporaires.** `config/settings.py` ne contient plus l'identifiant du projet Supabase ni le
   chemin du bucket public (le dépôt est public). Les fichiers (logos, documents, justificatifs de transfert) sont servis
   par des liens signés valables 1 h (`AWS_QUERYSTRING_EXPIRE`, signature V4). Le domaine public n'est utilisé que si
-  `AWS_S3_CUSTOM_DOMAIN` est défini : **le laisser vide**.
+  `AWS_S3_CUSTOM_DOMAIN` est défini : **le laisser vide**. Sans domaine public, les liens sont toujours signés, même si
+  `AWS_QUERYSTRING_AUTH=False` est resté défini sur Render (`config/stockage.py`) : un lien non signé répond
+  « Missing signature » et les logos s'affichent cassés (constaté après la mise en ligne de la version 1.1.0).
 - **L'Assistant n'envoie plus à l'IA (Groq, États-Unis) le nom, le matricule ni la référence des reçus** de l'élève
   interrogé. La question tapée est nettoyée avant l'envoi : nom et prénom de l'élève (avec ou sans accents), adresses
   email et longs numéros (matricule, téléphone) sont remplacés. L'écran prévient de ne pas taper le nom d'une personne :
