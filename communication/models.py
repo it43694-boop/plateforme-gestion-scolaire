@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from comptes.roles import Role
+from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
 from comptes.uploads import chemin_upload_unique
 from comptes.validators import valider_contenu_fichier, valider_extension_document, valider_taille_fichier_10mo
 
@@ -133,5 +133,109 @@ class Message(models.Model):
     def save(self, *args, **kwargs):
         if not self.etablissement_id and self.eleve_id:
             self.etablissement_id = self.eleve.etablissement_id
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class PorteeEquipe(models.TextChoices):
+    CLASSE = "classe", "Classe"
+    NIVEAU = "niveau", "Niveau (toutes les sections)"
+    MATIERE_NIVEAU = "matiere_niveau", "Matière dans un niveau"
+
+
+def normaliser_matiere(texte: str) -> str:
+    return " ".join((texte or "").split()).casefold()
+
+
+class FilEquipe(models.Model):
+    etablissement = models.ForeignKey(
+        "etablissement.Etablissement", on_delete=models.CASCADE, related_name="fils_equipe",
+    )
+    annee_scolaire = models.ForeignKey(
+        "scolarite.AnneeScolaire", on_delete=models.CASCADE, related_name="fils_equipe",
+    )
+    portee = models.CharField(max_length=20, choices=PorteeEquipe.choices)
+    classe = models.ForeignKey(
+        "scolarite.Classe", on_delete=models.CASCADE, null=True, blank=True, related_name="fils_equipe",
+    )
+    niveau = models.CharField(max_length=10, blank=True)
+    matiere = models.CharField("matière (forme normalisée)", max_length=100, blank=True)
+    matiere_affichee = models.CharField("matière", max_length=100, blank=True)
+    cle = models.CharField(max_length=250, unique=True, editable=False)
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "fil d'équipe"
+        verbose_name_plural = "fils d'équipe"
+        ordering = ["portee", "niveau", "matiere"]
+
+    def __str__(self):
+        return self.libelle
+
+    @staticmethod
+    def construire_cle(annee_id, portee, classe_id, niveau, matiere_normalisee):
+        return f"{annee_id}|{portee}|{classe_id or ''}|{niveau}|{matiere_normalisee}"
+
+    @property
+    def libelle(self):
+        from scolarite.models import Niveau
+        libelle_niveau = dict(Niveau.choices).get(self.niveau, self.niveau)
+        if self.portee == PorteeEquipe.CLASSE:
+            return f"Classe {self.classe.nom}" if self.classe_id else "Classe"
+        if self.portee == PorteeEquipe.NIVEAU:
+            return f"{libelle_niveau} - toutes les sections"
+        return f"{self.matiere_affichee} - {libelle_niveau}"
+
+    def clean(self):
+        super().clean()
+        if self.portee == PorteeEquipe.CLASSE:
+            if not self.classe_id or self.niveau or self.matiere:
+                raise ValidationError("Un fil de classe cible une classe, sans niveau ni matière.")
+            if self.classe.annee_scolaire_id != self.annee_scolaire_id:
+                raise ValidationError("La classe doit appartenir à l'année scolaire du fil.")
+        elif self.portee == PorteeEquipe.NIVEAU:
+            if self.classe_id or not self.niveau or self.matiere:
+                raise ValidationError("Un fil de niveau cible un niveau, sans classe ni matière.")
+        elif self.portee == PorteeEquipe.MATIERE_NIVEAU:
+            if self.classe_id or not self.niveau or not self.matiere:
+                raise ValidationError("Un fil de matière cible un niveau et une matière, sans classe.")
+        if self.annee_scolaire_id and self.annee_scolaire.etablissement_id != self.etablissement_id:
+            raise ValidationError("L'année scolaire et le fil doivent appartenir au même établissement.")
+
+    def save(self, *args, **kwargs):
+        self.cle = self.construire_cle(
+            self.annee_scolaire_id, self.portee, self.classe_id, self.niveau, self.matiere,
+        )
+        self.full_clean(exclude=["cle"])
+        super().save(*args, **kwargs)
+
+
+class MessageEquipe(models.Model):
+    fil = models.ForeignKey(FilEquipe, on_delete=models.CASCADE, related_name="messages")
+    auteur = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.SET_NULL, null=True, related_name="messages_equipe",
+    )
+    contenu = models.TextField(max_length=2000)
+    envoye_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "message d'équipe"
+        verbose_name_plural = "messages d'équipe"
+        ordering = ["envoye_le"]
+
+    def clean(self):
+        super().clean()
+        if self.auteur_id:
+            roles_autorises = {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL} | {
+                Role.ENSEIGNANT.value, Role.DIRECTEUR_1ER_CYCLE.value, Role.DIRECTEUR_2EME_CYCLE.value,
+                Role.DIRECTEUR_LYCEE.value, Role.CENSEUR.value, Role.RESPONSABLE_PEDAGOGIQUE.value,
+                Role.SUPER_ADMINISTRATEUR.value,
+            }
+            if self.auteur.role not in roles_autorises:
+                raise ValidationError("Ce rôle ne peut pas écrire dans un fil d'équipe pédagogique.")
+            if self.auteur.etablissement_id != self.fil.etablissement_id:
+                raise ValidationError("L'auteur et le fil doivent appartenir au même établissement.")
+
+    def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)

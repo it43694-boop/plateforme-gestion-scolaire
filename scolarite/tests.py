@@ -1629,7 +1629,10 @@ class MotDePasseProvisoireEleveTests(TestCase):
         for libelle, compte in self.interdits.items():
             with self.subTest(acteur=libelle):
                 self.client.force_login(compte)
-                self.assertEqual(self.client.post(self.url).status_code, 403)
+                # Le secrétaire d'une AUTRE école reçoit « introuvable » (404), comme pour un matricule qui n'existe
+                # pas : un « interdit » (403) lui apprendrait que ce matricule existe dans une autre école.
+                attendu = 404 if libelle == "secretaire_autre_ecole" else 403
+                self.assertEqual(self.client.post(self.url).status_code, attendu)
         self.eleve.refresh_from_db()
         self.assertFalse(self.eleve.doit_changer_mot_de_passe)
 

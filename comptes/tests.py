@@ -3,8 +3,9 @@ from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
+from django.conf import settings
 from django.core import mail
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -22,6 +23,30 @@ def creer_utilisateur_actif(email, role, **kwargs):
     utilisateur.full_clean(exclude=["password"])
     utilisateur.save()
     return utilisateur
+
+
+class ConfigurationServeurTests(SimpleTestCase):
+    def test_les_reglages_n_autorisent_pas_testserver_en_dur(self):
+        """
+        "testserver" n'est autorisé que par le lanceur de tests de Django : écrit dans config/settings.py,
+        il serait aussi accepté en production comme valeur de l'en-tête Host.
+        """
+        source = (Path(settings.BASE_DIR) / "config" / "settings.py").read_text(encoding="utf-8")
+        lignes_actives = [ligne for ligne in source.splitlines() if not ligne.lstrip().startswith("#")]
+        self.assertFalse([ligne for ligne in lignes_actives if "testserver" in ligne])
+
+    def test_sentry_n_envoie_ni_variables_locales_ni_corps_de_requete(self):
+        """
+        Sentry joint par défaut les variables locales de chaque fonction (texte des emails, liens de réinitialisation)
+        et les champs du formulaire reçu (noms, handicap, email du parent) : les deux sont désactivés.
+        """
+        source = (Path(settings.BASE_DIR) / "config" / "settings.py").read_text(encoding="utf-8")
+        for reglage in ("include_local_variables=False", 'max_request_body_size="never"', "send_default_pii=False"):
+            self.assertIn(reglage, source)
+
+    def test_le_client_de_test_fonctionne_sans_reglage_particulier(self):
+        """Django ajoute lui-même testserver pendant les tests : le client de test reste utilisable."""
+        self.assertEqual(self.client.get("/sw.js").status_code, 200)
 
 
 class UtilisateurModelTests(TestCase):
@@ -1244,3 +1269,78 @@ class NavigateurPartageTests(TestCase):
         self.assertIn('"/comptes/deconnexion/"', sw)
         self.assertIn('"/comptes/connexion/"', sw)
         self.assertIn("caches.delete(CACHE_PAGES)", sw)
+
+
+class LimiteInscriptionTests(TestCase):
+    """Le formulaire d'inscription public ne doit pas permettre de tester en masse des emails et des téléphones."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from etablissement.models import Etablissement
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.ecole = Etablissement.objects.create(nom="École limite inscription")
+        self.client.get(reverse("vitrine:choisir_etablissement", args=[self.ecole.slug]))
+        creer_utilisateur_actif("existant-limite@example.com", Role.ENSEIGNANT)
+
+    def _tenter(self, numero):
+        return self.client.post(reverse("comptes:inscription"), {
+            "prenom": "Test", "nom": f"Essai{numero}", "email": "existant-limite@example.com", "telephone": "",
+            "profession": "", "role": "enseignant", "mot_de_passe": "x", "confirmation_mot_de_passe": "x",
+        })
+
+    def test_les_dix_premiers_essais_sont_traites_puis_la_limite_s_applique(self):
+        for numero in range(10):
+            self.assertContains(self._tenter(numero), "Un compte existe déjà avec cet email")
+        onzieme = self._tenter(11)
+        self.assertContains(onzieme, "Trop de tentatives")
+        self.assertNotContains(onzieme, "Un compte existe déjà")  # la limite ne révèle plus rien sur l'existence du compte
+
+    def test_aucun_compte_n_est_cree_une_fois_la_limite_atteinte(self):
+        avant = Utilisateur.objects.count()
+        for numero in range(12):
+            self._tenter(numero)
+        self.assertEqual(Utilisateur.objects.count(), avant)
+
+
+class InscriptionSansTelephoneTests(TestCase):
+    """Le téléphone n'est obligatoire que pour un parent : un enseignant doit pouvoir s'inscrire sans (régression : erreur 500)."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from etablissement.models import Etablissement
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.ecole = Etablissement.objects.create(nom="École sans téléphone")
+        self.client.get(reverse("vitrine:choisir_etablissement", args=[self.ecole.slug]))
+
+    def donnees(self, **extra):
+        base = {
+            "prenom": "Awa", "nom": "Konate", "email": "awa-sans-tel@example.com", "telephone": "", "profession": "",
+            "role": "enseignant", "mot_de_passe": "MotDePasse#2026-Fort", "confirmation_mot_de_passe": "MotDePasse#2026-Fort",
+        }
+        base.update(extra)
+        return base
+
+    def test_enseignant_peut_s_inscrire_sans_telephone(self):
+        reponse = self.client.post(reverse("comptes:inscription"), self.donnees())
+        self.assertEqual(reponse.status_code, 302)
+        compte = Utilisateur.objects.get(email="awa-sans-tel@example.com")
+        self.assertIsNone(compte.telephone)
+
+    def test_deux_comptes_sans_telephone_ne_se_bloquent_pas(self):
+        self.client.post(reverse("comptes:inscription"), self.donnees())
+        reponse = self.client.post(reverse("comptes:inscription"), self.donnees(email="autre-sans-tel@example.com", nom="Autre"))
+        self.assertEqual(reponse.status_code, 302)
+        self.assertEqual(Utilisateur.objects.filter(telephone__isnull=True, role="enseignant").count(), 2)
+
+    def test_telephone_toujours_obligatoire_pour_un_parent(self):
+        reponse = self.client.post(reverse("comptes:inscription"), self.donnees(role="parent", profession="Commerçant"))
+        self.assertEqual(reponse.status_code, 200)
+        self.assertContains(reponse, "obligatoire")
+        self.assertFalse(Utilisateur.objects.filter(email="awa-sans-tel@example.com").exists())
+
+    def test_telephone_deja_utilise_toujours_refuse(self):
+        creer_utilisateur_actif("tel-pris@example.com", Role.PARENT, telephone="70123456", profession="X")
+        reponse = self.client.post(reverse("comptes:inscription"), self.donnees(telephone="70123456"))
+        self.assertContains(reponse, "déjà associé")

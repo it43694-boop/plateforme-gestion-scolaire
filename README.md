@@ -1759,6 +1759,118 @@ certain délai, ou après une réinstallation.
 
 13 tests (identité, manifeste, images, gabarits).
 
+## État du projet : Phase 50 — Statistiques de l'éducation (annuaire statistique du Mali)
+
+Recherche préalable sur les statistiques scolaires du Mali (annuaire de la CPS, « Le Mali en chiffres » de
+l'INSTAT, étude UNICEF/MEN sur l'eau et l'assainissement dans les écoles de 2017, plan décennal PRODEC 2
+2019-2028), puis comparaison avec ce que l'application gérait. **Limite** : l'annuaire de la CPS et son
+questionnaire complet n'ont pas pu être consultés (fichiers inaccessibles). Les rubriques ci-dessous suivent
+les indicateurs publiés et les priorités du plan décennal ; **elles sont à comparer au questionnaire que remet
+l'Académie d'enseignement** avant toute déclaration officielle.
+
+Principe : uniquement des ajouts (champs facultatifs, nouvelles tables, aucune donnée existante modifiée) ;
+tout ce qui est sensible (état civil, handicap, déplacement) reste réservé à l'élève, ses parents et
+l'administration scolaire (`scolarite.models.ROLES_ETAT_CIVIL_ELEVE`) et n'apparaît jamais dans le journal d'audit.
+
+- **Fiche statistique annuelle** (Statistiques > Fiche annuelle, impression, export Excel et export CSV) : effectifs par niveau et par
+  sexe, filles pour 100 garçons, élèves par classe, redoublants, nouveaux inscrits, âge des élèves, enseignants par
+  situation administrative, élèves par enseignant, résultats aux examens, infrastructures. Limitée aux classes visibles
+  (un directeur de cycle ne voit que son cycle). « Inscrits » = toutes les inscriptions de l'année, quel que soit leur
+  statut (une année terminée n'a plus d'élève « en cours »). Redoublants et nouveaux ne sont calculés que si l'année
+  précédente contient des inscriptions. Les taux de scolarisation (brut, net) ne sont pas calculés : ils exigent la
+  population par âge du recensement. Export protégé contre l'injection de formule (cellule commençant par `=`, `+`,
+  `-`, `@`).
+- **Résultats aux examens** : certificat d'entrée en 7ème année, DEF, Bac (par série), CAP et BT (par domaine). Saisie par
+  classe (direction et secrétariat), taux de réussite sur les présents (les absents n'y comptent pas), visible dans
+  le dossier de l'élève. Un examen n'est proposé que pour le cycle correspondant ; une classe CAP ne passe pas le BT.
+- **Fiche d'infrastructures** (une par école et par année, modifiée par la direction générale seulement) : salles de
+  classe (bon état, matériaux provisoires), places assises, points d'eau, latrines, lavage des mains, électricité,
+  manuels, cantine ; ratios (élèves par salle, manuels par élève, objectif PRODEC 2 : un par élève) masqués aux directeurs
+  de cycle, car ils portent sur toute l'école.
+- **Élèves** : situation de handicap et situation de déplacement (déplacé interne, réfugié), à l'inscription et dans
+  l'espace développeur.
+- **Personnel** : « fonctionnaire des collectivités territoriales » (quatrième catégorie du PRODEC 2), formation
+  pédagogique (formé, en formation, non formé), date de prise de service, heures d'enseignement par semaine.
+- **Préscolaire** : nouveau cycle (petite, moyenne, grande section), activable par le propriétaire de la plateforme comme
+  l'enseignement professionnel (case « Préscolaire »), ou formule « Préscolaire seul ». Les écoles existantes ne
+  changent pas.
+- **Situation de l'école** : ouvert, fermé temporairement ou relocalisé, avec motif (insécurité...) et date. Descriptif :
+  elle n'empêche aucune connexion (seule la désactivation par la plateforme le fait).
+- **Domaine CAP/BT** : industriel ou tertiaire, facultatif (les statistiques officielles les séparent).
+
+Également : un identifiant d'année non numérique dans l'adresse des statistiques renvoie une page introuvable (et non
+plus une erreur serveur) ; le test d'isolation entre écoles couvre les nouvelles données.
+
+Migrations (toutes additives, aucune opération destructive) : `comptes/0018`, `etablissement/0013`, `scolarite/0022`.
+Non fait / à vérifier : le questionnaire officiel de la CPS ; la durée du BT (les sources divergent : l'application
+indique 4 ans, une source indique 2 ans après le CAP) ; les listes de types de handicap à confirmer avec le
+questionnaire officiel ; un identifiant national d'élève (aucune source consultée n'en mentionne).
+
+Tests : 81 nouveaux (calculs vérifiés à la main, cloisonnement, droits, export, formulaires, interface).
+
+## État du projet : Phase 51 — Audit de fuites (données de l'éducation, existence entre écoles, Sentry)
+
+Audit demandé après l'ajout des statistiques de l'éducation. Nouveaux tests : `statistiques/test_fuites_education.py`
+(matrice des 17 rôles sur le dossier d'un élève, pages publiques, points JSON, exports, journal d'audit, Assistant) et un
+test d'isolation dans `comptes/test_isolation_complete.py`.
+
+**Corrigé :**
+- **Existence d'un élève ou d'un compte d'une autre école devinable.** Pour un matricule d'une autre école, ces adresses
+  répondaient « interdit » (403) alors qu'un matricule inexistant répondait « introuvable » (404) : on pouvait donc tester
+  quels matricules existent ailleurs. Concernait le dossier, l'attestation, la clôture d'inscription, le bulletin (page et
+  PDF), l'historique d'absences, la messagerie, l'Assistant (message différent) et la remise d'un mot de passe provisoire.
+  Désormais `scolarite.models.eleve_de_l_etablissement_ou_404` : même réponse qu'un objet inexistant. Le test compare, pour
+  chaque rôle et chaque adresse (GET et POST), la réponse pour un objet de l'autre école et pour un objet inexistant.
+- **Sentry joignait aux erreurs les champs du formulaire reçu** (noms, naissance, handicap, email du parent), même sans
+  données personnelles activées : `max_request_body_size="never"` et `send_default_pii=False`.
+- **Inscription publique sans limite de débit** : on pouvait tester en masse quels emails et quels téléphones de parents
+  sont inscrits. Limite de 10 essais par minute et par adresse IP (`LimiteInscriptionTests`).
+- **Bogue existant** trouvé en passant : s'inscrire comme enseignant ou membre du personnel **sans téléphone** provoquait
+  une erreur serveur (500). Corrigé (`InscriptionSansTelephoneTests`).
+
+**Vérifié sans problème** : aucun secret ni fichier de données dans l'historique Git ; les nouvelles données (handicap,
+déplacement, résultats d'examen) ne sont visibles que de l'élève, de ses parents et de l'administration, ne sont jamais
+dans le journal d'audit ni dans ce que l'Assistant envoie à l'IA ; les vérifications publiques par QR code n'exposent
+qu'une liste fixe de champs.
+
+**Corrigé ensuite, à la demande « je ne veux pas de fuite de données » (`comptes/test_fuites_externes.py`,
+`assistant/test_anonymisation.py`) :**
+- **Médias en liens signés temporaires.** `config/settings.py` ne contient plus l'identifiant du projet Supabase ni le
+  chemin du bucket public (le dépôt est public). Les fichiers (logos, documents, justificatifs de transfert) sont servis
+  par des liens signés valables 1 h (`AWS_QUERYSTRING_EXPIRE`, signature V4). Le domaine public n'est utilisé que si
+  `AWS_S3_CUSTOM_DOMAIN` est défini : **le laisser vide**.
+- **L'Assistant n'envoie plus à l'IA (Groq, États-Unis) le nom, le matricule ni la référence des reçus** de l'élève
+  interrogé. La question tapée est nettoyée avant l'envoi : nom et prénom de l'élève (avec ou sans accents), adresses
+  email et longs numéros (matricule, téléphone) sont remplacés. L'écran prévient de ne pas taper le nom d'une personne :
+  un nom tapé qui n'est pas celui de l'élève ne peut pas être deviné.
+- **Assistant : un matricule d'une autre école** répond « introuvable », comme un matricule inexistant.
+- **`docker-compose.yml`** n'écrit plus de mot de passe de base de données : `POSTGRES_PASSWORD` est obligatoire (dans
+  `.env`), et la base et Redis ne sont pas publiés hors de la machine.
+- Les prochains commits portent l'adresse `…@users.noreply.github.com` au lieu de l'email personnel.
+
+**À faire de votre côté (non réalisable par le code) :**
+- **Rendre le bucket Supabase `medias` privé, APRÈS le déploiement** de cette version (sinon les logos et documents
+  existants s'afficheraient cassés), puis vérifier un logo, une attestation et un bulletin PDF. Les fichiers téléversés
+  avant la Phase 46 ont des noms prévisibles : tant que le bucket est public, ils restent lisibles par quiconque.
+- **Dépôt GitHub public** : les anciens commits portent toujours l'email personnel de l'auteur, et l'identifiant du
+  projet Supabase reste dans l'historique. Passer le dépôt en privé règle les deux ; la réécriture de l'historique
+  (force-push) n'a pas été faite. Dans GitHub : Settings → Emails → « Keep my email addresses private » et « Block
+  command line pushes that expose my email ».
+- Les données quittent le Mali (Render, Supabase, Sentry, Brevo, Groq) : la loi malienne de protection des données
+  personnelles (2013) impose des conditions pour les transferts à l'étranger ; à faire vérifier par un juriste.
+- Le journal d'audit de l'inscription d'un élève note « nom (matricule) » (volontaire, comportement existant ; ce journal
+  reste interne, il n'est envoyé à aucun service externe).
+
+### Export Excel de la fiche annuelle
+
+« Exporter en Excel » (`statistiques/fiche-annuelle.xlsx`, `statistiques/excel.py`) produit un classeur `.xlsx` au même
+contenu que le CSV : les deux exports partent des mêmes lignes (`fiche.lignes_csv`), donc les rubriques réservées à
+l'administration et la limite de cycle d'un directeur s'appliquent identiquement. Les chiffres sont de vrais nombres
+(sommables dans Excel), les titres et en-têtes sont mis en forme, l'impression est en paysage sur une page de large. Un
+nom d'école commençant par `=` reste du texte (jamais une formule). Chaque export est noté dans le journal d'audit
+(`export_fiche_statistique_annuelle`, format `xlsx`). Le format reste celui d'une fiche de travail, pas celui du
+questionnaire officiel de la CPS.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

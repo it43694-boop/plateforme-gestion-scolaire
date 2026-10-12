@@ -12,6 +12,7 @@ from permissions_matrix.modules import Module
 from scolarite.models import Inscription, dossier_complet, eleve_visible_pour
 from assistant.services import (
     AssistantIndisponible,
+    anonymiser_question,
     ia_disponible,
     repondre_avec_ia,
     repondre_question_generale_avec_ia,
@@ -180,18 +181,21 @@ def poser_question(request):
                     if creneaux_personnels:
                         donnees_autorisees["mon_emploi_du_temps"] = creneaux_personnels
                     reponse_ia = repondre_question_generale_avec_ia(
-                        donnees_autorisees=donnees_autorisees, question=question_libre,
+                        donnees_autorisees=donnees_autorisees, question=anonymiser_question(question_libre),
                     )
                     enregistrer_action(
                         acteur=request.user, action="question_assistant_ia_generale",
                         cible=getattr(request.user.etablissement, "nom", ""),
-                        details={"question": question_libre}, request=request,
+                        request=request,
                     )
                 except AssistantIndisponible:
                     erreur_ia = "L'assistant IA est momentanément indisponible. Les données ci-dessous restent à jour."
 
     if matricule:
-        eleve = Utilisateur.objects.filter(matricule=matricule, role=Role.ELEVE).first()
+        # Limité à l'école de l'utilisateur : « aucun élève » et « élève d'une autre école » doivent se confondre.
+        eleve = Utilisateur.objects.filter(
+            matricule=matricule, role=Role.ELEVE, etablissement_id=request.user.etablissement_id,
+        ).first()
         if not eleve:
             erreur = "Aucun élève trouvé avec ce matricule."
         elif not eleve_visible_pour(request.user, eleve):
@@ -222,11 +226,12 @@ def poser_question(request):
                 else:
                     try:
                         reponse_ia = repondre_avec_ia(
-                            donnees_autorisees=serialiser_resultat(resultat), question=question_libre,
+                            donnees_autorisees=serialiser_resultat(resultat),
+                            question=anonymiser_question(question_libre, noms=[eleve.prenom, eleve.nom]),
                         )
                         enregistrer_action(
                             acteur=request.user, action="question_assistant_ia",
-                            cible=eleve.matricule, details={"question": question_libre}, request=request,
+                            cible=eleve.matricule, request=request,
                         )
                     except AssistantIndisponible:
                         erreur_ia = "L'assistant IA est momentanément indisponible. Les données ci-dessous restent à jour."

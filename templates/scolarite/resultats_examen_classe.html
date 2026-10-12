@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Résultats d'examen - {{ classe.nom }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "eleves" 24 %}</div>
+        <div><h1>Résultats d'examen</h1><p>{{ classe.nom }} - {{ classe.annee_scolaire.libelle }}</p></div>
+    </div>
+    <a href="{% url 'scolarite:liste_classes' %}" class="btn btn-outline-secondary btn-sm">Retour aux classes</a>
+</div>
+
+{% if examens|length > 1 %}
+<div class="d-flex gap-2 mb-3">
+    {% for valeur, libelle in examens %}
+    <a href="?examen={{ valeur }}" class="btn btn-sm {% if valeur == examen %}btn-primary{% else %}btn-outline-secondary{% endif %}">{{ libelle }}</a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body">
+        <h2 class="titre-section">{{ libelle_examen }}</h2>
+        {% if lignes %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="examen" value="{{ examen }}">
+            <table class="table">
+                <thead><tr><th>Élève</th><th>Matricule</th><th>Résultat</th></tr></thead>
+                <tbody>
+                    {% for ligne in lignes %}
+                    <tr>
+                        <td>{{ ligne.inscription.eleve.nom_complet }}</td>
+                        <td>{{ ligne.inscription.eleve.matricule }}</td>
+                        <td>
+                            <select name="resultat_{{ ligne.inscription.id }}" class="form-select form-select-sm">
+                                <option value="" {% if not ligne.resultat %}selected{% endif %}>— Non renseigné —</option>
+                                {% for valeur, libelle in choix %}
+                                <option value="{{ valeur }}" {% if ligne.resultat == valeur %}selected{% endif %}>{{ libelle }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button type="submit" class="btn btn-primary mt-2">Enregistrer les résultats</button>
+        </form>
+        <p class="texte-note mt-3">
+            Choisir « Non renseigné » efface un résultat déjà saisi. Les élèves qui ont quitté l'établissement
+            (abandon ou transfert) ne figurent pas dans la liste. Le taux de réussite est calculé sur les élèves
+            présents (admis et ajournés) : les absents n'y comptent pas.
+        </p>
+        {% else %}
+        <div class="etat-vide"><p>Aucun élève inscrit dans cette classe.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

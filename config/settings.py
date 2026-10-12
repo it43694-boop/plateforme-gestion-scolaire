@@ -49,6 +49,10 @@ DEBUG = env.bool("DEBUG", default=False)
 if not DEBUG and (not SECRET_KEY or SECRET_KEY == "django-insecure-CHANGE-ME-EN-PRODUCTION"):
     raise RuntimeError("DJANGO_SECRET_KEY doit être définie avec une valeur aléatoire en production.")
 
+# Pas de "testserver" ici : le lanceur de tests de Django l'ajoute lui-même, le temps des tests
+# (django.test.utils.setup_test_environment). L'écrire dans les réglages l'accepterait aussi en
+# production, alors que les liens de réinitialisation de mot de passe sont construits à partir de
+# l'hôte de la requête.
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
@@ -221,8 +225,16 @@ if AWS_STORAGE_BUCKET_NAME and not DEBUG:
                 # celui d'une autre école) : on ne le veut jamais, voir comptes.uploads.
                 "file_overwrite": False,
                 "addressing_style": "path",
-                "custom_domain": "jladyhlthlyvqkvzjuyi.supabase.co/storage/v1/object/public/medias",
+                # Supabase exige la signature V4 pour les liens signés.
+                "signature_version": "s3v4",
+                # Les médias (logos, documents, justificatifs de transfert) sont servis par des LIENS SIGNÉS
+                # TEMPORAIRES : le bucket doit être PRIVÉ. Un domaine public n'est utilisé que si
+                # AWS_S3_CUSTOM_DOMAIN est défini explicitement (ancien fonctionnement, bucket public : tout
+                # fichier devient lisible par quiconque connaît son adresse). Aucun identifiant de projet n'est
+                # écrit ici : ce dépôt est public.
+                "custom_domain": env("AWS_S3_CUSTOM_DOMAIN", default="") or None,
                 "querystring_auth": env.bool("AWS_QUERYSTRING_AUTH", default=True),
+                "querystring_expire": env.int("AWS_QUERYSTRING_EXPIRE", default=3600),
             },
         },
         "staticfiles": {
@@ -317,6 +329,10 @@ if SENTRY_DSN:
         sentry_sdk.init(
             dsn=SENTRY_DSN, traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.1),
             include_local_variables=False,
+            # Par défaut Sentry joint aussi à chaque erreur les CHAMPS DU FORMULAIRE reçu (noms, dates de naissance,
+            # handicap, email du parent...), même quand send_default_pii est désactivé : on n'en joint jamais.
+            max_request_body_size="never",
+            send_default_pii=False,
         )
     except ImportError as erreur:
         raise RuntimeError("SENTRY_DSN est défini mais sentry-sdk n'est pas installé.") from erreur

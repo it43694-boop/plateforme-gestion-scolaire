@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Équipes pédagogiques{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "ressources" 24 %}</div>
+        <div><h1>Équipes pédagogiques</h1></div>
+    </div>
+    <a href="{% url 'communication:liste_annonces' %}" class="btn btn-outline-secondary btn-sm">Retour</a>
+</div>
+{% if aucun_fil %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Aucune équipe disponible pour vos affectations de l'année active.</p></div></div></div>
+{% else %}
+{% for titre, entrees in groupes %}
+{% if entrees %}
+<h2 class="h6 mt-3">{{ titre }}</h2>
+<div class="card mb-3"><div class="card-body">
+    {% for entree in entrees %}
+    <a href="{% url 'communication:fil_equipe' entree.fil.id %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center conversation-lien">
+        <div>
+            <strong>{{ entree.fil.libelle }}</strong>
+            <div class="texte-secondaire">{% if entree.dernier_message %}{{ entree.dernier_message.auteur.nom_complet|default:"Ancien membre" }} : {{ entree.dernier_message.contenu|truncatechars:80 }}{% else %}Aucun message pour le moment.{% endif %}</div>
+        </div>
+        <div class="text-end">
+            {% if entree.dernier_message %}<div class="mini-stat-label">{{ entree.dernier_message.envoye_le|date:"d/m H:i" }}</div>{% endif %}
+            <span class="badge bg-secondary">{{ entree.nombre }}</span>
+        </div>
+    </a>
+    {% endfor %}
+</div></div>
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endblock %}

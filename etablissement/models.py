@@ -30,6 +30,34 @@ class PlanEtablissement(models.TextChoices):
     TOUS_CYCLES = "tous_cycles", "Tous les cycles (1er, 2ème, Lycée)"
     LYCEE_SEUL = "lycee_seul", "Lycée seul"
     PROFESSIONNEL_SEUL = "professionnel_seul", "Enseignement professionnel seul"
+    PRESCOLAIRE_SEUL = "prescolaire_seul", "Préscolaire seul"
+
+
+class SituationFonctionnement(models.TextChoices):
+    """Situation réelle de l'école sur le terrain, indépendante du compte (Etablissement.actif)."""
+    OUVERT = "ouvert", "Ouvert"
+    FERME = "ferme", "Fermé temporairement"
+    RELOCALISE = "relocalise", "Relocalisé"
+
+
+class MotifFermeture(models.TextChoices):
+    INSECURITE = "insecurite", "Insécurité"
+    INFRASTRUCTURE = "infrastructure", "Bâtiments endommagés ou inutilisables"
+    ENSEIGNANTS = "enseignants", "Absence d'enseignants"
+    AUTRE = "autre", "Autre motif"
+
+
+class StatutEtablissement(models.TextChoices):
+    PUBLIC = "public", "Public"
+    COMMUNAUTAIRE = "communautaire", "Communautaire"
+    PRIVE_LAIC = "prive_laic", "Privé laïc"
+    PRIVE_CONFESSIONNEL = "prive_confessionnel", "Privé confessionnel"
+    MEDERSA = "medersa", "Médersa (franco-arabe)"
+
+
+class MilieuEtablissement(models.TextChoices):
+    URBAIN = "urbain", "Urbain"
+    RURAL = "rural", "Rural"
 
 
 class Etablissement(models.Model):
@@ -96,6 +124,42 @@ class Etablissement(models.Model):
                    "établissement peut donc le cumuler avec n'importe quelle formule. Modifiable uniquement "
                    "depuis l'espace plateforme, comme la formule.",
     )
+    inclut_prescolaire = models.BooleanField(
+        "inclut le préscolaire (jardin d'enfants)", default=False,
+        help_text="Réglage indépendant de la formule, comme l'enseignement professionnel : le préscolaire "
+                   "précède le 1er cycle et peut se cumuler avec n'importe quelle formule. Modifiable "
+                   "uniquement depuis l'espace plateforme.",
+    )
+
+    situation_fonctionnement = models.CharField(
+        "situation de l'école", max_length=12, choices=SituationFonctionnement.choices,
+        default=SituationFonctionnement.OUVERT,
+        help_text="Descriptif (statistiques scolaires) : n'a aucun effet sur la connexion des comptes, qui "
+                   "dépend uniquement de l'activation de l'établissement par l'espace plateforme.",
+    )
+    motif_fermeture = models.CharField(
+        "motif de fermeture ou de relocalisation", max_length=20, choices=MotifFermeture.choices, blank=True,
+    )
+    date_situation = models.DateField(
+        "depuis le", null=True, blank=True, help_text="Date de fermeture ou de relocalisation.",
+    )
+
+    code_etablissement = models.CharField(
+        "code d'établissement", max_length=30, blank=True,
+        help_text="Code officiel attribué par l'administration (recensement scolaire), s'il existe.",
+    )
+    statut_juridique = models.CharField(
+        "statut", max_length=30, choices=StatutEtablissement.choices, blank=True,
+        help_text="Public, communautaire, privé, médersa. À confirmer avec le questionnaire officiel.",
+    )
+    region = models.CharField("région", max_length=100, blank=True)
+    cercle = models.CharField("cercle", max_length=100, blank=True)
+    commune = models.CharField("commune", max_length=100, blank=True)
+    milieu = models.CharField("milieu", max_length=10, choices=MilieuEtablissement.choices, blank=True)
+    rattachement_administratif = models.CharField(
+        "académie d'enseignement / CAP de rattachement", max_length=150, blank=True,
+    )
+    numero_agrement = models.CharField("n° d'autorisation ou d'agrément", max_length=60, blank=True)
 
     # Taux de cotisations sociales maliennes (INPS, AMO/CANAM), utilisés par
     # le bulletin de paie détaillé (finances.models.creer_bulletin_paie).
@@ -134,6 +198,14 @@ class Etablissement(models.Model):
 
     def __str__(self):
         return self.nom
+
+    def clean(self):
+        super().clean()
+        # Une école ouverte n'a ni motif de fermeture ni date : on les efface plutôt que de les garder
+        # comme restes d'une fermeture passée.
+        if self.situation_fonctionnement == SituationFonctionnement.OUVERT:
+            self.motif_fermeture = ""
+            self.date_situation = None
 
     def save(self, *args, **kwargs):
         if not self.slug:

@@ -28,6 +28,18 @@
                        class="nav-lien-stats{% if actif == 'finances' %} actif{% endif %}">
                         Finances
                     </a>
+                    <a href="{% url 'statistiques:fiche_annuelle' %}?annee={{ annee.id }}"
+                       class="nav-lien-stats{% if actif == 'fiche' %} actif{% endif %}">
+                        Fiche annuelle
+                    </a>
+                    <a href="{% url 'statistiques:resultats_examens' %}?annee={{ annee.id }}"
+                       class="nav-lien-stats{% if actif == 'examens' %} actif{% endif %}">
+                        Résultats aux examens
+                    </a>
+                    <a href="{% url 'statistiques:infrastructures' %}?annee={{ annee.id }}"
+                       class="nav-lien-stats{% if actif == 'infrastructures' %} actif{% endif %}">
+                        Infrastructures
+                    </a>
                 </div>
             </div>
         </div>

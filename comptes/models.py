@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -40,6 +41,48 @@ def _hacheur_code_secours():
 class Sexe(models.TextChoices):
     MASCULIN = "M", "Masculin"
     FEMININ = "F", "Féminin"
+
+
+class StatutPersonnel(models.TextChoices):
+    """
+    Situation administrative d'un membre du personnel scolaire. Les quatre premières valeurs
+    reprennent les catégories du plan décennal PRODEC 2 (fonctionnaire ou contractuel, de l'État ou
+    d'une collectivité territoriale) ; le plan prévoit à terme de recruter les enseignants
+    uniquement au niveau des collectivités, d'où « fonctionnaire des collectivités ».
+    """
+    FONCTIONNAIRE = "fonctionnaire", "Fonctionnaire de l'État"
+    FONCTIONNAIRE_COLLECTIVITE = "fonctionnaire_collectivite", "Fonctionnaire des collectivités territoriales"
+    CONTRACTUEL_ETAT = "contractuel_etat", "Contractuel de l'État"
+    CONTRACTUEL_COLLECTIVITE = "contractuel_collectivite", "Contractuel de collectivité"
+    PERSONNEL_ECOLE = "personnel_ecole", "Recruté par l'établissement"
+    VOLONTAIRE = "volontaire", "Volontaire / vacataire"
+
+
+class FormationPedagogique(models.TextChoices):
+    """Formation pédagogique initiale d'un enseignant (indicateur « enseignants qualifiés »)."""
+    FORME = "forme", "Formé (école normale, IFM, ENSup...)"
+    EN_COURS = "en_cours", "En formation"
+    NON_FORME = "non_forme", "Non formé"
+
+
+class SituationHandicap(models.TextChoices):
+    """
+    Nature du handicap d'un élève (éducation inclusive, priorité du plan décennal PRODEC 2). Liste
+    à confirmer avec le questionnaire officiel de la CPS ; donnée sensible, voir
+    scolarite.models.peut_voir_etat_civil_eleve.
+    """
+    MOTEUR = "moteur", "Handicap moteur"
+    VISUEL = "visuel", "Handicap visuel"
+    AUDITIF = "auditif", "Handicap auditif ou de la parole"
+    INTELLECTUEL = "intellectuel", "Handicap intellectuel ou difficultés d'apprentissage"
+    MULTIPLE = "multiple", "Handicaps multiples"
+    AUTRE = "autre", "Autre handicap"
+
+
+class StatutDeplacement(models.TextChoices):
+    """Situation de déplacement d'un élève (insécurité) ; donnée sensible, comme l'état civil."""
+    DEPLACE_INTERNE = "deplace_interne", "Déplacé interne"
+    REFUGIE = "refugie", "Réfugié"
 
 
 class UtilisateurManager(BaseUserManager):
@@ -141,6 +184,18 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
         "téléphone", max_length=20, unique=True, null=True, blank=True,
     )
     profession = models.CharField("profession", max_length=150, blank=True)
+    statut_personnel = models.CharField(
+        "situation administrative", max_length=30, choices=StatutPersonnel.choices, blank=True,
+    )
+    diplome = models.CharField("diplôme le plus élevé", max_length=120, blank=True)
+    discipline = models.CharField("discipline enseignée", max_length=100, blank=True)
+    formation_pedagogique = models.CharField(
+        "formation pédagogique", max_length=12, choices=FormationPedagogique.choices, blank=True,
+    )
+    date_prise_service = models.DateField("date de prise de service", null=True, blank=True)
+    heures_hebdomadaires = models.PositiveSmallIntegerField(
+        "heures d'enseignement par semaine", null=True, blank=True, validators=[MaxValueValidator(60)],
+    )
     sexe = models.CharField(
         "sexe", max_length=1, choices=Sexe.choices, null=True, blank=True,
         help_text="Utilisé pour les statistiques par sexe (effectifs, taux de réussite).",
@@ -157,6 +212,18 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
         "matricule", max_length=20, unique=True, null=True, blank=True,
     )
     date_naissance = models.DateField("date de naissance", null=True, blank=True)
+    lieu_naissance = models.CharField("lieu de naissance", max_length=120, blank=True)
+    numero_acte_naissance = models.CharField(
+        "n° d'extrait d'acte de naissance", max_length=60, blank=True,
+    )
+    handicap = models.CharField(
+        "situation de handicap", max_length=20, choices=SituationHandicap.choices, blank=True,
+        help_text="Laisser vide si l'élève n'est pas en situation de handicap.",
+    )
+    statut_deplacement = models.CharField(
+        "situation de déplacement", max_length=20, choices=StatutDeplacement.choices, blank=True,
+        help_text="Laisser vide si l'élève n'est ni déplacé ni réfugié.",
+    )
     parents_lies = models.ManyToManyField(
         "self", symmetrical=False, related_name="enfants_lies",
         limit_choices_to={"role": Role.PARENT}, blank=True,
@@ -436,3 +503,11 @@ class Notification(models.Model):
 
     class Meta:
         ordering = ["-cree_le"]
+
+
+def notifications_visibles_pour(utilisateur):
+    """Notifications personnelles limitées à l'établissement courant du compte."""
+    notifications = Notification.objects.filter(destinataire=utilisateur)
+    return notifications.filter(
+        models.Q(etablissement_id=utilisateur.etablissement_id) | models.Q(etablissement__isnull=True),
+    )

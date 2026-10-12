@@ -56,8 +56,8 @@ def navigation(request):
     if est_proprietaire_sans_etablissement(request.user):
         # Aucune école : seuls le compte personnel et la gestion des
         # établissements ont un sens (voir ProprietairePlateformeMiddleware).
-        from comptes.models import Notification
-        non_lues = Notification.objects.filter(destinataire=request.user, lue_le__isnull=True).count()
+        from comptes.models import notifications_visibles_pour
+        non_lues = notifications_visibles_pour(request.user).filter(lue_le__isnull=True).count()
         return {
             "sections_navigation": [
                 {"titre": "Compte", "icone": "compte", "liens": [{
@@ -75,10 +75,8 @@ def navigation(request):
     role = request.user.role
 
     sections = []
-    from comptes.models import Notification
-    notifications_non_lues = Notification.objects.filter(
-        destinataire=request.user, lue_le__isnull=True,
-    ).count()
+    from comptes.models import notifications_visibles_pour
+    notifications_non_lues = notifications_visibles_pour(request.user).filter(lue_le__isnull=True).count()
 
     eleves_classes = []
     if "eleves" in modules_autorises:

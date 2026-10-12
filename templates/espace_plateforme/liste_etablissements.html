@@ -12,11 +12,21 @@
     <div class="card-body">
         {% if etablissements %}
         <table class="table">
-            <thead><tr><th>Nom</th><th>Comptes</th><th>Statut</th><th>Formule</th><th>Professionnel</th><th>Visible dans l'annuaire</th><th></th></tr></thead>
+            <thead><tr><th>Nom</th><th>Comptes</th><th>Statut</th><th>Formule</th><th>Professionnel</th><th>Préscolaire</th><th>Visible dans l'annuaire</th><th></th></tr></thead>
             <tbody>
                 {% for etablissement in etablissements %}
                 <tr>
-                    <td>{{ etablissement.nom }}</td>
+                    <td>
+                        {{ etablissement.nom }}
+                        {% if etablissement.code_etablissement %}
+                        <div class="small text-muted">Code {{ etablissement.code_etablissement }}
+                            {% if etablissement.code_en_double %}<span class="badge bg-warning text-dark">Code en double</span>{% endif %}
+                        </div>
+                        {% endif %}
+                        {% if etablissement.situation_fonctionnement != "ouvert" %}
+                        <div><span class="badge bg-warning text-dark">École {{ etablissement.get_situation_fonctionnement_display|lower }}</span></div>
+                        {% endif %}
+                    </td>
                     <td class="montant-val">{{ etablissement.nb_comptes }}</td>
                     <td>
                         <span class="badge {% if etablissement.actif %}bg-success{% else %}bg-danger{% endif %}">
@@ -32,6 +42,7 @@
                                 {% endfor %}
                             </select>
                             <input type="hidden" name="inclut_professionnel" value="{{ etablissement.inclut_professionnel|yesno:"True," }}">
+                            <input type="hidden" name="inclut_prescolaire" value="{{ etablissement.inclut_prescolaire|yesno:"True," }}">
                         </form>
                     </td>
                     <td>
@@ -41,9 +52,25 @@
                         <form method="post" action="{% url 'espace_plateforme:modifier_plan' etablissement.id %}" class="d-inline">
                             {% csrf_token %}
                             <input type="hidden" name="plan" value="{{ etablissement.plan }}">
+                            <input type="hidden" name="inclut_prescolaire" value="{{ etablissement.inclut_prescolaire|yesno:"True," }}">
                             <div class="form-check form-switch">
                                 <input type="checkbox" class="form-check-input" name="inclut_professionnel" value="True"
                                        {% if etablissement.inclut_professionnel %}checked{% endif %} data-auto-submit>
+                            </div>
+                        </form>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if etablissement.plan == "prescolaire_seul" %}
+                        <span class="text-muted small">Inclus dans la formule</span>
+                        {% else %}
+                        <form method="post" action="{% url 'espace_plateforme:modifier_plan' etablissement.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="plan" value="{{ etablissement.plan }}">
+                            <input type="hidden" name="inclut_professionnel" value="{{ etablissement.inclut_professionnel|yesno:"True," }}">
+                            <div class="form-check form-switch">
+                                <input type="checkbox" class="form-check-input" name="inclut_prescolaire" value="True"
+                                       {% if etablissement.inclut_prescolaire %}checked{% endif %} data-auto-submit>
                             </div>
                         </form>
                         {% endif %}

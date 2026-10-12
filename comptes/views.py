@@ -19,7 +19,7 @@ from comptes.forms import (
     ChangerEmailForm, ChangerMotDePasseForm, ConnexionForm, DefinirNouveauMotDePasseForm, InscriptionForm,
     MotDePasseOublieForm, VerificationEmailForm,
 )
-from comptes.models import CodeVerificationEmail, Notification, Utilisateur
+from comptes.models import CodeVerificationEmail, Notification, Utilisateur, notifications_visibles_pour
 from comptes.roles import ROLES_VALIDATION_COMPTES, Role, StatutCompte
 
 
@@ -63,11 +63,17 @@ def _resoudre_etablissement_inscription(request):
     return None
 
 
+@ratelimit(key="ip", rate="10/m", method="POST", block=False)
 def inscription(request):
     etablissement = _resoudre_etablissement_inscription(request)
     if etablissement is None:
         messages.warning(request, "Choisissez d'abord votre établissement pour vous inscrire.")
         return redirect("vitrine:accueil")
+    if getattr(request, "limited", False):
+        # Sans limite, ce formulaire public permet de tester en masse quels emails et quels numéros de téléphone
+        # (parents) sont déjà inscrits : « Un compte existe déjà avec cet email ».
+        messages.error(request, "Trop de tentatives depuis cette adresse. Réessayez dans une minute.")
+        return render(request, "comptes/inscription.html", {"formulaire": InscriptionForm(), "etablissement": etablissement})
 
     if request.method == "POST":
         formulaire = InscriptionForm(request.POST)
@@ -405,9 +411,7 @@ def redirection_tableau_de_bord(request):
     return render(request, "comptes/tableau_de_bord.html", {
         "modules": modules, "indicateurs": indicateurs, "actions_rapides": actions_rapides,
         "alertes": alertes, "synthese_alertes": synthese_alertes,
-        "notifications": Notification.objects.filter(
-            destinataire=request.user, lue_le__isnull=True,
-        )[:5],
+        "notifications": notifications_visibles_pour(request.user).filter(lue_le__isnull=True)[:5],
     })
 
 
@@ -508,7 +512,7 @@ def portail_parent(request):
 @login_required
 def liste_notifications(request):
     from django.core.paginator import Paginator
-    notifications = Notification.objects.filter(destinataire=request.user)
+    notifications = notifications_visibles_pour(request.user)
     page_obj = Paginator(notifications, 25).get_page(request.GET.get("page"))
     return render(request, "comptes/notifications.html", {"page_obj": page_obj, "notifications": page_obj.object_list})
 
@@ -516,14 +520,14 @@ def liste_notifications(request):
 @login_required
 @require_http_methods(["POST"])
 def marquer_notifications_lues(request):
-    Notification.objects.filter(destinataire=request.user, lue_le__isnull=True).update(lue_le=timezone.now())
+    notifications_visibles_pour(request.user).filter(lue_le__isnull=True).update(lue_le=timezone.now())
     return redirect("comptes:liste_notifications")
 
 
 @login_required
 @require_http_methods(["POST"])
 def marquer_notification_lue(request, notification_id):
-    notification = get_object_or_404(Notification, pk=notification_id, destinataire=request.user)
+    notification = get_object_or_404(notifications_visibles_pour(request.user), pk=notification_id)
     notification.lue_le = timezone.now()
     notification.save(update_fields=["lue_le"])
     return redirect(notification.url or "comptes:liste_notifications")

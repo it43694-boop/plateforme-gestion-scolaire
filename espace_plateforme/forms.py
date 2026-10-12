@@ -16,7 +16,7 @@ class ModifierPlanEtablissementForm(BootstrapFormMixin, forms.ModelForm):
 
     class Meta:
         model = Etablissement
-        fields = ["plan", "inclut_professionnel"]
+        fields = ["plan", "inclut_professionnel", "inclut_prescolaire"]
 
 
 class CreerEtablissementForm(BootstrapFormMixin, forms.Form):

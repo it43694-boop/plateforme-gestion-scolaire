@@ -1,20 +1,40 @@
 import csv
+import re
 
+from django.contrib import messages
+from django.core.exceptions import PermissionDenied
+from django.db import IntegrityError
 from django.db.models import Count, Q, Sum
-from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.http import Http404, HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
+from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
-from comptes.roles import Role
+from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
 from finances.models import Paiement, TypeTranche
 from pedagogie.models import Note
 from permissions_matrix.modules import Module
-from scolarite.models import AnneeScolaire, Classe, Inscription, classes_visibles_pour
+from scolarite.models import (
+    AnneeScolaire, Classe, Examen, FicheInfrastructure, Inscription, ResultatExamen, classes_visibles_pour,
+    examens_pour_classe,
+)
+from statistiques.fiche import (
+    cellule_csv, construire_fiche, infrastructures_avec_ratios, lignes_csv, statistiques_examens,
+)
+from statistiques.excel import TYPE_MIME_XLSX, classeur_fiche
+from statistiques.forms import FicheInfrastructureForm
+
+# La fiche d'infrastructures concerne toute l'école, pas un cycle : seuls la direction générale et le super
+# administrateur la modifient (les directeurs de cycle la consultent).
+ROLES_EDITION_INFRASTRUCTURE = {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL} | {Role.SUPER_ADMINISTRATEUR.value}
 
 
 def _annee_selectionnee(request):
     annee_id = request.GET.get("annee")
     if annee_id:
+        if not annee_id.isdigit():  # un identifiant non numérique est une page introuvable, pas une erreur serveur
+            raise Http404("Année scolaire introuvable.")
         return get_object_or_404(AnneeScolaire, id=annee_id, etablissement=request.user.etablissement)
     return (
         AnneeScolaire.active(request.user.etablissement)
@@ -161,3 +181,115 @@ def exporter_finances_csv(request):
         total_general += total
     writer.writerow(["Total général", total_general])
     return reponse
+
+
+def _contexte_annee(request, annee, actif):
+    """Contexte commun de la barre latérale des statistiques (année choisie, classes visibles)."""
+    classes = classes_visibles_pour(request.user).filter(annee_scolaire=annee) if annee else Classe.objects.none()
+    return {
+        "annee": annee, "toutes_annees": AnneeScolaire.objects.filter(etablissement=request.user.etablissement),
+        "classes": classes, "actif": actif,
+    }
+
+
+@module_requis(Module.STATISTIQUES)
+def fiche_annuelle(request):
+    annee = _annee_selectionnee(request)
+    contexte = _contexte_annee(request, annee, "fiche")
+    contexte["fiche"] = construire_fiche(request.user, annee) if annee else None
+    return render(request, "statistiques/fiche_annuelle.html", contexte)
+
+
+def _fiche_a_exporter(request):
+    """(fiche, nom de fichier sans extension) de l'année demandée, limitée à ce que l'utilisateur peut voir."""
+    annee = _annee_selectionnee(request)
+    if annee is None:
+        raise Http404("Aucune année scolaire.")
+    nom_annee = re.sub(r"[^A-Za-z0-9_-]+", "_", annee.libelle) or "annee"
+    return construire_fiche(request.user, annee), f"fiche_statistique_{nom_annee}"
+
+
+@module_requis(Module.STATISTIQUES)
+def exporter_fiche_annuelle_xlsx(request):
+    """Même contenu que le CSV, en classeur Excel mis en forme (chiffres reconnus comme des nombres)."""
+    fiche, nom_fichier = _fiche_a_exporter(request)
+    reponse = HttpResponse(content_type=TYPE_MIME_XLSX)
+    reponse["Content-Disposition"] = f'attachment; filename="{nom_fichier}.xlsx"'
+    classeur_fiche(fiche).save(reponse)
+    enregistrer_action(
+        acteur=request.user, action="export_fiche_statistique_annuelle", cible=fiche["annee"].libelle,
+        details={"format": "xlsx"}, request=request,
+    )
+    return reponse
+
+
+@module_requis(Module.STATISTIQUES)
+def exporter_fiche_annuelle_csv(request):
+    fiche, nom_fichier = _fiche_a_exporter(request)
+    reponse = HttpResponse(content_type="text/csv; charset=utf-8")
+    reponse["Content-Disposition"] = f'attachment; filename="{nom_fichier}.csv"'
+    reponse.write("\ufeff")  # BOM UTF-8 : accents corrects dans Excel
+    writer = csv.writer(reponse, delimiter=";")
+    for ligne in lignes_csv(fiche):
+        writer.writerow([cellule_csv(valeur) for valeur in ligne])
+    enregistrer_action(
+        acteur=request.user, action="export_fiche_statistique_annuelle", cible=fiche["annee"].libelle, request=request,
+    )
+    return reponse
+
+
+@module_requis(Module.STATISTIQUES)
+def resultats_examens(request):
+    """Taux de réussite aux examens officiels et accès à la saisie par classe."""
+    annee = _annee_selectionnee(request)
+    contexte = _contexte_annee(request, annee, "examens")
+    classes = []
+    for classe in contexte["classes"].annotate(
+        nombre_inscrits=Count("inscriptions", distinct=True),
+        nombre_resultats=Count("inscriptions__resultats_examens", distinct=True),
+    ).order_by("cycle", "nom"):
+        examens = examens_pour_classe(classe)
+        if examens:
+            classe.libelles_examens = [libelle for valeur, libelle in Examen.choices if valeur in examens]
+            classes.append(classe)
+    from scolarite.views import ROLES_RESULTATS_EXAMEN
+    contexte.update({
+        "classes_examens": classes, "examens": statistiques_examens(contexte["classes"]) if annee else [],
+        "peut_saisir": request.user.role in ROLES_RESULTATS_EXAMEN,
+    })
+    return render(request, "statistiques/resultats_examens.html", contexte)
+
+
+@module_requis(Module.STATISTIQUES)
+def infrastructures(request):
+    annee = _annee_selectionnee(request)
+    contexte = _contexte_annee(request, annee, "infrastructures")
+    peut_modifier = request.user.role in ROLES_EDITION_INFRASTRUCTURE
+    contexte["peut_modifier"] = peut_modifier
+    if annee is None:
+        contexte.update({"formulaire": None, "infra": None})
+        return render(request, "statistiques/infrastructures.html", contexte)
+
+    fiche = FicheInfrastructure.objects.filter(etablissement=request.user.etablissement, annee_scolaire=annee).first()
+    instance = fiche or FicheInfrastructure(etablissement=request.user.etablissement, annee_scolaire=annee)
+    if request.method == "POST":
+        if not peut_modifier:
+            raise PermissionDenied("Seule la direction de l'établissement peut modifier la fiche d'infrastructures.")
+        formulaire = FicheInfrastructureForm(request.POST, instance=instance)
+        if formulaire.is_valid():
+            objet = formulaire.save(commit=False)
+            objet.modifie_par = request.user
+            try:
+                objet.save()
+            except IntegrityError:  # deux enregistrements simultanés de la même fiche : on recharge
+                messages.warning(request, "La fiche vient d'être modifiée par quelqu'un d'autre : rechargez-la.")
+            else:
+                enregistrer_action(
+                    acteur=request.user, action="modification_fiche_infrastructures", cible=annee.libelle, request=request,
+                )
+                messages.success(request, "Fiche d'infrastructures enregistrée.")
+            return redirect(f"{reverse('statistiques:infrastructures')}?annee={annee.id}")
+    else:
+        formulaire = FicheInfrastructureForm(instance=instance) if peut_modifier else None
+    contexte.update({"formulaire": formulaire, "infra": infrastructures_avec_ratios(request.user, annee)})
+    return render(request, "statistiques/infrastructures.html", contexte)

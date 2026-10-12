@@ -48,7 +48,8 @@ class InscriptionForm(BootstrapFormMixin, forms.ModelForm):
         return email
 
     def clean_telephone(self):
-        telephone = self.cleaned_data.get("telephone", "").strip()
+        # Champ facultatif sauf pour un parent : vide, Django fournit None (colonne nullable), pas "".
+        telephone = (self.cleaned_data.get("telephone") or "").strip()
         role = self.data.get("role")
         if role == Role.PARENT.value and not telephone:
             raise ValidationError("Le téléphone est obligatoire pour un compte parent.")

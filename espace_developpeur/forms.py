@@ -1,6 +1,7 @@
 from django import forms
 
 from comptes.forms import BootstrapFormMixin
+from comptes.models import FormationPedagogique, Sexe, SituationHandicap, StatutDeplacement, StatutPersonnel
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role, StatutCompte
 from etablissement.models import Etablissement
 from scolarite.models import AnneeScolaire, role_autorise_pour_plan
@@ -16,13 +17,81 @@ ROLES_ATTRIBUABLES = [
 ]
 
 
+CHAMPS_PERSONNEL = (
+    "statut_personnel", "diplome", "discipline", "formation_pedagogique", "date_prise_service", "heures_hebdomadaires",
+    "sexe",
+)
+CHAMPS_ETAT_CIVIL_ELEVE = ("lieu_naissance", "numero_acte_naissance", "handicap", "statut_deplacement")
+TOUS_CHAMPS_ADMINISTRATIFS = CHAMPS_PERSONNEL + CHAMPS_ETAT_CIVIL_ELEVE
+
+# Jamais effacés à un changement de rôle : le sexe d'une personne ne dépend pas de son rôle (il sert aux
+# statistiques par sexe), contrairement à une fiche de personnel ou à un état civil d'élève.
+CHAMPS_CONSERVES = ("sexe",)
+
+# Valeur d'un champ « effacé » : une date ou un nombre vide se stocke en NULL, un texte en chaîne vide.
+VALEURS_VIDES = {"date_prise_service": None, "heures_hebdomadaires": None, "sexe": None}
+
+
+def valeur_vide(nom):
+    return VALEURS_VIDES.get(nom, "")
+
+
+def est_vide(valeur) -> bool:
+    return valeur is None or valeur == ""
+
+
+def champs_applicables(role):
+    if role == Role.ELEVE:
+        return CHAMPS_ETAT_CIVIL_ELEVE
+    if role == Role.PARENT:
+        return ()
+    return CHAMPS_PERSONNEL
+
+
 class ModifierCompteForm(BootstrapFormMixin, forms.Form):
-    role = forms.ChoiceField(label="Rôle", choices=ROLES_ATTRIBUABLES)
+    role = forms.ChoiceField(
+        label="Rôle", choices=ROLES_ATTRIBUABLES,
+        help_text="Changer de rôle efface les informations administratives qui ne concernent plus le "
+                   "nouveau rôle (fiche du personnel, état civil d'un élève).",
+    )
     statut = forms.ChoiceField(label="Statut du compte", choices=StatutCompte.choices)
 
-    def __init__(self, *args, etablissement=None, **kwargs):
+    statut_personnel = forms.ChoiceField(
+        label="Situation administrative (personnel)", required=False,
+        choices=[("", "---------")] + list(StatutPersonnel.choices),
+    )
+    diplome = forms.CharField(label="Diplôme le plus élevé (personnel)", required=False, max_length=120)
+    discipline = forms.CharField(label="Discipline enseignée (personnel)", required=False, max_length=100)
+    lieu_naissance = forms.CharField(label="Lieu de naissance (élève)", required=False, max_length=120)
+    numero_acte_naissance = forms.CharField(
+        label="N° d'extrait d'acte de naissance (élève)", required=False, max_length=60,
+    )
+    formation_pedagogique = forms.ChoiceField(
+        label="Formation pédagogique (personnel)", required=False,
+        choices=[("", "---------")] + list(FormationPedagogique.choices),
+    )
+    date_prise_service = forms.DateField(
+        label="Date de prise de service (personnel)", required=False, widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    heures_hebdomadaires = forms.IntegerField(
+        label="Heures d'enseignement par semaine (personnel)", required=False, min_value=0, max_value=60,
+    )
+    sexe = forms.ChoiceField(
+        label="Sexe (personnel)", required=False, choices=[("", "---------")] + list(Sexe.choices),
+    )
+    handicap = forms.ChoiceField(
+        label="Situation de handicap (élève)", required=False,
+        choices=[("", "---------")] + list(SituationHandicap.choices),
+    )
+    statut_deplacement = forms.ChoiceField(
+        label="Situation de déplacement (élève)", required=False,
+        choices=[("", "---------")] + list(StatutDeplacement.choices),
+    )
+
+    def __init__(self, *args, etablissement=None, compte=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.etablissement = etablissement
+        self.compte = compte
         # Un rôle de direction propre à un cycle (Directeur du 2ème cycle/
         # Lycée, Censeur, Surveillant général) n'est proposé que si
         # l'abonnement de l'établissement couvre ce cycle - sinon l'école
@@ -31,6 +100,10 @@ class ModifierCompteForm(BootstrapFormMixin, forms.Form):
             (valeur, libelle) for valeur, libelle in ROLES_ATTRIBUABLES
             if role_autorise_pour_plan(valeur, etablissement)
         ]
+        champs_a_garder = champs_applicables(getattr(compte, "role", None))
+        for nom in TOUS_CHAMPS_ADMINISTRATIFS:
+            if nom not in champs_a_garder:
+                del self.fields[nom]
 
     def clean_role(self):
         role = self.cleaned_data["role"]
@@ -38,14 +111,38 @@ class ModifierCompteForm(BootstrapFormMixin, forms.Form):
             raise forms.ValidationError("L'abonnement de votre établissement ne couvre pas ce rôle.")
         return role
 
+    def champs_administratifs(self):
+        resultat = {}
+        for nom in TOUS_CHAMPS_ADMINISTRATIFS:
+            if nom not in self.fields:
+                continue
+            valeur = self.cleaned_data.get(nom)
+            if isinstance(valeur, str):
+                valeur = valeur.strip()
+            resultat[nom] = valeur_vide(nom) if est_vide(valeur) else valeur
+        return resultat
+
 
 class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Facultatif : un envoi qui ne contient pas ce champ (ancien formulaire) conserve la situation
+        # actuelle de l'école au lieu d'être refusé (ModelForm : champ omis + valeur par défaut = inchangé).
+        self.fields["situation_fonctionnement"].required = False
+
+    def clean_code_etablissement(self):
+        return " ".join(self.cleaned_data.get("code_etablissement", "").split()).upper()
+
     class Meta:
         model = Etablissement
         fields = [
             "nom", "devise", "logo", "code_devise", "pas_montant",
+            "code_etablissement", "statut_juridique", "region", "cercle", "commune", "milieu",
+            "rattachement_administratif", "numero_agrement",
+            "situation_fonctionnement", "motif_fermeture", "date_situation",
             "taux_inps_salarie", "taux_inps_employeur", "taux_amo_salarie", "taux_amo_employeur",
         ]
+        widgets = {"date_situation": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")}
 
 
 class CreerAnneeScolaireForm(BootstrapFormMixin, forms.Form):

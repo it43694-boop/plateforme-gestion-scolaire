@@ -1,7 +1,7 @@
 import uuid
 
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
@@ -26,10 +26,44 @@ class Cycle(models.TextChoices):
     technique et professionnel (CAP/BT) - jamais les deux à la suite l'un
     de l'autre. Voir FiliereProfessionnelle pour le détail CAP/BT.
     """
+    PRESCOLAIRE = "prescolaire", "Préscolaire"
     PREMIER_CYCLE = "1er_cycle", "1er cycle"
     DEUXIEME_CYCLE = "2eme_cycle", "2ème cycle"
     LYCEE = "lycee", "Lycée"
     PROFESSIONNEL = "professionnel", "Enseignement professionnel"
+
+
+class Niveau(models.TextChoices):
+    """Année d'études structurée pour regrouper les sections d'un même niveau."""
+    ANNEE_1 = "annee_1", "1ère année"
+    ANNEE_2 = "annee_2", "2ème année"
+    ANNEE_3 = "annee_3", "3ème année"
+    ANNEE_4 = "annee_4", "4ème année"
+    ANNEE_5 = "annee_5", "5ème année"
+    ANNEE_6 = "annee_6", "6ème année"
+    ANNEE_7 = "annee_7", "7ème année"
+    ANNEE_8 = "annee_8", "8ème année"
+    ANNEE_9 = "annee_9", "9ème année"
+    ANNEE_10 = "annee_10", "10ème année"
+    ANNEE_11 = "annee_11", "11ème année"
+    ANNEE_12 = "annee_12", "12ème année"
+    PRESCOLAIRE_PETITE = "presco_ps", "Petite section"
+    PRESCOLAIRE_MOYENNE = "presco_ms", "Moyenne section"
+    PRESCOLAIRE_GRANDE = "presco_gs", "Grande section"
+
+
+NIVEAUX_PAR_CYCLE = {
+    Cycle.PRESCOLAIRE: ["presco_ps", "presco_ms", "presco_gs"],
+    Cycle.PREMIER_CYCLE: [f"annee_{annee}" for annee in range(1, 7)],
+    Cycle.DEUXIEME_CYCLE: [f"annee_{annee}" for annee in range(7, 10)],
+    Cycle.LYCEE: [f"annee_{annee}" for annee in range(10, 13)],
+}
+
+
+class DomaineProfessionnel(models.TextChoices):
+    """Domaine de formation d'une classe CAP/BT : les statistiques officielles séparent industrie et tertiaire."""
+    INDUSTRIEL = "industriel", "Industriel"
+    TERTIAIRE = "tertiaire", "Tertiaire"
 
 
 class Serie(models.TextChoices):
@@ -99,6 +133,7 @@ CYCLES_PAR_PLAN = {
     # le réglage inclut_professionnel (cycles_autorises_pour).
     PlanEtablissement.LYCEE_SEUL.value: {Cycle.LYCEE.value},
     PlanEtablissement.PROFESSIONNEL_SEUL.value: {Cycle.PROFESSIONNEL.value},
+    PlanEtablissement.PRESCOLAIRE_SEUL.value: {Cycle.PRESCOLAIRE.value},
 }
 
 def cycles_autorises_pour(etablissement) -> set:
@@ -117,6 +152,8 @@ def cycles_autorises_pour(etablissement) -> set:
     cycles = set(CYCLES_PAR_PLAN.get(etablissement.plan, set(Cycle.values)))
     if getattr(etablissement, "inclut_professionnel", False):
         cycles.add(Cycle.PROFESSIONNEL.value)
+    if getattr(etablissement, "inclut_prescolaire", False):
+        cycles.add(Cycle.PRESCOLAIRE.value)
     return cycles
 
 
@@ -230,6 +267,15 @@ class Classe(models.Model):
         help_text="Uniquement pour une classe du cycle Enseignement professionnel - laisser vide sinon. "
                    "Le métier exact (électricité, couture...) se précise dans le nom de la classe.",
     )
+    domaine_professionnel = models.CharField(
+        "domaine", max_length=12, choices=DomaineProfessionnel.choices, blank=True,
+        help_text="Uniquement pour une classe du cycle Enseignement professionnel : industriel ou tertiaire "
+                   "(les statistiques officielles distinguent les deux). Facultatif.",
+    )
+    niveau = models.CharField(
+        "niveau (année d'études)", max_length=10, choices=Niveau.choices, blank=True,
+        help_text="Année d'études structurée (1ère à 12ème) pour regrouper les sections parallèles. Facultatif.",
+    )
     annee_scolaire = models.ForeignKey(
         AnneeScolaire, on_delete=models.PROTECT, related_name="classes",
     )
@@ -248,12 +294,21 @@ class Classe(models.Model):
     def __str__(self):
         return f"{self.nom} ({self.annee_scolaire.libelle})"
 
+    @property
+    def examens_officiels(self):
+        """Examens officiels que préparent les élèves de cette classe (liste vide si aucun)."""
+        return examens_pour_classe(self)
+
     def clean(self):
         super().clean()
+        if self.niveau and self.niveau not in NIVEAUX_PAR_CYCLE.get(self.cycle, []):
+            raise ValidationError("Ce niveau ne correspond pas au cycle de la classe.")
         if self.serie and self.cycle != Cycle.LYCEE:
             raise ValidationError("Une série ne s'applique qu'à une classe du cycle Lycée.")
         if self.filiere_professionnelle and self.cycle != Cycle.PROFESSIONNEL:
             raise ValidationError("Une filière ne s'applique qu'à une classe du cycle Enseignement professionnel.")
+        if self.domaine_professionnel and self.cycle != Cycle.PROFESSIONNEL:
+            raise ValidationError("Un domaine ne s'applique qu'à une classe du cycle Enseignement professionnel.")
         if self.cycle == Cycle.PROFESSIONNEL and not self.filiere_professionnelle:
             raise ValidationError("Une classe du cycle Enseignement professionnel doit préciser sa filière (CAP ou BT).")
         if self.cycle and self.annee_scolaire_id:
@@ -777,3 +832,201 @@ def eleve_visible_pour(utilisateur, eleve) -> bool:
         return False
     classes_ok = classes_visibles_pour(utilisateur)
     return eleve.inscriptions.filter(classe__in=classes_ok).exists()
+
+
+def eleve_de_l_etablissement_ou_404(utilisateur, matricule):
+    """
+    Élève de l'établissement de l'utilisateur, identifié par son matricule - ou une page introuvable.
+
+    Un matricule d'une AUTRE école doit être indiscernable d'un matricule qui n'existe pas : si l'un répondait
+    « accès interdit » (403) et l'autre « introuvable » (404), n'importe quel utilisateur pourrait deviner quels
+    matricules existent dans les autres écoles. Dans sa propre école, un élève qu'on ne peut pas voir reste en 403.
+    """
+    from django.shortcuts import get_object_or_404
+
+    from comptes.models import Utilisateur
+
+    return get_object_or_404(
+        Utilisateur, matricule=matricule, role=Role.ELEVE, etablissement_id=utilisateur.etablissement_id,
+    )
+
+
+# Rôles de l'administration scolaire qui peuvent voir les renseignements sensibles d'un élève (état civil,
+# handicap, déplacement) - jamais un enseignant, un comptable, le Censeur ni le Surveillant général.
+ROLES_ETAT_CIVIL_ELEVE = {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL} | {
+    Role.DIRECTEUR_1ER_CYCLE.value, Role.DIRECTEUR_2EME_CYCLE.value,
+    Role.DIRECTEUR_LYCEE.value, Role.SECRETAIRE.value, Role.SUPER_ADMINISTRATEUR.value,
+}
+
+
+def peut_voir_etat_civil_eleve(utilisateur, eleve) -> bool:
+    """État civil sensible visible par l'élève, ses parents et l'administration scolaire."""
+    if utilisateur.pk == eleve.pk:
+        return True
+    if utilisateur.role == Role.PARENT:
+        return eleve.parents_lies.filter(pk=utilisateur.pk).exists()
+    return utilisateur.role in ROLES_ETAT_CIVIL_ELEVE and eleve_visible_pour(utilisateur, eleve)
+
+
+# ---------------------------------------------------------------------------
+# Résultats aux examens officiels
+# ---------------------------------------------------------------------------
+
+class Examen(models.TextChoices):
+    """Examens officiels dont les statistiques nationales publient le taux de réussite."""
+    ENTREE_7E = "entree_7e", "Certificat d'entrée en 7ème année"
+    DEF = "def", "Diplôme d'études fondamentales (DEF)"
+    BAC = "bac", "Baccalauréat"
+    CAP = "cap", "CAP"
+    BT = "bt", "Brevet de technicien (BT)"
+
+
+# Cycle de la classe dont les élèves se présentent à chaque examen.
+CYCLE_PAR_EXAMEN = {
+    Examen.ENTREE_7E.value: Cycle.PREMIER_CYCLE.value,
+    Examen.DEF.value: Cycle.DEUXIEME_CYCLE.value,
+    Examen.BAC.value: Cycle.LYCEE.value,
+    Examen.CAP.value: Cycle.PROFESSIONNEL.value,
+    Examen.BT.value: Cycle.PROFESSIONNEL.value,
+}
+
+
+class ResultatExamen(models.Model):
+    """
+    Résultat d'un élève à un examen officiel, rattaché à son inscription de l'année (donc à sa classe :
+    la série du Bac, la filière CAP/BT et le domaine s'en déduisent, sans les ressaisir). Un seul résultat
+    par inscription et par examen.
+    """
+
+    class Resultat(models.TextChoices):
+        ADMIS = "admis", "Admis"
+        AJOURNE = "ajourne", "Ajourné"
+        ABSENT = "absent", "Absent"
+
+    inscription = models.ForeignKey(Inscription, on_delete=models.CASCADE, related_name="resultats_examens")
+    examen = models.CharField(max_length=20, choices=Examen.choices)
+    resultat = models.CharField(max_length=10, choices=Resultat.choices)
+    enregistre_par = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.SET_NULL, null=True, related_name="resultats_examens_saisis",
+    )
+    cree_le = models.DateTimeField(auto_now_add=True)
+    modifie_le = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "résultat d'examen"
+        verbose_name_plural = "résultats d'examen"
+        unique_together = ("inscription", "examen")
+        ordering = ["examen", "inscription__eleve__nom"]
+
+    def __str__(self):
+        return f"{self.get_examen_display()} - {self.get_resultat_display()}"
+
+    def clean(self):
+        super().clean()
+        if not self.inscription_id or not self.examen:
+            return
+        classe = self.inscription.classe
+        cycle_attendu = CYCLE_PAR_EXAMEN.get(self.examen)
+        if cycle_attendu and classe.cycle != cycle_attendu:
+            raise ValidationError(
+                f"« {self.get_examen_display()} » concerne les classes du cycle "
+                f"« {Cycle(cycle_attendu).label} » : la classe de cet élève est du cycle « {classe.get_cycle_display()} »."
+            )
+        if self.examen in {Examen.CAP.value, Examen.BT.value} and classe.filiere_professionnelle != self.examen:
+            raise ValidationError("La filière de la classe (CAP ou BT) ne correspond pas à cet examen.")
+
+    @property
+    def classe(self):
+        return self.inscription.classe
+
+
+# ---------------------------------------------------------------------------
+# Fiche d'infrastructures de l'école (une par année scolaire)
+# ---------------------------------------------------------------------------
+
+_MAX_EFFECTIF = MaxValueValidator(1_000_000)
+
+
+class FicheInfrastructure(models.Model):
+    """
+    Infrastructures et équipements d'une école pour une année scolaire : salles, eau, latrines, électricité,
+    mobilier, manuels, cantine. Renseignée par la direction de l'établissement ; sert à la fiche statistique
+    annuelle (statistiques.fiche). Les rubriques suivent les priorités du plan décennal PRODEC 2 et de l'étude
+    sur l'eau et l'assainissement dans les écoles (UNICEF/MEN, 2017) ; à comparer au questionnaire officiel de
+    la CPS, qui n'a pas pu être consulté.
+    """
+
+    etablissement = models.ForeignKey(
+        "etablissement.Etablissement", on_delete=models.CASCADE, related_name="fiches_infrastructure",
+    )
+    annee_scolaire = models.ForeignKey(
+        AnneeScolaire, on_delete=models.CASCADE, related_name="fiches_infrastructure",
+    )
+
+    salles_classe = models.PositiveIntegerField("salles de classe (total)", default=0, validators=[_MAX_EFFECTIF])
+    salles_bon_etat = models.PositiveIntegerField("dont en bon état", default=0, validators=[_MAX_EFFECTIF])
+    salles_provisoires = models.PositiveIntegerField(
+        "dont en matériaux provisoires (paillote, hangar, abri)", default=0, validators=[_MAX_EFFECTIF],
+    )
+    places_assises = models.PositiveIntegerField(
+        "places assises (tables-bancs)", default=0, validators=[_MAX_EFFECTIF],
+    )
+
+    points_eau = models.PositiveIntegerField("points d'eau sur le site", default=0, validators=[_MAX_EFFECTIF])
+    eau_potable_toute_annee = models.BooleanField("eau potable disponible toute l'année", default=False)
+    latrines = models.PositiveIntegerField("latrines (nombre de cabines)", default=0, validators=[_MAX_EFFECTIF])
+    latrines_fonctionnelles = models.PositiveIntegerField(
+        "dont fonctionnelles", default=0, validators=[_MAX_EFFECTIF],
+    )
+    latrines_separees = models.BooleanField("latrines séparées filles / garçons", default=False)
+    lavage_mains = models.BooleanField("dispositif de lavage des mains", default=False)
+    electricite = models.BooleanField("électricité", default=False)
+
+    manuels_lecture = models.PositiveIntegerField("manuels de lecture", default=0, validators=[_MAX_EFFECTIF])
+    manuels_calcul = models.PositiveIntegerField("manuels de calcul", default=0, validators=[_MAX_EFFECTIF])
+    cantine = models.BooleanField("cantine scolaire", default=False)
+    cantine_beneficiaires = models.PositiveIntegerField(
+        "élèves bénéficiaires de la cantine", default=0, validators=[_MAX_EFFECTIF],
+    )
+
+    modifie_par = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="fiches_infrastructure_modifiees",
+    )
+    modifie_le = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "fiche d'infrastructures"
+        verbose_name_plural = "fiches d'infrastructures"
+        unique_together = ("etablissement", "annee_scolaire")
+
+    def __str__(self):
+        return f"Infrastructures {self.etablissement} - {self.annee_scolaire.libelle}"
+
+    def clean(self):
+        super().clean()
+        if self.annee_scolaire_id and self.etablissement_id and self.annee_scolaire.etablissement_id != self.etablissement_id:
+            raise ValidationError("L'année scolaire et l'établissement doivent correspondre.")
+        erreurs = {}
+        if self.salles_bon_etat > self.salles_classe:
+            erreurs["salles_bon_etat"] = "Ne peut pas dépasser le nombre total de salles de classe."
+        if self.salles_provisoires > self.salles_classe:
+            erreurs["salles_provisoires"] = "Ne peut pas dépasser le nombre total de salles de classe."
+        if self.latrines_fonctionnelles > self.latrines:
+            erreurs["latrines_fonctionnelles"] = "Ne peut pas dépasser le nombre de latrines."
+        if not self.cantine and self.cantine_beneficiaires:
+            erreurs["cantine_beneficiaires"] = "Cochez « cantine scolaire » ou laissez ce nombre à 0."
+        if erreurs:
+            raise ValidationError(erreurs)
+
+
+def examens_pour_classe(classe) -> list[str]:
+    """Examens officiels auxquels les élèves de cette classe se présentent (selon son cycle et sa filière)."""
+    resultat = []
+    for examen, cycle in CYCLE_PAR_EXAMEN.items():
+        if classe.cycle != cycle:
+            continue
+        if examen in {Examen.CAP.value, Examen.BT.value} and classe.filiere_professionnelle != examen:
+            continue
+        resultat.append(examen)
+    return resultat

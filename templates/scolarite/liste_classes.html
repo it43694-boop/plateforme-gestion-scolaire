@@ -12,6 +12,7 @@
     </div>
     <a href="{% url 'scolarite:creer_classe' %}" class="btn btn-primary btn-sm">Créer une classe</a>
     <a href="{% url 'scolarite:affecter_enseignant' %}" class="btn btn-outline-secondary btn-sm">Affecter un enseignant</a>
+    <a href="{% url 'scolarite:definir_niveaux' %}" class="btn btn-outline-secondary btn-sm">Définir les niveaux</a>
 </div>
 <div class="card">
     <div class="card-body">
@@ -22,7 +23,7 @@
                 {% for classe in classes %}
                 <tr>
                     <td>{{ classe.nom }}</td>
-                    <td>{{ classe.get_cycle_display }}{% if classe.serie %} — {{ classe.get_serie_display }}{% endif %}{% if classe.filiere_professionnelle %} — {{ classe.get_filiere_professionnelle_display }}{% endif %}</td>
+                    <td>{{ classe.get_cycle_display }}{% if classe.niveau %} — {{ classe.get_niveau_display }}{% endif %}{% if classe.serie %} — {{ classe.get_serie_display }}{% endif %}{% if classe.filiere_professionnelle %} — {{ classe.get_filiere_professionnelle_display }}{% endif %}{% if classe.domaine_professionnel %} ({{ classe.get_domaine_professionnel_display|lower }}){% endif %}</td>
                     <td>{{ classe.annee_scolaire.libelle }}</td>
                     <td class="montant-val">{{ classe.effectif }}</td>
                     <td class="text-end">
@@ -32,6 +33,9 @@
                         {% endif %}
                         {% if peut_voir_statistiques %}
                         <a href="{% url 'statistiques:statistiques_classe' classe.id %}" class="btn btn-sm btn-outline-secondary">Statistiques</a>
+                        {% endif %}
+                        {% if peut_saisir_resultats and classe.examens_officiels %}
+                        <a href="{% url 'scolarite:saisir_resultats_examen' classe.id %}" class="btn btn-sm btn-outline-secondary">Résultats d'examen</a>
                         {% endif %}
                         {% if classe.effectif == 0 %}
                         <form method="post" action="{% url 'scolarite:supprimer_classe' classe.id %}" class="d-inline"

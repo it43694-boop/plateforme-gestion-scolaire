@@ -16,6 +16,7 @@
                 <div class="mb-3">
                     <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
                     {{ champ }}
+                    {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
                     {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
                 </div>
             {% endfor %}

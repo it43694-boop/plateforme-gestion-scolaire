@@ -13,6 +13,8 @@ from scolarite.forms import AffecterEnseignantForm, CloturerInscriptionForm, Cre
 from scolarite.models import (
     Affectation, AnneeScolaire, Classe, Inscription, ParentEnAttente, TypeDocumentVerifiable, VerificationDocument,
     classes_visibles_pour, cloturer_inscription, dossier_complet, eleve_visible_pour, lier_parent_a_eleve, passer_eleve,
+    NIVEAUX_PAR_CYCLE, Examen, Niveau, ResultatExamen, eleve_de_l_etablissement_ou_404, examens_pour_classe,
+    peut_voir_etat_civil_eleve,
     calculer_total_du,
 )
 
@@ -25,6 +27,9 @@ ROLES_MOT_DE_PASSE_PROVISOIRE_ELEVE = {r.value for r in ROLES_ACCES_TOTAL_INCOND
     Role.SECRETAIRE.value, Role.SUPER_ADMINISTRATEUR.value,
     Role.DIRECTEUR_1ER_CYCLE.value, Role.DIRECTEUR_2EME_CYCLE.value, Role.DIRECTEUR_LYCEE.value,
 }
+
+# Résultats aux examens officiels : saisis par la même administration (direction et secrétariat).
+ROLES_RESULTATS_EXAMEN = ROLES_MOT_DE_PASSE_PROVISOIRE_ELEVE
 
 # Un parent ou un élève a accès au module Élèves pour consulter son
 # propre dossier (ou celui de son enfant), jamais pour en créer un
@@ -57,6 +62,10 @@ def inscrire_eleve(request):
                 etablissement=request.user.etablissement,
                 sexe=formulaire.cleaned_data["sexe"],
                 date_naissance=formulaire.cleaned_data.get("date_naissance"),
+                lieu_naissance=formulaire.cleaned_data.get("lieu_naissance", "").strip(),
+                numero_acte_naissance=formulaire.cleaned_data.get("numero_acte_naissance", "").strip(),
+                handicap=formulaire.cleaned_data.get("handicap", ""),
+                statut_deplacement=formulaire.cleaned_data.get("statut_deplacement", ""),
                 statut=StatutCompte.ACTIF,
                 is_active=True,
                 email_verifie=True,
@@ -113,7 +122,7 @@ def dossier_eleve(request, matricule):
     from django.db.models import Sum
     from django.shortcuts import get_object_or_404
 
-    eleve = get_object_or_404(Utilisateur, matricule=matricule, role=Role.ELEVE)
+    eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
     if not eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès au dossier de cet élève.")
 
@@ -131,10 +140,19 @@ def dossier_eleve(request, matricule):
         "eleve": eleve, "dossier_complet": dossier_complet(eleve),
         "inscriptions": inscriptions.select_related("transfert", "abandon"), "inscription_active": inscription_active,
         "parents": eleve.parents_lies.all(), "parents_en_attente": eleve.parents_en_attente.all(),
+        "peut_voir_etat_civil": peut_voir_etat_civil_eleve(request.user, eleve),
         "peut_voir_notes": peut_voir_notes, "peut_voir_absences": peut_voir_absences, "peut_voir_finances": peut_voir_finances,
         "peut_cloturer_inscription": request.user.role not in ROLES_INSCRIPTION_ELEVE_INTERDITE,
         "peut_mot_de_passe_provisoire": request.user.role in ROLES_MOT_DE_PASSE_PROVISOIRE_ELEVE,
     }
+
+    if contexte["peut_voir_etat_civil"]:
+        # Résultats aux examens : l'élève, ses parents et l'administration scolaire (comme l'état civil).
+        contexte["resultats_examens"] = list(
+            ResultatExamen.objects.filter(inscription__eleve=eleve)
+            .select_related("inscription__classe__annee_scolaire")
+            .order_by("-inscription__classe__annee_scolaire__date_debut", "examen")
+        )
 
     if peut_voir_absences:
         from pedagogie.models import Absence
@@ -176,8 +194,8 @@ def mot_de_passe_provisoire(request, matricule):
 
     if request.user.role not in ROLES_MOT_DE_PASSE_PROVISOIRE_ELEVE:
         raise PermissionDenied("Vous n'avez pas le droit de remettre un mot de passe à un élève.")
-    eleve = get_object_or_404(Utilisateur, matricule=matricule, role=Role.ELEVE)
-    if eleve.etablissement_id != request.user.etablissement_id or not eleve_visible_pour(request.user, eleve):
+    eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
+    if not eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès à cet élève.")
 
     mot_de_passe = generer_mot_de_passe_provisoire()
@@ -214,7 +232,7 @@ def cloturer_inscription_vue(request, matricule):
     if request.user.role in ROLES_INSCRIPTION_ELEVE_INTERDITE:
         raise PermissionDenied("Vous n'avez pas le droit de modifier l'inscription d'un élève.")
 
-    eleve = get_object_or_404(Utilisateur, matricule=matricule, role=Role.ELEVE)
+    eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
     if not eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès au dossier de cet élève.")
 
@@ -262,7 +280,7 @@ def generer_attestation_scolarite(request, matricule):
     from django.urls import reverse
     from xhtml2pdf import pisa
 
-    eleve = get_object_or_404(Utilisateur, matricule=matricule, role=Role.ELEVE)
+    eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
     if not eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès à cet élève.")
 
@@ -578,4 +596,141 @@ def liste_classes(request):
         "classes": classes,
         "peut_voir_emploi_du_temps": PermissionMatrix.a_acces(request.user.role, "emploi_du_temps", etablissement=request.user.etablissement),
         "peut_voir_statistiques": PermissionMatrix.a_acces(request.user.role, "statistiques", etablissement=request.user.etablissement),
+        "peut_saisir_resultats": request.user.role in ROLES_RESULTATS_EXAMEN,
+    })
+
+
+@module_requis(Module.CLASSES)
+@require_http_methods(["GET", "POST"])
+def definir_niveaux(request):
+    classes = list(
+        classes_visibles_pour(request.user).filter(cycle__in=NIVEAUX_PAR_CYCLE)
+        .select_related("annee_scolaire").order_by("annee_scolaire__date_debut", "cycle", "nom")
+    )
+    libelles = dict(Niveau.choices)
+    for classe in classes:
+        classe.niveaux_possibles = [(valeur, libelles[valeur]) for valeur in NIVEAUX_PAR_CYCLE[classe.cycle]]
+
+    if request.method == "POST":
+        modifiees = 0
+        erreurs = 0
+        for classe in classes:
+            cle = f"niveau_{classe.id}"
+            if cle not in request.POST:
+                continue
+            niveau = request.POST[cle].strip()
+            if niveau and niveau not in NIVEAUX_PAR_CYCLE[classe.cycle]:
+                erreurs += 1
+                continue
+            if niveau != classe.niveau:
+                classe.niveau = niveau
+                classe.save(update_fields=["niveau"])
+                modifiees += 1
+
+        if modifiees:
+            enregistrer_action(
+                acteur=request.user, action="definition_niveaux_classes", cible=f"{modifiees} classe(s)",
+                details={"valeurs_invalides_ignorees": erreurs}, request=request,
+            )
+            messages.success(request, f"{modifiees} classe(s) mise(s) à jour.")
+        elif erreurs:
+            messages.error(request, f"{erreurs} niveau(x) invalide(s) ignoré(s).")
+        else:
+            messages.info(request, "Aucun changement.")
+        return redirect("scolarite:definir_niveaux")
+
+    return render(request, "scolarite/definir_niveaux.html", {
+        "classes": classes, "sans_niveau": sum(not classe.niveau for classe in classes),
+    })
+
+
+@module_requis(Module.ELEVES)
+@require_http_methods(["GET", "POST"])
+def saisir_resultats_examen(request, classe_id):
+    """
+    Saisie par classe des résultats à un examen officiel (entrée en 7ème année, DEF, Bac, CAP, BT selon le
+    cycle de la classe). Ne touche que les inscriptions de CETTE classe (jamais un identifiant lu dans la
+    requête) ; un champ laissé vide efface le résultat déjà saisi, un champ absent de l'envoi n'y touche pas.
+    Les élèves qui ont quitté l'établissement (abandon, transfert) ne sont pas des candidats.
+    """
+    from django.core.exceptions import PermissionDenied
+    from django.db import transaction
+    from django.urls import reverse
+
+    if request.user.role not in ROLES_RESULTATS_EXAMEN:
+        raise PermissionDenied("Vous n'avez pas le droit de saisir des résultats d'examen.")
+    classe = get_object_or_404(classes_visibles_pour(request.user), id=classe_id)
+    examens = examens_pour_classe(classe)
+    if not examens:
+        messages.error(request, "Aucun examen officiel ne correspond au cycle de cette classe.")
+        return redirect("scolarite:liste_classes")
+    examen = request.POST.get("examen") or request.GET.get("examen") or examens[0]
+    if examen not in examens:
+        messages.error(request, "Cet examen ne concerne pas cette classe.")
+        return redirect("scolarite:saisir_resultats_examen", classe_id=classe.id)
+
+    inscriptions = list(
+        Inscription.objects.filter(classe=classe)
+        .exclude(statut__in=[Inscription.Statut.ABANDON, Inscription.Statut.TRANSFERE])
+        .select_related("eleve").order_by("eleve__nom", "eleve__prenom")
+    )
+    existants = {
+        resultat.inscription_id: resultat
+        for resultat in ResultatExamen.objects.filter(inscription__in=inscriptions, examen=examen)
+    }
+    valeurs_valides = {valeur for valeur, _ in ResultatExamen.Resultat.choices}
+
+    if request.method == "POST":
+        ajoutes = modifies = supprimes = ignores = 0
+        with transaction.atomic():
+            for inscription in inscriptions:
+                cle = f"resultat_{inscription.id}"
+                if cle not in request.POST:
+                    continue
+                valeur = request.POST[cle].strip()
+                existant = existants.get(inscription.id)
+                if valeur == "":
+                    if existant is not None:
+                        existant.delete()
+                        supprimes += 1
+                    continue
+                if valeur not in valeurs_valides:
+                    ignores += 1
+                    continue
+                if existant is not None:
+                    if existant.resultat != valeur:
+                        existant.resultat = valeur
+                        existant.enregistre_par = request.user
+                        existant.full_clean()
+                        existant.save()
+                        modifies += 1
+                else:
+                    nouveau = ResultatExamen(
+                        inscription=inscription, examen=examen, resultat=valeur, enregistre_par=request.user,
+                    )
+                    nouveau.full_clean()
+                    nouveau.save()
+                    ajoutes += 1
+        if ajoutes or modifies or supprimes:
+            enregistrer_action(
+                acteur=request.user, action="resultats_examen_saisis", cible=f"{classe.nom} - {examen}",
+                details={"ajoutes": ajoutes, "modifies": modifies, "supprimes": supprimes, "valeurs_invalides_ignorees": ignores},
+                request=request,
+            )
+            messages.success(request, f"Résultats enregistrés : {ajoutes} ajouté(s), {modifies} modifié(s), {supprimes} effacé(s).")
+        elif ignores:
+            messages.error(request, f"{ignores} valeur(s) invalide(s) ignorée(s).")
+        else:
+            messages.info(request, "Aucun changement.")
+        return redirect(f"{reverse('scolarite:saisir_resultats_examen', args=[classe.id])}?examen={examen}")
+
+    libelles = dict(Examen.choices)
+    return render(request, "scolarite/resultats_examen_classe.html", {
+        "classe": classe, "examen": examen, "libelle_examen": libelles[examen],
+        "examens": [(valeur, libelles[valeur]) for valeur in examens],
+        "lignes": [
+            {"inscription": inscription, "resultat": existants[inscription.id].resultat if inscription.id in existants else ""}
+            for inscription in inscriptions
+        ],
+        "choix": ResultatExamen.Resultat.choices,
     })

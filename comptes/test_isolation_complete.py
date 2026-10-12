@@ -23,14 +23,14 @@ from django.urls import get_resolver
 from django.urls.resolvers import URLPattern, URLResolver
 
 from bibliotheque.models import Document
-from communication.models import Annonce, Message, Portee
+from communication.models import Annonce, FilEquipe, Message, Portee, PorteeEquipe
 from comptes.models import Notification, Utilisateur, generer_matricule
 from comptes.roles import Role, StatutCompte
 from etablissement.models import Etablissement
 from finances.models import Contrat, DemandeConge, Salaire, TypeConge, TypeContrat, TypeTranche, enregistrer_paiement
 from pedagogie.models import Absence, CreneauEmploiDuTemps, Note, Trimestre
 from permissions_matrix.models import PermissionMatrix
-from scolarite.models import Affectation, AnneeScolaire, Classe, Cycle, Inscription
+from scolarite.models import Affectation, AnneeScolaire, Classe, Cycle, FicheInfrastructure, Inscription, ResultatExamen
 from tests_niveau.models import Candidat
 
 # Marqueurs volontairement longs et improbables : un marqueur court apparaît par hasard dans la
@@ -104,6 +104,13 @@ class IsolationCompleteTests(TestCase):
     def creer_ecole(self, tag, ecole):
         p = PREFIXE[tag]
         d = {"ecole": ecole, "comptes": {}}
+        for champ in (
+            "code_etablissement", "region", "cercle", "commune", "rattachement_administratif",
+            "numero_agrement",
+        ):
+            setattr(ecole, champ, f"{p}{champ}")
+        ecole.statut_juridique, ecole.milieu = "prive_laic", "urbain"
+        ecole.save()
         annee = AnneeScolaire.objects.create(
             etablissement=ecole, libelle=f"{p}-annee", date_debut=datetime.date(2026, 10, 1),
             date_fin=datetime.date(2027, 7, 31), est_active=True,
@@ -120,6 +127,13 @@ class IsolationCompleteTests(TestCase):
             parent = creer_compte(Role.PARENT, tag, f"x{i}", ecole)
             eleve.parents_lies.add(parent)
             prof = creer_compte(Role.ENSEIGNANT, tag, f"x{i}", ecole)
+            eleve.lieu_naissance = f"{p}lieunaiss{i}"
+            eleve.numero_acte_naissance = f"{p}actenaiss{i}"
+            eleve.save(update_fields=["lieu_naissance", "numero_acte_naissance"])
+            prof.statut_personnel = "fonctionnaire"
+            prof.diplome = f"{p}diplome{i}"
+            prof.discipline = f"{p}discipline{i}"
+            prof.save(update_fields=["statut_personnel", "diplome", "discipline"])
             inscription = Inscription.objects.create(eleve=eleve, classe=classe)
             affectation = Affectation.objects.create(enseignant=prof, classe=classe, matiere=f"{p}mat{i}", coefficient=2)
             Note.objects.create(
@@ -159,6 +173,14 @@ class IsolationCompleteTests(TestCase):
         d["notification"] = Notification.objects.create(
             destinataire=d["comptes"][Role.SECRETAIRE], etablissement=ecole, titre=f"{p}-notif", message="m", url="/",
         )
+        d["fil_equipe"] = FilEquipe.objects.create(
+            etablissement=ecole, annee_scolaire=annee, portee=PorteeEquipe.CLASSE, classe=classes[0],
+        )
+        d["resultat_examen"] = ResultatExamen.objects.create(
+            inscription=Inscription.objects.filter(classe=classes[0]).first(), examen="entree_7e", resultat="admis",
+            enregistre_par=comptable,
+        )
+        d["infrastructure"] = FicheInfrastructure.objects.create(etablissement=ecole, annee_scolaire=annee, salles_classe=7)
         d["en_attente"] = creer_compte(Role.ENSEIGNANT, tag, "attente", ecole, statut=StatutCompte.EN_ATTENTE_VALIDATION)
         return d
 
@@ -171,6 +193,7 @@ class IsolationCompleteTests(TestCase):
             "creneau_id": x["creneau"].id, "candidat_id": x["candidat"].id, "eleve_id": x["eleve"].id,
             "autre_id": x["prof"].id, "annee_id": d["annee"].id, "utilisateur_id": d["en_attente"].id,
             "notification_id": d["notification"].id, "jeton": uuid.uuid4(), "decision": "admis",
+            "fil_id": d["fil_equipe"].id,
             "slug": d["ecole"].slug, "etablissement_id": d["ecole"].id, "uidb64": "x", "token": "y",
         }
 
@@ -231,9 +254,40 @@ class IsolationCompleteTests(TestCase):
             self.assertTrue(Classe.objects.filter(pk=x["classe"].pk).exists())
         self.assertEqual(Utilisateur.objects.get(pk=b["en_attente"].pk).statut, StatutCompte.EN_ATTENTE_VALIDATION)
         self.assertIsNone(Notification.objects.get(pk=b["notification"].pk).lue_le)
+        self.assertEqual(ResultatExamen.objects.get(pk=b["resultat_examen"].pk).resultat, "admis")
+        self.assertEqual(ResultatExamen.objects.filter(inscription__classe__annee_scolaire__etablissement=b["ecole"]).count(), 1)
+        self.assertEqual(FicheInfrastructure.objects.get(pk=b["infrastructure"].pk).salles_classe, 7)
         for role, compte in b["comptes"].items():
             rafraichi = Utilisateur.objects.get(pk=compte.pk)
             self.assertEqual((rafraichi.role, rafraichi.statut), (role, StatutCompte.ACTIF), f"compte B {role.value} modifié")
+
+    # --- 1 bis. existence d'un objet d'une autre école ----------------------------------------
+    def test_un_objet_d_une_autre_ecole_est_indiscernable_d_un_objet_inexistant(self):
+        """
+        Si l'accès à l'objet d'une autre école répondait autrement (403 « interdit » au lieu de 404 « introuvable »)
+        qu'à un objet qui n'existe pas, n'importe qui pourrait deviner quels matricules ou identifiants existent dans
+        les autres écoles. Pour chaque rôle de l'école A : même réponse pour un objet de B et pour un objet inexistant.
+        """
+        reel = self.valeurs("b")
+        inexistant = {nom: 999999999 for nom in reel}
+        inexistant.update({
+            "matricule": "00000000", "jeton": uuid.uuid4(), "decision": "admis", "slug": "ecole-inexistante",
+            "uidb64": "x", "token": "y",
+        })
+        ecarts = []
+        for role, compte in self.d["a"]["comptes"].items():
+            for nom, route, params in self.routes:
+                if not params or self.ignorer(nom, route) or nom.startswith("comptes:reinitialiser"):
+                    continue
+                self.client.force_login(compte)
+                for methode in ("get", "post"):  # les routes réservées au POST (suppression, mot de passe...) comptent aussi
+                    statut_reel = getattr(self.client, methode)(instancier(route, reel)).status_code
+                    statut_vide = getattr(self.client, methode)(instancier(route, inexistant)).status_code
+                    if statut_reel != statut_vide:
+                        ecarts.append(
+                            f"{role.value} {methode.upper()} {nom} : objet de B -> {statut_reel}, objet inexistant -> {statut_vide}"
+                        )
+        self.assertEqual(ecarts, [], chr(10).join(ecarts))
 
     # --- 2. visiteur non connecté ---------------------------------------------------------
     def test_visiteur_anonyme_naccede_quaux_pages_publiques(self):
@@ -257,6 +311,9 @@ class IsolationCompleteTests(TestCase):
         marqueurs_2 = [
             str(x2["eleve"].matricule), x2["eleve"].nom.lower(), x2["prof"].nom.lower(), x2["parent"].nom.lower(),
             f"{PREFIXE['a']}mat2", f"{PREFIXE['a']}secret2", f"{PREFIXE['a']}motif2", f"{PREFIXE['a']}salle2",
+            f"{PREFIXE['a']}lieunaiss2", f"{PREFIXE['a']}actenaiss2", f"{PREFIXE['a']}diplome2",
+            f"{PREFIXE['a']}discipline2", f"{PREFIXE['a']}code_etablissement",
+            f"{PREFIXE['a']}region", f"{PREFIXE['a']}numero_agrement",
         ]
         acteurs = {
             "élève": self.d["a"]["x1"]["eleve"], "parent": self.d["a"]["x1"]["parent"],

@@ -3,6 +3,11 @@
 # nu). Le fichier .env fourni avec le projet est réutilisé pour
 # DJANGO_SECRET_KEY ; DATABASE_URL et REDIS_URL sont fixés ci-dessous pour
 # pointer vers les services db/redis de ce compose.
+#
+# Le mot de passe de la base se définit dans .env (POSTGRES_PASSWORD, sans caractère
+# spécial @ : / # car il entre dans une adresse) : le compose refuse de démarrer sans lui,
+# pour qu'aucun mot de passe par défaut, connu de tous puisque ce dépôt est public, ne
+# protège jamais une base.
 services:
   web:
     build: .
@@ -12,7 +17,7 @@ services:
       - .env
     environment:
       DEBUG: "True"
-      DATABASE_URL: "postgres://plateforme:plateforme@db:5432/plateforme"
+      DATABASE_URL: "postgres://plateforme:${POSTGRES_PASSWORD:?Définissez POSTGRES_PASSWORD dans .env}@db:5432/plateforme"
       REDIS_URL: "redis://redis:6379/0"
     depends_on:
       - db
@@ -24,7 +29,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: plateforme
-      POSTGRES_PASSWORD: plateforme
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Définissez POSTGRES_PASSWORD dans .env}
       POSTGRES_DB: plateforme
     volumes:
       - db_data:/var/lib/postgresql/data

@@ -14,6 +14,7 @@ from comptes.models import Notification, Utilisateur
 from comptes.roles import Role
 from communication.forms import EnvoyerMessageForm, PublierAnnonceForm
 from communication.models import Annonce, Message, Portee
+from communication.equipes import peut_utiliser_equipes
 from permissions_matrix.modules import Module
 from scolarite.models import Inscription, classes_visibles_pour
 from scolarite.views import DOMAINE_EMAIL_AUTO_ELEVE
@@ -105,6 +106,7 @@ def liste_annonces(request):
     return render(request, "communication/liste_annonces.html", {
         "page_obj": page_obj, "annonces": page_obj.object_list,
         "peut_publier": request.user.role not in ROLES_PUBLICATION_ANNONCE_INTERDITE,
+        "peut_voir_equipes": peut_utiliser_equipes(request.user),
     })
 
 
@@ -182,8 +184,9 @@ def liste_conversations(request):
 
 @module_requis(Module.COMMUNICATION)
 def conversation(request, eleve_id, autre_id):
-    eleve = get_object_or_404(Utilisateur, id=eleve_id, role=Role.ELEVE)
-    autre = get_object_or_404(Utilisateur, id=autre_id)
+    # Limités à l'école de l'utilisateur : un identifiant d'une autre école doit être indiscernable d'un identifiant inexistant.
+    eleve = get_object_or_404(Utilisateur, id=eleve_id, role=Role.ELEVE, etablissement_id=request.user.etablissement_id)
+    autre = get_object_or_404(Utilisateur, id=autre_id, etablissement_id=request.user.etablissement_id)
     _verifier_acces_conversation(request.user, eleve, autre)
 
     if request.method == "POST":

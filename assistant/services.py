@@ -20,6 +20,8 @@ romprait la garantie ci-dessus, quelle que soit la prudence du prompt.
 
 import json
 import logging
+import re
+import unicodedata
 
 from django.conf import settings
 
@@ -146,10 +148,9 @@ def serialiser_resultat(resultat: dict) -> dict:
     uniquement lui, qui part vers l'API.
     """
     donnees = {
-        "eleve": {
-            "nom_complet": resultat["eleve"].nom_complet,
-            "matricule": resultat["eleve"].matricule,
-        },
+        # Jamais le nom ni le matricule : l'IA est un service externe (hors du Mali), elle n'a pas besoin de savoir
+        # QUI est l'élève pour répondre ; la réponse s'affiche à côté du dossier, que l'utilisateur voit déjà.
+        "eleve": "élève interrogé (nom et matricule volontairement non transmis)",
         "dossier_complet": resultat.get("dossier_complet"),
     }
     if resultat.get("inscription"):
@@ -168,10 +169,49 @@ def serialiser_resultat(resultat: dict) -> dict:
     if "derniers_paiements" in resultat:
         donnees["derniers_paiements"] = [
             {
-                "reference": paiement.reference,
                 "tranche": paiement.get_tranche_display(),
                 "montant_fcfa": paiement.montant,
             }
             for paiement in resultat["derniers_paiements"]
         ]
     return donnees
+
+
+_MOTIF_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+_MOTIF_LONG_NUMERO = re.compile(r"\d{7,}")  # matricule, téléphone, n° de pièce...
+
+
+def _sans_accents(texte: str):
+    """(texte sans accents en minuscules, position de chaque caractère dans le texte d'origine)."""
+    simple, positions = [], []
+    for position, caractere in enumerate(texte):
+        for element in unicodedata.normalize("NFKD", caractere):
+            if not unicodedata.combining(element):
+                simple.append(element.casefold())
+                positions.append(position)
+    return "".join(simple), positions
+
+
+def anonymiser_question(question: str, noms=()) -> str:
+    """
+    Retire d'une question libre ce qui identifie une personne AVANT l'envoi à l'IA : adresses email, longs numéros
+    (matricule, téléphone) et les noms fournis (nom et prénom de l'élève interrogé, avec ou sans accents, quelle que
+    soit la casse), remplacés par « l'élève ». Un nom d'une AUTRE personne tapé dans la question ne peut pas être
+    deviné : l'écran prévient l'utilisateur de ne pas en écrire.
+    """
+    texte = _MOTIF_LONG_NUMERO.sub("[numéro]", _MOTIF_EMAIL.sub("[email]", question or ""))
+    mots = {mot for nom in noms for mot in (nom or "").split() if len(mot) >= 2}
+    mots |= {" ".join((nom or "").split()) for nom in noms if nom and len(nom.split()) > 1}
+    for mot in sorted(mots, key=len, reverse=True):
+        simple, positions = _sans_accents(texte)
+        recherche, _ = _sans_accents(mot)
+        if not recherche:
+            continue
+        remplacements = []
+        for correspondance in re.finditer(rf"(?<!\w){re.escape(recherche)}(?!\w)", simple):
+            debut = positions[correspondance.start()]
+            fin = positions[correspondance.end() - 1] + 1
+            remplacements.append((debut, fin))
+        for debut, fin in reversed(remplacements):
+            texte = texte[:debut] + "l'élève" + texte[fin:]
+    return texte

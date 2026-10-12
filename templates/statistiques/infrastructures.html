@@ -1,0 +1,68 @@
+{% extends "statistiques/base_statistiques.html" %}
+{% load icones %}
+{% block contenu_stats %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "ressources" 24 %}</div>
+        <div><h1>Infrastructures</h1><p>{{ annee.libelle|default:"Aucune année scolaire" }}</p></div>
+    </div>
+</div>
+
+{% if not annee %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Aucune année scolaire n'est encore créée.</p></div></div></div>
+{% else %}
+
+{% if infra and infra.ratios %}
+<div class="card mb-3"><div class="card-body">
+    <h2 class="titre-section">Indicateurs</h2>
+    <div class="row g-3">
+        <div class="col-6 col-md-3"><div class="mini-stat-label">Élèves par salle</div><div class="mini-stat-valeur">{{ infra.ratios.eleves_par_salle|default_if_none:"-" }}</div></div>
+        <div class="col-6 col-md-3"><div class="mini-stat-label">Élèves par place assise</div><div class="mini-stat-valeur">{{ infra.ratios.eleves_par_place|default_if_none:"-" }}</div></div>
+        <div class="col-6 col-md-3"><div class="mini-stat-label">Manuels de lecture par élève</div><div class="mini-stat-valeur">{{ infra.ratios.manuels_lecture_par_eleve|default_if_none:"-" }}</div></div>
+        <div class="col-6 col-md-3"><div class="mini-stat-label">Manuels de calcul par élève</div><div class="mini-stat-valeur">{{ infra.ratios.manuels_calcul_par_eleve|default_if_none:"-" }}</div></div>
+    </div>
+    <p class="texte-note mt-2 mb-0">Le plan décennal du Mali (PRODEC 2) vise un manuel par élève dans les disciplines essentielles. Calculés sur l'effectif de toute l'école.</p>
+</div></div>
+{% endif %}
+
+<div class="card"><div class="card-body">
+    {% if formulaire %}
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% if formulaire.non_field_errors %}<div class="alert alert-danger">{{ formulaire.non_field_errors }}</div>{% endif %}
+        <div class="row g-3">
+            {% for champ in formulaire %}
+            <div class="col-12 col-md-6">
+                {% if champ.field.widget.input_type == "checkbox" %}
+                <div class="form-check mt-3">
+                    {{ champ }}
+                    <label class="form-check-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                </div>
+                {% else %}
+                <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                {{ champ }}
+                {% endif %}
+                {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Enregistrer</button>
+    </form>
+    <p class="texte-note mt-3 mb-0">
+        Rubriques inspirées du plan décennal PRODEC 2 et de l'étude sur l'eau et l'assainissement dans les écoles
+        (UNICEF/MEN, 2017). À comparer avec le questionnaire officiel de la CPS.
+    </p>
+    {% elif infra %}
+    {% with f=infra.fiche %}
+    <ul class="mb-0">
+        <li>{{ f.salles_classe }} salle(s) de classe (dont {{ f.salles_bon_etat }} en bon état, {{ f.salles_provisoires }} en matériaux provisoires), {{ f.places_assises }} place(s) assise(s)</li>
+        <li>{{ f.points_eau }} point(s) d'eau, {{ f.latrines }} latrine(s) dont {{ f.latrines_fonctionnelles }} fonctionnelle(s)</li>
+        <li>Électricité : {{ f.electricite|yesno:"oui,non" }} · cantine : {{ f.cantine|yesno:"oui,non" }}</li>
+    </ul>
+    {% endwith %}
+    {% else %}
+    <div class="etat-vide"><p>La fiche d'infrastructures n'est pas encore renseignée pour cette année. Elle est remplie par la direction de l'établissement.</p></div>
+    {% endif %}
+</div></div>
+{% endif %}
+{% endblock %}

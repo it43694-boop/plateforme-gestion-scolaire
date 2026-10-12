@@ -8,7 +8,10 @@ from comptes.audit import enregistrer_action
 from comptes.decorators import role_requis
 from comptes.models import Utilisateur
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
-from espace_developpeur.forms import CreerAnneeScolaireForm, ModifierCompteForm, ParametresEtablissementForm
+from espace_developpeur.forms import (
+    TOUS_CHAMPS_ADMINISTRATIFS, CreerAnneeScolaireForm, ModifierCompteForm, ParametresEtablissementForm,
+    CHAMPS_CONSERVES, champs_applicables, est_vide, valeur_vide,
+)
 from etablissement.models import Etablissement
 from permissions_matrix.models import PermissionMatrix
 from permissions_matrix.modules import Module
@@ -73,9 +76,18 @@ def modifier_compte(request, utilisateur_id):
     compte = get_object_or_404(Utilisateur, id=utilisateur_id, etablissement=request.user.etablissement)
     est_soi_meme = compte.id == request.user.id
 
-    formulaire = ModifierCompteForm(request.POST or None, etablissement=request.user.etablissement, initial={
-        "role": compte.role, "statut": compte.statut,
-    })
+    formulaire = ModifierCompteForm(
+        request.POST or None, etablissement=request.user.etablissement, compte=compte,
+        initial={
+            "role": compte.role, "statut": compte.statut,
+            "statut_personnel": compte.statut_personnel, "diplome": compte.diplome,
+            "discipline": compte.discipline, "lieu_naissance": compte.lieu_naissance,
+            "numero_acte_naissance": compte.numero_acte_naissance,
+            "formation_pedagogique": compte.formation_pedagogique, "date_prise_service": compte.date_prise_service,
+            "heures_hebdomadaires": compte.heures_hebdomadaires, "sexe": compte.sexe, "handicap": compte.handicap,
+            "statut_deplacement": compte.statut_deplacement,
+        },
+    )
     if request.method == "POST" and formulaire.is_valid():
         if est_soi_meme and formulaire.cleaned_data["role"] != compte.role:
             messages.error(request, "Vous ne pouvez pas modifier votre propre rôle depuis cette page.")
@@ -85,17 +97,35 @@ def modifier_compte(request, utilisateur_id):
         compte.role = formulaire.cleaned_data["role"]
         compte.statut = formulaire.cleaned_data["statut"]
         compte.is_active = compte.statut == "actif"
-        compte.save(update_fields=["role", "statut", "is_active"])
+        applicables = champs_applicables(compte.role)
+        champs_admin = {
+            nom: valeur for nom, valeur in formulaire.champs_administratifs().items() if nom in applicables
+        }
+        a_effacer = [nom for nom in TOUS_CHAMPS_ADMINISTRATIFS if nom not in applicables and nom not in CHAMPS_CONSERVES]
+        champs_admin.update({nom: valeur_vide(nom) for nom in a_effacer})
+        # Renseignements réellement perdus parce que le nouveau rôle ne les utilise plus.
+        champs_effaces = [nom for nom in a_effacer if not est_vide(getattr(compte, nom))]
+        champs_modifies = [nom for nom, valeur in champs_admin.items() if getattr(compte, nom) != valeur]
+        for nom, valeur in champs_admin.items():
+            setattr(compte, nom, valeur)
+        compte.save(update_fields=["role", "statut", "is_active", *champs_admin.keys()])
 
         enregistrer_action(
             acteur=request.user, action="modification_compte_espace_developpeur",
             cible=compte.email,
             details={
                 "role": f"{ancien_role} -> {compte.role}", "statut": f"{ancien_statut} -> {compte.statut}",
+                "champs_administratifs_modifies": champs_modifies,
+                "champs_administratifs_effaces": champs_effaces,
             },
             request=request,
         )
         messages.success(request, f"Compte de {compte.nom_complet} mis à jour.")
+        if champs_effaces:
+            libelles = ", ".join(str(Utilisateur._meta.get_field(nom).verbose_name) for nom in champs_effaces)
+            messages.warning(
+                request, f"Informations effacées, car le nouveau rôle ne les utilise pas : {libelles}.",
+            )
         return redirect("espace_developpeur:liste_comptes")
 
     return render(request, "espace_developpeur/modifier_compte.html", {

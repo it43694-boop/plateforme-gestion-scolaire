@@ -8,6 +8,20 @@
         <div>
             <h1>{{ eleve.nom_complet }}</h1>
             <p>Matricule {{ eleve.matricule }} - {{ eleve.get_sexe_display|default:"Sexe non renseigné" }}</p>
+            {% if peut_voir_etat_civil and eleve.handicap or peut_voir_etat_civil and eleve.statut_deplacement %}
+            <p class="text-muted small mb-0">
+                {% if eleve.handicap %}Situation de handicap : {{ eleve.get_handicap_display }}{% endif %}
+                {% if eleve.handicap and eleve.statut_deplacement %} - {% endif %}
+                {% if eleve.statut_deplacement %}Situation de déplacement : {{ eleve.get_statut_deplacement_display }}{% endif %}
+            </p>
+            {% endif %}
+            {% if peut_voir_etat_civil and eleve.lieu_naissance or peut_voir_etat_civil and eleve.numero_acte_naissance %}
+            <p class="text-muted small mb-0">
+                {% if eleve.lieu_naissance %}Né(e) à {{ eleve.lieu_naissance }}{% endif %}
+                {% if eleve.lieu_naissance and eleve.numero_acte_naissance %} - {% endif %}
+                {% if eleve.numero_acte_naissance %}Acte de naissance n° {{ eleve.numero_acte_naissance }}{% endif %}
+            </p>
+            {% endif %}
         </div>
     </div>
     <span class="badge {% if dossier_complet %}bg-success{% else %}bg-warning{% endif %}">
@@ -67,6 +81,31 @@
     {% endif %}
     {% if inscription_active and peut_cloturer_inscription %}<a href="{% url 'scolarite:cloturer_inscription' eleve.matricule %}" class="btn btn-sm btn-outline-danger">Clôturer l'inscription (abandon/transfert)</a>{% endif %}
 </div>
+
+{% if peut_voir_etat_civil %}
+<div class="card mb-3">
+    <div class="card-body">
+        <h3 class="titre-section">Résultats aux examens</h3>
+        {% if resultats_examens %}
+        <table class="table mb-0">
+            <thead><tr><th>Année scolaire</th><th>Examen</th><th>Classe</th><th>Résultat</th></tr></thead>
+            <tbody>
+                {% for r in resultats_examens %}
+                <tr>
+                    <td>{{ r.inscription.classe.annee_scolaire.libelle }}</td>
+                    <td>{{ r.get_examen_display }}</td>
+                    <td>{{ r.inscription.classe.nom }}</td>
+                    <td>{{ r.get_resultat_display }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="texte-secondaire mb-0">Aucun résultat d'examen enregistré.</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 
 <div class="card mb-3">
     <div class="card-body">

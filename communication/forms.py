@@ -1,7 +1,7 @@
 from django import forms
 
 from comptes.forms import BootstrapFormMixin
-from communication.models import Annonce, Message, Portee
+from communication.models import Annonce, Message, MessageEquipe, Portee
 
 
 class PublierAnnonceForm(BootstrapFormMixin, forms.ModelForm):
@@ -25,4 +25,12 @@ class EnvoyerMessageForm(BootstrapFormMixin, forms.ModelForm):
         model = Message
         fields = ["contenu"]
         widgets = {"contenu": forms.Textarea(attrs={"rows": 3, "placeholder": "Écrivez votre message..."})}
+        labels = {"contenu": ""}
+
+
+class EnvoyerMessageEquipeForm(BootstrapFormMixin, forms.ModelForm):
+    class Meta:
+        model = MessageEquipe
+        fields = ["contenu"]
+        widgets = {"contenu": forms.Textarea(attrs={"rows": 3, "placeholder": "Écrivez à vos collègues..."})}
         labels = {"contenu": ""}

@@ -1,0 +1,168 @@
+{% extends "statistiques/base_statistiques.html" %}
+{% load icones %}
+{% block contenu_stats %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "eleves" 24 %}</div>
+        <div><h1>Fiche statistique annuelle</h1><p>{{ annee.libelle|default:"Aucune année scolaire" }}</p></div>
+    </div>
+    {% if fiche %}
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-imprimer>Imprimer</button>
+        <a href="{% url 'statistiques:exporter_fiche_annuelle_xlsx' %}?annee={{ annee.id }}" class="btn btn-outline-secondary btn-sm" data-telechargement>Exporter en Excel</a>
+        <a href="{% url 'statistiques:exporter_fiche_annuelle_csv' %}?annee={{ annee.id }}" class="btn btn-outline-secondary btn-sm" data-telechargement>Exporter en CSV</a>
+    </div>
+    {% endif %}
+</div>
+
+{% if not fiche %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Aucune année scolaire n'est encore créée.</p></div></div></div>
+{% else %}
+
+<div class="alert alert-warning">
+    <strong>Fiche de travail.</strong> Elle reprend les rubriques des statistiques scolaires du Mali (effectifs par niveau
+    et par sexe, élèves par classe et par maître, parité, résultats aux examens...), mais le questionnaire officiel de
+    la CPS n'a pas pu être consulté : comparez-la avec celui que vous remet votre Académie d'enseignement avant de
+    vous en servir pour une déclaration officielle.
+</div>
+
+<div class="card mb-3"><div class="card-body">
+    <h2 class="titre-section">{{ fiche.etablissement.nom }}</h2>
+    <p class="mb-1">
+        {% if fiche.etablissement.code_etablissement %}Code {{ fiche.etablissement.code_etablissement }} · {% endif %}
+        {% if fiche.etablissement.statut_juridique %}{{ fiche.etablissement.get_statut_juridique_display }} · {% endif %}
+        {% if fiche.etablissement.region %}{{ fiche.etablissement.region }}{% endif %}{% if fiche.etablissement.cercle %} / {{ fiche.etablissement.cercle }}{% endif %}{% if fiche.etablissement.commune %} / {{ fiche.etablissement.commune }}{% endif %}
+        {% if fiche.etablissement.milieu %} · {{ fiche.etablissement.get_milieu_display }}{% endif %}
+    </p>
+    <p class="texte-secondaire mb-0">
+        {{ fiche.portee }}.
+        {% if fiche.etablissement.situation_fonctionnement != "ouvert" %}
+        <strong>École {{ fiche.etablissement.get_situation_fonctionnement_display|lower }}{% if fiche.etablissement.motif_fermeture %} ({{ fiche.etablissement.get_motif_fermeture_display|lower }}){% endif %}.</strong>
+        {% endif %}
+    </p>
+</div></div>
+
+<div class="card mb-3"><div class="card-body">
+    <h2 class="titre-section">Effectifs par niveau</h2>
+    {% if fiche.effectifs %}
+    <div class="table-responsive">
+    <table class="table">
+        <thead><tr>
+            <th>Niveau</th><th>Classes</th><th>Garçons</th><th>Filles</th><th>Total</th>
+            <th title="Filles pour 100 garçons">F / 100 G</th><th>Élèves / classe</th><th>Redoublants</th><th>Nouveaux</th>
+        </tr></thead>
+        <tbody>
+            {% for ligne in fiche.effectifs %}
+            <tr>
+                <td>{{ ligne.niveau_libelle }}<div class="small text-muted">{{ ligne.cycle_libelle }}</div></td>
+                <td class="montant-val">{{ ligne.classes }}</td>
+                <td class="montant-val">{{ ligne.garcons }}</td><td class="montant-val">{{ ligne.filles }}</td>
+                <td class="montant-val">{{ ligne.total }}{% if ligne.inconnu %} <span class="texte-secondaire">({{ ligne.inconnu }} sans sexe)</span>{% endif %}</td>
+                <td>{{ ligne.parite|default_if_none:"-" }}</td><td>{{ ligne.eleves_par_classe|default_if_none:"-" }}</td>
+                <td>{{ ligne.redoublants|default_if_none:"-" }}</td><td>{{ ligne.nouveaux|default_if_none:"-" }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="fw-bold">
+                <td>Total</td>
+                <td class="montant-val">{{ fiche.totaux.classes }}</td>
+                <td class="montant-val">{{ fiche.totaux.garcons }}</td><td class="montant-val">{{ fiche.totaux.filles }}</td>
+                <td class="montant-val">{{ fiche.totaux.total }}</td>
+                <td>{{ fiche.totaux.parite|default_if_none:"-" }}</td><td>{{ fiche.totaux.eleves_par_classe|default_if_none:"-" }}</td>
+                <td>{{ fiche.totaux.redoublants|default_if_none:"-" }}</td><td>{{ fiche.totaux.nouveaux|default_if_none:"-" }}</td>
+            </tr>
+        </tbody>
+    </table>
+    </div>
+    <p class="texte-note mb-0">
+        « Inscrits » = toutes les inscriptions de l'année, quel que soit leur statut. {{ fiche.partis }} élève(s) ont quitté
+        l'établissement en cours d'année (abandon ou transfert).
+        {% if not fiche.annee_precedente %}Les redoublants et les nouveaux inscrits ne sont calculés que lorsque l'année précédente contient des inscriptions dans l'application.{% endif %}
+        Les niveaux « non précisés » se renseignent depuis la liste des classes (« Définir les niveaux »).
+    </p>
+    {% else %}<div class="etat-vide"><p>Aucune classe pour cette année.</p></div>{% endif %}
+</div></div>
+
+<div class="card mb-3"><div class="card-body">
+    <h2 class="titre-section">Âge des élèves <span class="texte-secondaire">(au début de l'année scolaire)</span></h2>
+    {% if fiche.ages or fiche.ages_inconnus.total %}
+    <table class="table">
+        <thead><tr><th>Âge</th><th>Garçons</th><th>Filles</th><th>Total</th></tr></thead>
+        <tbody>
+            {% for ligne in fiche.ages %}
+            <tr><td>{{ ligne.age }} ans</td><td class="montant-val">{{ ligne.garcons }}</td><td class="montant-val">{{ ligne.filles }}</td><td class="montant-val">{{ ligne.total }}</td></tr>
+            {% endfor %}
+            {% if fiche.ages_inconnus.total %}
+            <tr><td>Date de naissance non renseignée</td><td class="montant-val">{{ fiche.ages_inconnus.garcons }}</td><td class="montant-val">{{ fiche.ages_inconnus.filles }}</td><td class="montant-val">{{ fiche.ages_inconnus.total }}</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+    {% else %}<div class="etat-vide"><p>Aucun élève.</p></div>{% endif %}
+</div></div>
+
+<div class="card mb-3"><div class="card-body">
+    <h2 class="titre-section">Enseignants</h2>
+    <div class="row g-3 mb-2">
+        <div class="col-6 col-md-3"><div class="mini-stat-label">Enseignants</div><div class="mini-stat-valeur">{{ fiche.enseignants.total }}</div></div>
+        <div class="col-6 col-md-3"><div class="mini-stat-label">Élèves par enseignant</div><div class="mini-stat-valeur">{{ fiche.enseignants.eleves_par_enseignant|default_if_none:"-" }}</div></div>
+        <div class="col-6 col-md-3"><div class="mini-stat-label">Formés (pédagogie)</div><div class="mini-stat-valeur">{{ fiche.enseignants.qualifies }}</div></div>
+    </div>
+    {% if fiche.enseignants.par_statut %}
+    <table class="table">
+        <thead><tr><th>Situation administrative</th><th>Hommes</th><th>Femmes</th><th>Total</th></tr></thead>
+        <tbody>
+            {% for ligne in fiche.enseignants.par_statut %}
+            <tr><td>{{ ligne.statut }}</td><td class="montant-val">{{ ligne.garcons }}</td><td class="montant-val">{{ ligne.filles }}</td><td class="montant-val">{{ ligne.total }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p class="texte-note mb-0">La situation administrative, la formation et le sexe se renseignent depuis l'espace développeur (Comptes).</p>
+    {% else %}<p class="texte-secondaire mb-0">Aucun enseignant affecté à une classe de cette année.</p>{% endif %}
+</div></div>
+
+{% if fiche.sensibles %}
+<div class="card mb-3"><div class="card-body">
+    <h2 class="titre-section">Élèves en situation de handicap, déplacés ou réfugiés</h2>
+    <p class="mb-1"><strong>{{ fiche.sensibles.total_handicap }}</strong> élève(s) en situation de handicap{% for ligne in fiche.sensibles.handicap %}{% if forloop.first %} : {% endif %}{{ ligne.libelle|lower }} ({{ ligne.total }}){% if not forloop.last %}, {% endif %}{% endfor %}.</p>
+    <p class="mb-1"><strong>{{ fiche.sensibles.total_deplacement }}</strong> élève(s) déplacé(s) ou réfugié(s){% for ligne in fiche.sensibles.deplacement %}{% if forloop.first %} : {% endif %}{{ ligne.libelle|lower }} ({{ ligne.total }}){% if not forloop.last %}, {% endif %}{% endfor %}.</p>
+    <p class="texte-note mb-0">Chiffres agrégés, visibles de la direction et du secrétariat seulement ; le détail par élève reste dans son dossier.</p>
+</div></div>
+{% endif %}
+
+<div class="card mb-3"><div class="card-body">
+    <h2 class="titre-section">Résultats aux examens</h2>
+    {% if fiche.examens %}
+    <table class="table">
+        <thead><tr><th>Examen</th><th>Détail</th><th>Présentés</th><th>Admis</th><th>Ajournés</th><th>Absents</th><th>Taux de réussite</th><th>Garçons</th><th>Filles</th></tr></thead>
+        <tbody>
+            {% for ligne in fiche.examens %}
+            <tr>
+                <td>{{ ligne.libelle }}</td><td>{{ ligne.sous_groupe }}</td>
+                <td class="montant-val">{{ ligne.presentes }}</td><td class="montant-val">{{ ligne.admis }}</td>
+                <td class="montant-val">{{ ligne.ajournes }}</td><td class="montant-val">{{ ligne.absents }}</td>
+                <td class="montant-val">{% if ligne.taux is not None %}{{ ligne.taux }} %{% else %}-{% endif %}</td>
+                <td>{% if ligne.taux_garcons is not None %}{{ ligne.taux_garcons }} %{% else %}-{% endif %}</td>
+                <td>{% if ligne.taux_filles is not None %}{{ ligne.taux_filles }} %{% else %}-{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}<p class="texte-secondaire mb-0">Aucun résultat saisi. <a href="{% url 'statistiques:resultats_examens' %}?annee={{ annee.id }}">Saisir les résultats</a></p>{% endif %}
+</div></div>
+
+<div class="card mb-3"><div class="card-body">
+    <h2 class="titre-section">Infrastructures</h2>
+    {% if fiche.infrastructures %}
+    {% with f=fiche.infrastructures.fiche r=fiche.infrastructures.ratios %}
+    <ul class="mb-2">
+        <li>{{ f.salles_classe }} salle(s) de classe, dont {{ f.salles_bon_etat }} en bon état et {{ f.salles_provisoires }} en matériaux provisoires ; {{ f.places_assises }} place(s) assise(s)</li>
+        <li>{{ f.points_eau }} point(s) d'eau (eau potable toute l'année : {{ f.eau_potable_toute_annee|yesno:"oui,non" }}) ; {{ f.latrines }} latrine(s), dont {{ f.latrines_fonctionnelles }} fonctionnelle(s) (séparées filles / garçons : {{ f.latrines_separees|yesno:"oui,non" }}) ; lavage des mains : {{ f.lavage_mains|yesno:"oui,non" }}</li>
+        <li>Électricité : {{ f.electricite|yesno:"oui,non" }} ; manuels : {{ f.manuels_lecture }} de lecture, {{ f.manuels_calcul }} de calcul ; cantine : {{ f.cantine|yesno:"oui,non" }}{% if f.cantine %} ({{ f.cantine_beneficiaires }} bénéficiaires){% endif %}</li>
+    </ul>
+    {% if r %}
+    <p class="mb-0">Élèves par salle : <strong>{{ r.eleves_par_salle|default_if_none:"-" }}</strong> · élèves par place assise : <strong>{{ r.eleves_par_place|default_if_none:"-" }}</strong> · manuels de lecture par élève : <strong>{{ r.manuels_lecture_par_eleve|default_if_none:"-" }}</strong> (objectif du plan décennal : 1) · manuels de calcul par élève : <strong>{{ r.manuels_calcul_par_eleve|default_if_none:"-" }}</strong></p>
+    {% endif %}
+    {% endwith %}
+    {% else %}<p class="texte-secondaire mb-0">Fiche non renseignée pour cette année. <a href="{% url 'statistiques:infrastructures' %}?annee={{ annee.id }}">Ouvrir la fiche d'infrastructures</a></p>{% endif %}
+</div></div>
+{% endif %}
+{% endblock %}

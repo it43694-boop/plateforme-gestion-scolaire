@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}{{ fil.libelle }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "ressources" 24 %}</div>
+        <div><h1>{{ fil.libelle }}</h1><p>Année scolaire {{ fil.annee_scolaire.libelle }} · {{ membres.count }} enseignant{{ membres.count|pluralize }}</p></div>
+    </div>
+    <a href="{% url 'communication:liste_equipes' %}" class="btn btn-outline-secondary btn-sm">Retour aux équipes</a>
+</div>
+<div class="alert alert-warning">Discussion pédagogique réservée aux enseignants et à la direction autorisée. N'y partagez pas de données personnelles d'élèves.</div>
+<div class="card mb-3"><div class="card-body">
+    {% if messages_fil %}
+    {% for message in messages_fil %}
+    <div class="message-ligne{% if message.auteur_id == request.user.id %} propre{% endif %}">
+        <div class="message-bulle{% if message.auteur_id == request.user.id %} propre{% endif %}">
+            {% if message.auteur_id != request.user.id %}<strong>{{ message.auteur.nom_complet|default:"Ancien membre" }}</strong>{% endif %}
+            {{ message.contenu|linebreaks }}
+        </div>
+        <div class="message-heure">{{ message.envoye_le|date:"d/m/Y H:i" }}</div>
+    </div>
+    {% endfor %}
+    {% else %}<div class="etat-vide"><p>Aucun message pour le moment.</p></div>{% endif %}
+</div></div>
+<div class="card mb-3"><div class="card-body">
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {{ formulaire.contenu }}
+        {% for erreur in formulaire.contenu.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+        <button type="submit" class="btn btn-primary mt-2">Envoyer</button>
+    </form>
+</div></div>
+<div class="card"><div class="card-body">
+    <h2 class="h6">Membres de l'équipe</h2>
+    <p class="texte-secondaire mb-0">{% for membre in membres %}{{ membre.nom_complet }}{% if not forloop.last %}, {% endif %}{% empty %}Aucun enseignant actif.{% endfor %}</p>
+</div></div>
+{% endblock %}

@@ -1,19 +1,25 @@
 from django import forms
 
 from comptes.forms import BootstrapFormMixin
+from comptes.models import SituationHandicap, StatutDeplacement
 from comptes.models import Sexe, Utilisateur
 from comptes.roles import Role
 from comptes.validators import valider_contenu_fichier, valider_extension_document, valider_taille_fichier_10mo
 from scolarite.models import PAS_MONTANT as PAS_MONTANT_PAR_DEFAUT
 from scolarite.models import (
-    DEVISE_PAR_DEFAUT, NOMBRE_VERSEMENTS_FIXE, AnneeScolaire, Classe, Cycle, EcheancierFrais, FiliereProfessionnelle,
-    Inscription, Periodicite, Serie, cycles_autorises_pour,
+    DEVISE_PAR_DEFAUT, NOMBRE_VERSEMENTS_FIXE, AnneeScolaire, Classe, Cycle, DomaineProfessionnel, EcheancierFrais,
+    FiliereProfessionnelle,
+    Inscription, NIVEAUX_PAR_CYCLE, Niveau, Periodicite, Serie, cycles_autorises_pour,
 )
 
 
 class CreerClasseForm(BootstrapFormMixin, forms.Form):
     nom = forms.CharField(label="Nom de la classe", max_length=60, help_text="Exemple : 3ème année A")
     cycle = forms.ChoiceField(label="Cycle", choices=Cycle.choices)
+    niveau = forms.ChoiceField(
+        label="Niveau (année d'études)", choices=[("", "— Non précisé —")] + list(Niveau.choices), required=False,
+        help_text="Permet de relier les sections parallèles d'une même année d'études.",
+    )
     serie = forms.ChoiceField(
         label="Série", choices=[("", "— Aucune (hors lycée, ou 10ème année) —")] + Serie.choices,
         required=False, help_text="Uniquement pour une classe de 11ème ou 12ème année.",
@@ -21,6 +27,10 @@ class CreerClasseForm(BootstrapFormMixin, forms.Form):
     filiere_professionnelle = forms.ChoiceField(
         label="Filière", choices=[("", "— Aucune (hors enseignement professionnel) —")] + FiliereProfessionnelle.choices,
         required=False, help_text="Uniquement pour une classe du cycle Enseignement professionnel.",
+    )
+    domaine_professionnel = forms.ChoiceField(
+        label="Domaine", choices=[("", "— Non précisé —")] + DomaineProfessionnel.choices, required=False,
+        help_text="Uniquement pour une classe du cycle Enseignement professionnel : industriel ou tertiaire.",
     )
     annee_scolaire = forms.ModelChoiceField(label="Année scolaire", queryset=AnneeScolaire.objects.none())
     montant_inscription = forms.IntegerField(label="Frais d'inscription", min_value=0)
@@ -64,8 +74,12 @@ class CreerClasseForm(BootstrapFormMixin, forms.Form):
         annee = cleaned.get("annee_scolaire")
         if nom and annee and Classe.objects.filter(nom=nom, annee_scolaire=annee).exists():
             self.add_error("nom", "Une classe porte déjà ce nom pour cette année scolaire.")
+        if cleaned.get("niveau") and cleaned["niveau"] not in NIVEAUX_PAR_CYCLE.get(cycle, []):
+            self.add_error("niveau", "Ce niveau ne correspond pas au cycle choisi.")
         if cleaned.get("serie") and cleaned.get("cycle") != Cycle.LYCEE:
             self.add_error("serie", "Une série ne s'applique qu'à une classe du cycle Lycée.")
+        if cleaned.get("domaine_professionnel") and cleaned.get("cycle") != Cycle.PROFESSIONNEL:
+            self.add_error("domaine_professionnel", "Un domaine ne s'applique qu'à une classe du cycle Enseignement professionnel.")
         if cleaned.get("filiere_professionnelle") and cleaned.get("cycle") != Cycle.PROFESSIONNEL:
             self.add_error("filiere_professionnelle", "Une filière ne s'applique qu'à une classe du cycle Enseignement professionnel.")
         if cleaned.get("cycle") == Cycle.PROFESSIONNEL and not cleaned.get("filiere_professionnelle"):
@@ -78,7 +92,9 @@ class CreerClasseForm(BootstrapFormMixin, forms.Form):
     def save(self):
         classe = Classe.objects.create(
             nom=self.cleaned_data["nom"], cycle=self.cleaned_data["cycle"],
+            niveau=self.cleaned_data.get("niveau", ""),
             serie=self.cleaned_data["serie"], filiere_professionnelle=self.cleaned_data["filiere_professionnelle"],
+            domaine_professionnel=self.cleaned_data.get("domaine_professionnel", ""),
             annee_scolaire=self.cleaned_data["annee_scolaire"],
         )
         periodicite = self.cleaned_data["periodicite"]
@@ -126,6 +142,16 @@ class InscrireEleveForm(BootstrapFormMixin, forms.Form):
     date_naissance = forms.DateField(
         label="Date de naissance", required=False,
         widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    lieu_naissance = forms.CharField(label="Lieu de naissance", max_length=120, required=False)
+    numero_acte_naissance = forms.CharField(
+        label="N° d'extrait d'acte de naissance", max_length=60, required=False,
+    )
+    handicap = forms.ChoiceField(
+        label="Situation de handicap", choices=[("", "— Aucune —")] + SituationHandicap.choices, required=False,
+    )
+    statut_deplacement = forms.ChoiceField(
+        label="Situation de déplacement", choices=[("", "— Aucune —")] + StatutDeplacement.choices, required=False,
     )
     classe = forms.ModelChoiceField(label="Classe", queryset=Classe.objects.none())
     parent_email_1 = forms.EmailField(label="Email du 1er parent")

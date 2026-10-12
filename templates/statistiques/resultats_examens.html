@@ -1,0 +1,52 @@
+{% extends "statistiques/base_statistiques.html" %}
+{% load icones %}
+{% block contenu_stats %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "eleves" 24 %}</div>
+        <div><h1>Résultats aux examens</h1><p>{{ annee.libelle|default:"Aucune année scolaire" }}</p></div>
+    </div>
+</div>
+
+<div class="card mb-3"><div class="card-body">
+    <h2 class="titre-section">Taux de réussite</h2>
+    {% if examens %}
+    <table class="table">
+        <thead><tr><th>Examen</th><th>Détail</th><th>Présentés</th><th>Admis</th><th>Ajournés</th><th>Absents</th><th>Taux de réussite</th></tr></thead>
+        <tbody>
+            {% for ligne in examens %}
+            <tr>
+                <td>{{ ligne.libelle }}</td><td>{{ ligne.sous_groupe }}</td>
+                <td class="montant-val">{{ ligne.presentes }}</td><td class="montant-val">{{ ligne.admis }}</td>
+                <td class="montant-val">{{ ligne.ajournes }}</td><td class="montant-val">{{ ligne.absents }}</td>
+                <td class="montant-val">{% if ligne.taux is not None %}{{ ligne.taux }} %{% else %}-{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <p class="texte-note mb-0">Le taux est calculé sur les élèves présents (admis et ajournés) ; les absents n'y comptent pas.</p>
+    {% else %}<div class="etat-vide"><p>Aucun résultat d'examen saisi pour cette année.</p></div>{% endif %}
+</div></div>
+
+<div class="card"><div class="card-body">
+    <h2 class="titre-section">Classes concernées</h2>
+    {% if classes_examens %}
+    <table class="table">
+        <thead><tr><th>Classe</th><th>Examen</th><th>Inscrits</th><th>Résultats saisis</th><th></th></tr></thead>
+        <tbody>
+            {% for classe in classes_examens %}
+            <tr>
+                <td>{{ classe.nom }}</td>
+                <td>{{ classe.libelles_examens|join:", " }}</td>
+                <td class="montant-val">{{ classe.nombre_inscrits }}</td>
+                <td class="montant-val">{{ classe.nombre_resultats }}</td>
+                <td class="text-end">
+                    {% if peut_saisir %}<a href="{% url 'scolarite:saisir_resultats_examen' classe.id %}" class="btn btn-sm btn-outline-secondary">Saisir les résultats</a>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}<div class="etat-vide"><p>Aucune classe de cette année ne prépare un examen officiel.</p></div>{% endif %}
+</div></div>
+{% endblock %}

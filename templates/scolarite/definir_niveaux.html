@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Niveaux des classes{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "pedagogie" 24 %}</div>
+        <div>
+            <h1>Niveaux des classes</h1>
+            <p>Associez chaque classe à son année d'études pour relier les sections parallèles. {{ sans_niveau }} classe{{ sans_niveau|pluralize }} sans niveau.</p>
+        </div>
+    </div>
+    <a href="{% url 'scolarite:liste_classes' %}" class="btn btn-outline-secondary btn-sm">Retour aux classes</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        {% if classes %}
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <table class="table">
+                <thead><tr><th>Classe</th><th>Cycle</th><th>Année scolaire</th><th>Niveau</th></tr></thead>
+                <tbody>
+                    {% for classe in classes %}
+                    <tr>
+                        <td>{{ classe.nom }}</td>
+                        <td>{{ classe.get_cycle_display }}</td>
+                        <td>{{ classe.annee_scolaire.libelle }}</td>
+                        <td>
+                            <select name="niveau_{{ classe.id }}" class="form-select form-select-sm" aria-label="Niveau de {{ classe.nom }}">
+                                <option value="">— Non précisé —</option>
+                                {% for valeur, libelle in classe.niveaux_possibles %}
+                                <option value="{{ valeur }}" {% if valeur == classe.niveau %}selected{% endif %}>{{ libelle }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button type="submit" class="btn btn-primary">Enregistrer</button>
+        </form>
+        {% else %}
+        <div class="etat-vide"><p>Aucune classe à renseigner pour le moment.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

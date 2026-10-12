@@ -24,7 +24,11 @@
                 Question
                 <span class="badge bg-success badge-mini">IA activée</span>
             </label>
-            <input type="text" name="question" value="{{ question }}" class="form-control mb-3" placeholder="Ex. Combien d'élèves sont inscrits ? / Cet élève a-t-il des absences ?">
+            <input type="text" name="question" value="{{ question }}" class="form-control mb-1" placeholder="Ex. Combien d'élèves sont inscrits ? / Cet élève a-t-il des absences ?">
+            <p class="form-text mb-3">
+                L'IA est un service externe : ne tapez le nom ou le numéro d'aucune personne dans votre question.
+                Le nom et le matricule de l'élève ne lui sont jamais transmis.
+            </p>
             {% endif %}
             <button type="submit" class="btn btn-primary w-100">Rechercher</button>
         </form>

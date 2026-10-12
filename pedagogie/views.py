@@ -24,7 +24,8 @@ from pedagogie.models import (
 )
 from permissions_matrix.modules import Module
 from scolarite.models import (
-    Affectation, Classe, CYCLE_PAR_ROLE_DIRECTION, Inscription, classes_visibles_pour, eleve_visible_pour,
+    Affectation, Classe, CYCLE_PAR_ROLE_DIRECTION, Inscription, classes_visibles_pour, eleve_de_l_etablissement_ou_404,
+    eleve_visible_pour,
 )
 
 
@@ -309,7 +310,7 @@ def _moyennes_extremes_classe(classe, trimestre):
 
 @module_requis(Module.NOTES_BULLETINS)
 def bulletin_eleve(request, matricule):
-    eleve = get_object_or_404(Utilisateur, matricule=matricule, role=Role.ELEVE)
+    eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
     if not _eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès au bulletin de cet élève.")
     inscription_id = request.GET.get("inscription")
@@ -325,7 +326,7 @@ def bulletin_eleve(request, matricule):
 
 @module_requis(Module.NOTES_BULLETINS)
 def exporter_bulletin_pdf(request, matricule):
-    eleve = get_object_or_404(Utilisateur, matricule=matricule, role=Role.ELEVE)
+    eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
     if not _eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès au bulletin de cet élève.")
 
@@ -444,7 +445,7 @@ def saisir_absence_vue(request, classe_id):
 
 @module_requis(Module.ABSENCES)
 def historique_absences_eleve(request, matricule):
-    eleve = get_object_or_404(Utilisateur, matricule=matricule, role=Role.ELEVE)
+    eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
     if not _eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès à l'historique de cet élève.")
     absences_qs = Absence.objects.filter(eleve=eleve).order_by("-date_absence")

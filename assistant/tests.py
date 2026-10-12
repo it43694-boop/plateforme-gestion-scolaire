@@ -157,6 +157,18 @@ class AssistantModeGeneratifTests(TestCase):
             donnees_envoyees = mock_ia.call_args.kwargs["donnees_autorisees"]
             self.assertNotIn("derniers_paiements", donnees_envoyees)
 
+    def test_question_libre_n_est_pas_conservee_dans_le_journal_audit(self):
+        from comptes.models import JournalAudit
+
+        question_sensible = "NE_PERSISTEZ_PAS_CE_CONTENU_PERSONNEL_8472"
+        with patch("assistant.views.repondre_avec_ia", return_value="Réponse simulée."):
+            self.client.force_login(self.comptable)
+            self.client.get(reverse("assistant:poser_question"), {
+                "matricule": self.eleve.matricule, "question": question_sensible,
+            })
+        entree = JournalAudit.objects.get(action="question_assistant_ia")
+        self.assertNotIn(question_sensible, str(entree.details))
+
     def test_comptable_pose_une_question_les_notes_ne_partent_jamais_a_lapi(self):
         with patch("assistant.views.repondre_avec_ia") as mock_ia:
             mock_ia.return_value = "Réponse simulée."

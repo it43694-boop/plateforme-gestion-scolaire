@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test
 from django.core.paginator import Paginator
+from django.db.models import Count
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
@@ -51,8 +52,18 @@ def voir_comptes_etablissement(request, etablissement_id):
 @est_proprietaire_plateforme
 def liste_etablissements(request):
     etablissements = Etablissement.objects.all().order_by("nom")
+    # Détection des codes d'établissement en double : seul le propriétaire de la plateforme voit
+    # toutes les écoles ; une école, elle, n'apprend jamais qu'une autre porte le même code.
+    comptes_codes = {}
+    for code in Etablissement.objects.exclude(code_etablissement="").values_list("code_etablissement", flat=True):
+        code_normalise = " ".join(code.split()).upper()
+        if code_normalise:
+            comptes_codes[code_normalise] = comptes_codes.get(code_normalise, 0) + 1
+    codes_en_double = {code for code, nombre in comptes_codes.items() if nombre > 1}
     for etablissement in etablissements:
         etablissement.nb_comptes = etablissement.utilisateurs.count()
+        code_normalise = " ".join(etablissement.code_etablissement.split()).upper()
+        etablissement.code_en_double = code_normalise in codes_en_double
     return render(request, "espace_plateforme/liste_etablissements.html", {
         "etablissements": etablissements, "plan_choices": PlanEtablissement.choices,
     })
@@ -97,6 +108,7 @@ def modifier_plan(request, etablissement_id):
     etablissement = get_object_or_404(Etablissement, id=etablissement_id)
     ancien_plan = etablissement.plan
     ancien_professionnel = etablissement.inclut_professionnel
+    ancien_prescolaire = etablissement.inclut_prescolaire
     formulaire = ModifierPlanEtablissementForm(request.POST, instance=etablissement)
     if formulaire.is_valid():
         formulaire.save()
@@ -106,6 +118,7 @@ def modifier_plan(request, etablissement_id):
             details={
                 "plan": f"{ancien_plan} -> {etablissement.plan}",
                 "inclut_professionnel": f"{ancien_professionnel} -> {etablissement.inclut_professionnel}",
+                "inclut_prescolaire": f"{ancien_prescolaire} -> {etablissement.inclut_prescolaire}",
             },
             request=request,
         )
