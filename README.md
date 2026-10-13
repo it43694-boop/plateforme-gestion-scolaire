@@ -1949,6 +1949,23 @@ Menu Finances → Comptabilité (module « Caisse » : direction, comptable ; le
   (irréversible) ; **report à nouveau** des soldes de bilan dans l'exercice suivant.
 - Le registre de caisse (Finances) ne montre toujours que la scolarité et les salaires ; la comptabilité est la référence complète.
 
+### Indicateurs du rapport de la CPS dans la fiche annuelle (`statistiques/fiche.py`)
+Le « Rapport de suivi des indicateurs du système éducatif 2017-2018 à 2021-2022 » de la CPS (mai 2022) est un rapport **national** :
+il donne les définitions des indicateurs, pas le questionnaire de collecte. La fiche en reprend ce qu'un établissement peut calculer
+seul, sans modèle ni migration nouveaux (elle apparaît dans la page, le CSV et l'Excel, avec les mêmes limites de cycle et de rôle) :
+- **Indicateurs par cycle** : indice de parité F/G (0,97 = 97 filles pour 100 garçons, en plus de « filles pour 100 garçons »), élèves
+  par classe (groupe pédagogique), **pourcentage de redoublants** garçons / filles / ensemble, enseignants, **part de femmes**,
+  élèves par enseignant. Un enseignant qui intervient dans deux cycles est compté dans chacun, et une seule fois au total.
+- **Promotion, redoublement et abandon** par niveau et par sexe (tableau 30 du rapport), d'après les décisions de fin d'année déjà
+  enregistrées (admis, redouble, abandon). Les élèves transférés et ceux sans décision ne sont pas comptés, et leur nombre est
+  affiché. Méthode propre à l'établissement : la CPS suit les effectifs d'une année à l'autre à l'échelle du pays.
+- **Part de femmes parmi les enseignants**, calculée sur ceux dont le sexe est renseigné.
+
+Ce que la fiche ne calcule pas : les taux bruts d'admission, de scolarisation et d'achèvement (TBA, TBS, TA, TBP), dont le
+dénominateur est la population par âge du recensement ; les ratios élèves par salle **par cycle** (la fiche d'infrastructures est
+saisie pour toute l'école) ; les diplômes des enseignants (IFM, SARPE, faculté) et les manuels par matière au fondamental 2, qui
+demandent de nouveaux champs. À décider après avoir vu le questionnaire de collecte (« collecte rapide ») remis par l'académie.
+
 ### Corrections liées
 - Les attributs `style=""` en ligne, bloqués par la politique de sécurité du site, laissaient visibles des blocs censés être cachés
   (bandeau hors connexion vide, « mois couverts » du paiement) : remplacés par l'attribut `hidden`, avec un test qui interdit leur retour.

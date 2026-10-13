@@ -7,6 +7,10 @@ Les rubriques suivent les statistiques scolaires publiées au Mali (effectifs pa
 FICHE DE TRAVAIL : le questionnaire officiel de la CPS (Cellule de planification et de statistique) n'a
 pas pu être consulté, elle n'en reproduit donc pas la forme exacte.
 
+Les définitions des indicateurs (indice de parité F/G, pourcentage de redoublants, taux de promotion, de redoublement
+et d'abandon, élèves par maître) suivent le « Rapport de suivi des indicateurs du système éducatif 2017-2018 à
+2021-2022 » de la CPS (mai 2022), qui est un rapport national et non le questionnaire de collecte.
+
 Définitions utilisées (rappelées sur la page) :
 - inscrits : toutes les inscriptions de l'année dans les classes visibles, quel que soit leur statut
   (une année terminée n'a plus d'élève « en cours » : compter ceux-là donnerait zéro) ;
@@ -24,7 +28,7 @@ from django.db.models import Count, Exists, OuterRef
 from comptes.models import FormationPedagogique, SituationHandicap, StatutDeplacement, StatutPersonnel, Utilisateur
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
 from scolarite.models import (
-    CYCLE_PAR_ROLE_CLOISONNE, AnneeScolaire, Cycle, Examen, FicheInfrastructure, Inscription, Niveau,
+    CYCLE_PAR_ROLE_CLOISONNE, Affectation, AnneeScolaire, Cycle, Examen, FicheInfrastructure, Inscription, Niveau,
     ResultatExamen, Serie, DomaineProfessionnel, ROLES_ETAT_CIVIL_ELEVE, classes_visibles_pour,
 )
 
@@ -62,6 +66,15 @@ def _rapport(numerateur, denominateur):
 
 def _taux(admis, presentes):
     return round(100 * admis / presentes, 1) if presentes else None
+
+
+def _indice_parite(filles, garcons):
+    """Indice de parité F/G tel que publié par la CPS (0,97 = 97 filles pour 100 garçons) ; None si aucun garçon."""
+    return round(filles / garcons, 2) if garcons else None
+
+
+def _pourcentage(partie, total):
+    return round(100 * partie / total, 1) if total else None
 
 
 def annee_precedente_avec_donnees(annee):
@@ -179,14 +192,142 @@ def _enseignants(classes, annee, total_inscrits):
     formations = Counter(formation for _, _, _, formation in enseignants)
     libelles_formation = dict(FormationPedagogique.choices)
     total = len(enseignants)
+    par_sexe = Counter(_cle_sexe(sexe) for _, sexe, _, _ in enseignants)
     return {
         "total": total, "par_statut": lignes,
+        # Part des femmes calculée sur les enseignants dont le sexe est renseigné (sinon elle serait sous-estimée).
+        "hommes": par_sexe["garcons"], "femmes": par_sexe["filles"], "sexe_inconnu": par_sexe["inconnu"],
+        "pourcentage_femmes": _pourcentage(par_sexe["filles"], par_sexe["garcons"] + par_sexe["filles"]),
         "formation": [
             {"libelle": libelles_formation.get(valeur, "Formation non renseignée"), "total": formations[valeur]}
             for valeur in [v for v, _ in FormationPedagogique.choices] + [""] if formations.get(valeur)
         ],
         "qualifies": formations.get(FormationPedagogique.FORME.value, 0),
         "eleves_par_enseignant": _rapport(total_inscrits, total),
+    }
+
+
+def _indicateurs_par_cycle(classes, annee, precedente):
+    """
+    Un tableau par cycle (préscolaire, 1er cycle, ...) comme dans le rapport de la CPS : indice de parité F/G,
+    élèves par classe (groupe pédagogique), pourcentage de redoublants par sexe, enseignants dont femmes, élèves par
+    enseignant. Un enseignant qui intervient dans deux cycles est compté dans chacun (la somme des cycles peut donc
+    dépasser le nombre d'enseignants de l'école). Limité aux classes visibles de l'utilisateur.
+    """
+    nombre_classes = Counter(classes.values_list("cycle", flat=True))
+    base = Inscription.objects.filter(classe__in=classes)
+    champs = ["classe__cycle", "eleve__sexe"]
+    if precedente is not None:
+        base = base.annotate(redoublant=Exists(Inscription.objects.filter(
+            eleve=OuterRef("eleve"), classe__annee_scolaire=precedente, statut=Inscription.Statut.REDOUBLE,
+        )))
+        champs.append("redoublant")
+
+    eleves = {cycle: {**_compteur_sexe(), "total": 0, "red": _compteur_sexe(), "red_total": 0} for cycle in nombre_classes}
+    for ligne in base.values(*champs).annotate(n=Count("id")):
+        entree = eleves.setdefault(
+            ligne["classe__cycle"], {**_compteur_sexe(), "total": 0, "red": _compteur_sexe(), "red_total": 0},
+        )
+        cle = _cle_sexe(ligne["eleve__sexe"])
+        entree[cle] += ligne["n"]
+        entree["total"] += ligne["n"]
+        if precedente is not None and ligne["redoublant"]:
+            entree["red"][cle] += ligne["n"]
+            entree["red_total"] += ligne["n"]
+
+    enseignants = {}
+    for enseignant_id, sexe, cycle in Affectation.objects.filter(
+        classe__in=classes, enseignant__role=Role.ENSEIGNANT, enseignant__etablissement_id=annee.etablissement_id,
+    ).values_list("enseignant_id", "enseignant__sexe", "classe__cycle").distinct():
+        enseignants.setdefault(cycle, {})[enseignant_id] = _cle_sexe(sexe)
+
+    lignes = []
+    for cycle in sorted(eleves, key=lambda c: ORDRE_CYCLES.index(c) if c in ORDRE_CYCLES else len(ORDRE_CYCLES)):
+        e = eleves[cycle]
+        profs = enseignants.get(cycle, {})
+        femmes = sum(1 for sexe in profs.values() if sexe == "filles")
+        sexe_connu = sum(1 for sexe in profs.values() if sexe != "inconnu")
+        calcule = precedente is not None
+        lignes.append({
+            "cycle": cycle, "cycle_libelle": Cycle(cycle).label, "classes": nombre_classes.get(cycle, 0),
+            "garcons": e["garcons"], "filles": e["filles"], "inconnu": e["inconnu"], "total": e["total"],
+            "indice_parite": _indice_parite(e["filles"], e["garcons"]),
+            "eleves_par_classe": _rapport(e["total"], nombre_classes.get(cycle, 0)),
+            "redoublants_garcons": e["red"]["garcons"] if calcule else None,
+            "redoublants_filles": e["red"]["filles"] if calcule else None,
+            "redoublants": e["red_total"] if calcule else None,
+            "pourcentage_redoublants_garcons": _pourcentage(e["red"]["garcons"], e["garcons"]) if calcule else None,
+            "pourcentage_redoublants_filles": _pourcentage(e["red"]["filles"], e["filles"]) if calcule else None,
+            "pourcentage_redoublants": _pourcentage(e["red_total"], e["total"]) if calcule else None,
+            "enseignants": len(profs), "enseignantes": femmes,
+            "pourcentage_femmes": _pourcentage(femmes, sexe_connu),
+            "eleves_par_enseignant": _rapport(e["total"], len(profs)),
+        })
+    return lignes
+
+
+def _efficacite_interne(classes):
+    """
+    Taux de promotion, de redoublement et d'abandon par niveau et par sexe, d'après les décisions de fin d'année
+    enregistrées sur les inscriptions (admis, redouble, abandon). Les élèves transférés vers une autre école et ceux dont
+    la décision n'est pas encore prise ne sont pas comptés : on ne sait pas ce qu'ils deviennent, ou rien n'est décidé.
+    Méthode propre à l'établissement : la CPS, elle, suit les effectifs d'une année à l'autre à l'échelle nationale.
+    """
+    decisions = (Inscription.Statut.ADMIS.value, Inscription.Statut.REDOUBLE.value, Inscription.Statut.ABANDON.value)
+    groupes = {}
+    for ligne in Inscription.objects.filter(classe__in=classes, statut__in=decisions).values(
+        "classe__cycle", "classe__niveau", "eleve__sexe", "statut",
+    ).annotate(n=Count("id")):
+        niveau = groupes.setdefault((ligne["classe__cycle"], ligne["classe__niveau"]), {
+            "garcons": Counter(), "filles": Counter(), "ensemble": Counter(),
+        })
+        cle = _cle_sexe(ligne["eleve__sexe"])
+        if cle in ("garcons", "filles"):
+            niveau[cle][ligne["statut"]] += ligne["n"]
+        niveau["ensemble"][ligne["statut"]] += ligne["n"]
+
+    def ordre(cle):
+        cycle, niveau = cle
+        return (
+            ORDRE_CYCLES.index(cycle) if cycle in ORDRE_CYCLES else len(ORDRE_CYCLES),
+            ORDRE_NIVEAUX.index(niveau) if niveau in ORDRE_NIVEAUX else len(ORDRE_NIVEAUX),
+        )
+
+    libelles_groupes = {"garcons": "Garçons", "filles": "Filles", "ensemble": "Ensemble"}
+
+    def ligne_de(groupe, compte, **identite):
+        decides = sum(compte.values())
+        if not decides:
+            return None
+        promus, redoublent, abandons = (compte[statut] for statut in decisions)
+        return {
+            **identite, "groupe": libelles_groupes[groupe], "decides": decides,
+            "promus": promus, "redoublent": redoublent, "abandons": abandons,
+            "taux_promotion": _pourcentage(promus, decides), "taux_redoublement": _pourcentage(redoublent, decides),
+            "taux_abandon": _pourcentage(abandons, decides),
+        }
+
+    lignes, totaux = [], {"garcons": Counter(), "filles": Counter(), "ensemble": Counter()}
+    for cle in sorted(groupes, key=ordre):
+        cycle, niveau = cle
+        premiere = True  # le nom du niveau ne s'affiche que sur sa première ligne
+        for groupe in ("garcons", "filles", "ensemble"):
+            totaux[groupe].update(groupes[cle][groupe])
+            ligne = ligne_de(
+                groupe, groupes[cle][groupe], cycle_libelle=Cycle(cycle).label,
+                niveau_libelle=LIBELLES_NIVEAUX.get(niveau, LIBELLE_NIVEAU_INCONNU), debut_niveau=premiere,
+            )
+            if ligne:
+                lignes.append(ligne)
+                premiere = False
+    lignes_totales = [
+        ligne for ligne in (ligne_de(groupe, totaux[groupe]) for groupe in ("garcons", "filles", "ensemble")) if ligne
+    ]
+    inscriptions = Inscription.objects.filter(classe__in=classes)
+    return {
+        "lignes": lignes, "totaux": lignes_totales,
+        "transferes": inscriptions.filter(statut=Inscription.Statut.TRANSFERE).count(),
+        "sans_decision": inscriptions.filter(statut=Inscription.Statut.EN_COURS).count(),
     }
 
 
@@ -303,6 +444,8 @@ def construire_fiche(utilisateur, annee) -> dict:
         "portee": f"Cycle « {Cycle(cycle_limite).label} » uniquement" if cycle_limite else "Toute l'école",
         "effectifs": lignes_effectifs,
         "totaux": totaux,
+        "cycles": _indicateurs_par_cycle(classes, annee, precedente),
+        "efficacite": _efficacite_interne(classes),
         "partis": partis,
         "ages": ages,
         "ages_inconnus": ages_inconnus,
@@ -356,6 +499,53 @@ def lignes_csv(fiche) -> list[list]:
     ])
     lignes += [["Élèves ayant quitté l'établissement en cours d'année (abandon ou transfert)", fiche["partis"]], []]
 
+    lignes += [["INDICATEURS PAR CYCLE"]]
+    if fiche["cycles"]:
+        lignes.append([
+            "Cycle", "Classes", "Garçons", "Filles", "Total", "Indice de parité (F/G)", "Élèves par classe",
+            "Redoublants garçons", "Redoublants filles", "Redoublants (total)", "% redoublants garçons",
+            "% redoublants filles", "% redoublants (total)", "Enseignants", "dont femmes", "% de femmes",
+            "Élèves par enseignant",
+        ])
+        for cycle in fiche["cycles"]:
+            lignes.append([
+                cycle["cycle_libelle"], cycle["classes"], cycle["garcons"], cycle["filles"], cycle["total"],
+                cycle["indice_parite"], cycle["eleves_par_classe"], cycle["redoublants_garcons"],
+                cycle["redoublants_filles"], cycle["redoublants"], cycle["pourcentage_redoublants_garcons"],
+                cycle["pourcentage_redoublants_filles"], cycle["pourcentage_redoublants"], cycle["enseignants"],
+                cycle["enseignantes"], cycle["pourcentage_femmes"], cycle["eleves_par_enseignant"],
+            ])
+        lignes.append(["Un enseignant qui intervient dans plusieurs cycles est compté dans chacun."])
+    else:
+        lignes.append(["Aucune classe pour cette année"])
+    lignes.append([])
+
+    efficacite = fiche["efficacite"]
+    lignes.append(["PROMOTION, REDOUBLEMENT ET ABANDON (décisions de fin d'année)"])
+    if efficacite["lignes"]:
+        lignes.append([
+            "Cycle", "Niveau", "Élèves", "Décidés", "Promus", "Redoublent", "Abandons", "Taux de promotion (%)",
+            "Taux de redoublement (%)", "Taux d'abandon (%)",
+        ])
+        for ligne in efficacite["lignes"]:
+            lignes.append([
+                ligne["cycle_libelle"], ligne["niveau_libelle"], ligne["groupe"], ligne["decides"], ligne["promus"],
+                ligne["redoublent"], ligne["abandons"], ligne["taux_promotion"], ligne["taux_redoublement"],
+                ligne["taux_abandon"],
+            ])
+        for ligne in efficacite["totaux"]:
+            lignes.append([
+                "TOTAL", "", ligne["groupe"], ligne["decides"], ligne["promus"], ligne["redoublent"],
+                ligne["abandons"], ligne["taux_promotion"], ligne["taux_redoublement"], ligne["taux_abandon"],
+            ])
+    else:
+        lignes.append(["Aucune décision de fin d'année (admis, redouble, abandon) enregistrée pour cette année"])
+    lignes += [
+        ["Transférés vers une autre école (non comptés dans les taux)", efficacite["transferes"]],
+        ["Sans décision de fin d'année (non comptés dans les taux)", efficacite["sans_decision"]],
+        [],
+    ]
+
     lignes += [["ÂGE DES ÉLÈVES (au début de l'année scolaire)"], ["Âge", "Garçons", "Filles", "Sexe non renseigné", "Total"]]
     for ligne in fiche["ages"]:
         lignes.append([f"{ligne['age']} ans", ligne["garcons"], ligne["filles"], ligne["inconnu"], ligne["total"]])
@@ -368,6 +558,8 @@ def lignes_csv(fiche) -> list[list]:
         ["Nombre d'enseignants", enseignants["total"]],
         ["Élèves par enseignant", enseignants["eleves_par_enseignant"]],
         ["Enseignants formés (formation pédagogique)", enseignants["qualifies"]],
+        ["Enseignantes (femmes)", enseignants["femmes"]],
+        ["Part de femmes parmi les enseignants dont le sexe est renseigné (%)", enseignants["pourcentage_femmes"]],
         ["Situation administrative", "Hommes", "Femmes", "Sexe non renseigné", "Total"],
     ]
     for ligne in enseignants["par_statut"]:

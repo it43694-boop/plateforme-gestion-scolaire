@@ -20,9 +20,10 @@
 {% else %}
 
 <div class="alert alert-warning">
-    <strong>Fiche de travail.</strong> Elle reprend les rubriques des statistiques scolaires du Mali (effectifs par niveau
-    et par sexe, élèves par classe et par maître, parité, résultats aux examens...), mais le questionnaire officiel de
-    la CPS n'a pas pu être consulté : comparez-la avec celui que vous remet votre Académie d'enseignement avant de
+    <strong>Fiche de travail.</strong> Elle reprend les rubriques et les définitions des statistiques scolaires du Mali
+    (effectifs par niveau et par sexe, parité, redoublants, promotion et abandon, élèves par classe et par maître,
+    résultats aux examens...), d'après le rapport de suivi des indicateurs de la CPS, mais le questionnaire officiel de
+    collecte n'a pas pu être consulté : comparez-la avec celui que vous remet votre Académie d'enseignement avant de
     vous en servir pour une déclaration officielle.
 </div>
 
@@ -83,6 +84,81 @@
 </div></div>
 
 <div class="card mb-3"><div class="card-body">
+    <h2 class="titre-section">Indicateurs par cycle</h2>
+    {% if fiche.cycles %}
+    <div class="table-responsive">
+    <table class="table">
+        <thead><tr>
+            <th>Cycle</th><th>Classes</th><th>Garçons</th><th>Filles</th><th>Total</th>
+            <th title="Indice de parité : filles divisées par garçons (1 = parité)">Parité F/G</th><th>Élèves / classe</th>
+            <th title="Pourcentage de redoublants : garçons, filles, ensemble">% redoublants G / F / total</th>
+            <th>Enseignants</th><th>% de femmes</th><th>Élèves / enseignant</th>
+        </tr></thead>
+        <tbody>
+            {% for cycle in fiche.cycles %}
+            <tr>
+                <td>{{ cycle.cycle_libelle }}</td>
+                <td class="montant-val">{{ cycle.classes }}</td>
+                <td class="montant-val">{{ cycle.garcons }}</td><td class="montant-val">{{ cycle.filles }}</td>
+                <td class="montant-val">{{ cycle.total }}</td>
+                <td>{{ cycle.indice_parite|default_if_none:"-" }}</td>
+                <td>{{ cycle.eleves_par_classe|default_if_none:"-" }}</td>
+                <td>{% if cycle.redoublants is None %}-{% else %}{{ cycle.pourcentage_redoublants_garcons|default_if_none:"-" }} / {{ cycle.pourcentage_redoublants_filles|default_if_none:"-" }} / <strong>{{ cycle.pourcentage_redoublants|default_if_none:"-" }}</strong>{% endif %}</td>
+                <td class="montant-val">{{ cycle.enseignants }}</td>
+                <td>{% if cycle.pourcentage_femmes is None %}-{% else %}{{ cycle.pourcentage_femmes }} %{% endif %}</td>
+                <td>{{ cycle.eleves_par_enseignant|default_if_none:"-" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    <p class="texte-note mb-0">
+        Définitions du rapport de la CPS : indice de parité = filles ÷ garçons ; pourcentage de redoublants = redoublants du cycle ÷
+        élèves du cycle ; « élèves par classe » = élèves par groupe pédagogique. Un enseignant qui intervient dans plusieurs cycles est
+        compté dans chacun. Les redoublants ne sont calculés que lorsque l'année précédente contient des inscriptions dans l'application.
+    </p>
+    {% else %}<div class="etat-vide"><p>Aucune classe pour cette année.</p></div>{% endif %}
+</div></div>
+
+<div class="card mb-3"><div class="card-body">
+    <h2 class="titre-section">Promotion, redoublement et abandon <span class="texte-secondaire">(décisions de fin d'année)</span></h2>
+    {% if fiche.efficacite.lignes %}
+    <div class="table-responsive">
+    <table class="table">
+        <thead><tr>
+            <th>Niveau</th><th>Élèves</th><th>Décidés</th><th>Promus</th><th>Redoublent</th><th>Abandons</th>
+            <th>Taux de promotion</th><th>Taux de redoublement</th><th>Taux d'abandon</th>
+        </tr></thead>
+        <tbody>
+            {% for ligne in fiche.efficacite.lignes %}
+            <tr>
+                <td>{% if ligne.debut_niveau %}{{ ligne.niveau_libelle }}<div class="small text-muted">{{ ligne.cycle_libelle }}</div>{% endif %}</td>
+                <td>{{ ligne.groupe }}</td>
+                <td class="montant-val">{{ ligne.decides }}</td><td class="montant-val">{{ ligne.promus }}</td>
+                <td class="montant-val">{{ ligne.redoublent }}</td><td class="montant-val">{{ ligne.abandons }}</td>
+                <td>{{ ligne.taux_promotion }} %</td><td>{{ ligne.taux_redoublement }} %</td><td>{{ ligne.taux_abandon }} %</td>
+            </tr>
+            {% endfor %}
+            {% for ligne in fiche.efficacite.totaux %}
+            <tr class="fw-bold">
+                <td>{% if forloop.first %}Total{% endif %}</td><td>{{ ligne.groupe }}</td>
+                <td class="montant-val">{{ ligne.decides }}</td><td class="montant-val">{{ ligne.promus }}</td>
+                <td class="montant-val">{{ ligne.redoublent }}</td><td class="montant-val">{{ ligne.abandons }}</td>
+                <td>{{ ligne.taux_promotion }} %</td><td>{{ ligne.taux_redoublement }} %</td><td>{{ ligne.taux_abandon }} %</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}<p class="texte-secondaire mb-2">Aucune décision de fin d'année (admis, redouble, abandon) n'est encore enregistrée pour cette année : ces taux apparaissent après le passage des élèves dans la classe supérieure.</p>{% endif %}
+    <p class="texte-note mb-0">
+        Taux calculés sur les élèves dont la décision est prise (admis, redouble, abandon). Ne sont pas comptés :
+        {{ fiche.efficacite.transferes }} élève(s) transféré(s) vers une autre école et {{ fiche.efficacite.sans_decision }} élève(s)
+        sans décision. Cette méthode, propre à l'établissement, diffère de celle de la CPS, qui suit les effectifs d'une année à l'autre à l'échelle du pays.
+    </p>
+</div></div>
+
+<div class="card mb-3"><div class="card-body">
     <h2 class="titre-section">Âge des élèves <span class="texte-secondaire">(au début de l'année scolaire)</span></h2>
     {% if fiche.ages or fiche.ages_inconnus.total %}
     <table class="table">
@@ -105,7 +181,9 @@
         <div class="col-6 col-md-3"><div class="mini-stat-label">Enseignants</div><div class="mini-stat-valeur">{{ fiche.enseignants.total }}</div></div>
         <div class="col-6 col-md-3"><div class="mini-stat-label">Élèves par enseignant</div><div class="mini-stat-valeur">{{ fiche.enseignants.eleves_par_enseignant|default_if_none:"-" }}</div></div>
         <div class="col-6 col-md-3"><div class="mini-stat-label">Formés (pédagogie)</div><div class="mini-stat-valeur">{{ fiche.enseignants.qualifies }}</div></div>
+        <div class="col-6 col-md-3"><div class="mini-stat-label">Part de femmes</div><div class="mini-stat-valeur">{% if fiche.enseignants.pourcentage_femmes is None %}-{% else %}{{ fiche.enseignants.pourcentage_femmes }} %{% endif %}</div></div>
     </div>
+    {% if fiche.enseignants.sexe_inconnu %}<p class="texte-note">La part de femmes ne tient pas compte des {{ fiche.enseignants.sexe_inconnu }} enseignant(s) dont le sexe n'est pas renseigné.</p>{% endif %}
     {% if fiche.enseignants.par_statut %}
     <table class="table">
         <thead><tr><th>Situation administrative</th><th>Hommes</th><th>Femmes</th><th>Total</th></tr></thead>
