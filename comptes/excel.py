@@ -127,3 +127,14 @@ def reponse_xlsx(classeur, nom_fichier) -> HttpResponse:
     reponse["Content-Disposition"] = f'attachment; filename="{nom_fichier}.xlsx"'
     classeur.save(reponse)
     return reponse
+
+
+def cellule_csv(valeur):
+    """
+    Valeur sûre pour une cellule de CSV : un texte qui commence par = + - @ (ou une tabulation, un retour) serait interprété
+    comme une FORMULE par Excel à l'ouverture (injection de formule : un libellé saisi par un utilisateur pourrait envoyer des
+    données de la feuille vers un site extérieur). On le préfixe d'une apostrophe ; les nombres et les dates restent tels quels.
+    """
+    if isinstance(valeur, str) and valeur[:1] in {"=", "+", "-", "@", "\t", "\r"}:
+        return "'" + valeur
+    return "" if valeur is None else valeur

@@ -834,6 +834,26 @@ def eleve_visible_pour(utilisateur, eleve) -> bool:
     return eleve.inscriptions.filter(classe__in=classes_ok).exists()
 
 
+def eleves_visibles_pour(utilisateur):
+    """
+    Les élèves qu'un utilisateur a le droit de consulter : exactement la règle de eleve_visible_pour, mais en UNE requête, pour
+    proposer des noms dans une recherche au lieu de vérifier les élèves un par un. Toujours limité à son établissement.
+    """
+    from comptes.models import Utilisateur
+
+    eleves = Utilisateur.objects.filter(role=Role.ELEVE, etablissement_id=utilisateur.etablissement_id)
+    if utilisateur.role == Role.ELEVE:
+        return eleves.filter(pk=utilisateur.pk)
+    if utilisateur.role == Role.PARENT:
+        return eleves.filter(parents_lies=utilisateur)
+    if utilisateur.role == Role.ENSEIGNANT:
+        classes_enseignees = Affectation.objects.filter(enseignant=utilisateur).values("classe_id")
+        return eleves.filter(inscriptions__classe_id__in=classes_enseignees).distinct()
+    if utilisateur.role not in ROLES_VOIENT_TOUT_ELEVE_DE_LETABLISSEMENT:
+        return eleves.none()
+    return eleves.filter(inscriptions__classe__in=classes_visibles_pour(utilisateur)).distinct()
+
+
 def eleve_de_l_etablissement_ou_404(utilisateur, matricule):
     """
     Élève de l'établissement de l'utilisateur, identifié par son matricule - ou une page introuvable.

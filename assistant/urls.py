@@ -6,4 +6,5 @@ app_name = "assistant"
 
 urlpatterns = [
     path("", views.poser_question, name="poser_question"),
+    path("rechercher-eleve.json", views.rechercher_eleve_json, name="rechercher_eleve_json"),
 ]

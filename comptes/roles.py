@@ -47,6 +47,10 @@ ROLES_ACCES_TOTAL_INCONDITIONNEL = {
     Role.ADMINISTRATEUR_GENERAL,
 }
 
+# Les deux rôles à accès total qui ne gèrent pas la technique de l'école (comptes, matrice, journal d'audit : cela reste au
+# développeur) : seul le propriétaire de la plateforme les crée (espace_plateforme.views.creer_compte_direction).
+ROLES_DIRECTION_GENERALE = (Role.FONDATEUR, Role.ADMINISTRATEUR_GENERAL)
+
 # Rôles pour lesquels la 2FA n'est plus optionnelle (comptes.middleware.
 # ForcerActivation2FAMiddleware) : accès total inconditionnel, plus les deux
 # rôles techniques/financiers les plus exposés en cas de mot de passe seul

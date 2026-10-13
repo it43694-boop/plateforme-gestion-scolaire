@@ -446,14 +446,15 @@ def recherche_globale(request):
     if terme:
         inscriptions = Inscription.objects.filter(
             classe__in=classes_visibles_pour(request.user), statut=Inscription.Statut.EN_COURS,
-        ).filter(
-            Q(eleve__nom__icontains=terme) | Q(eleve__prenom__icontains=terme) | Q(eleve__matricule__icontains=terme),
         ).select_related("eleve", "classe", "classe__annee_scolaire").order_by("eleve__nom")
         if request.user.role == Role.PARENT:
             inscriptions = inscriptions.filter(eleve__parents_lies=request.user)
         elif request.user.role == Role.ELEVE:
             inscriptions = inscriptions.filter(eleve=request.user)
-        resultats = inscriptions[:25]
+        # Nom, prénom ou matricule, dans n'importe quel ordre et sans tenir compte des accents (« aissata » trouve « Aïssata »).
+        from scolarite.recherche import filtrer
+
+        resultats = filtrer(inscriptions, terme, "eleve.nom", "eleve.prenom", "eleve.matricule", limite=25)
 
     return render(request, "scolarite/recherche_globale.html", {"terme": terme, "resultats": resultats})
 

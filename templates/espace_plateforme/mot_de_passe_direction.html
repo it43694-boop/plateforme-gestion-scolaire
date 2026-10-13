@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block titre %}Mot de passe provisoire - {{ compte.nom_complet }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>{% if nouveau %}Compte créé{% else %}Nouveau mot de passe provisoire{% endif %}</h1>
+        <p>{{ compte.nom_complet }} - {{ compte.get_role_display }} - {{ etablissement.nom }}</p>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <p class="mb-1">Identifiant (email)</p>
+        <p class="fs-5 fw-bold font-monospace">{{ compte.email }}</p>
+        <p class="mb-1">Mot de passe provisoire</p>
+        <p class="fs-2 fw-bold font-monospace">{{ mot_de_passe }}</p>
+        <p class="text-muted small mb-0">Valable {{ duree_heures }} heures, jusqu'au {{ expire_le|date:"d/m/Y à H:i" }}.</p>
+    </div>
+</div>
+
+<div class="alert alert-warning">
+    <strong>Ce mot de passe ne sera plus affiché.</strong> Notez-le ou imprimez cette page maintenant, puis remettez-le à
+    {{ compte.prenom }} par un moyen sûr (en main propre ou par téléphone, pas par un message qui reste). À sa première
+    connexion, {{ compte.prenom }} saisit son email et ce mot de passe, choisit un mot de passe personnel, puis active la
+    double authentification. Si la fiche est perdue ou expire, utilisez « Nouveau mot de passe provisoire » depuis la liste
+    des comptes : l'ancien cessera de fonctionner.
+</div>
+
+<div class="d-flex gap-2">
+    <button type="button" class="btn btn-primary" data-imprimer>Imprimer</button>
+    <a href="{% url 'espace_plateforme:voir_comptes_etablissement' etablissement.id %}" class="btn btn-outline-secondary">Retour aux comptes</a>
+</div>
+{% endblock %}

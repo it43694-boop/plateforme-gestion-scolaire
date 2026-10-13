@@ -45,14 +45,24 @@ def _lien_pdf(uri, rel):
     if uri.startswith("http://") or uri.startswith("https://") or uri.startswith("data:"):
         return uri
     if uri.startswith(settings.MEDIA_URL):
-        return os.path.join(str(settings.MEDIA_ROOT), uri.replace(settings.MEDIA_URL, "", 1))
+        return _chemin_dans(str(settings.MEDIA_ROOT), uri.replace(settings.MEDIA_URL, "", 1)) or uri
     if uri.startswith(settings.STATIC_URL):
         chemin_relatif = uri.replace(settings.STATIC_URL, "", 1)
         for repertoire in [settings.STATIC_ROOT, *settings.STATICFILES_DIRS]:
-            candidat = os.path.join(str(repertoire), chemin_relatif)
-            if os.path.isfile(candidat):
+            candidat = _chemin_dans(str(repertoire), chemin_relatif)
+            if candidat and os.path.isfile(candidat):
                 return candidat
     return uri
+
+
+def _chemin_dans(racine, chemin_relatif):
+    """
+    Chemin disque de `chemin_relatif` sous `racine`, ou None s'il en sortirait (« ../../etc/passwd ») : un lien d'image ne doit
+    jamais pouvoir faire lire un fichier du serveur au générateur de PDF.
+    """
+    racine = os.path.realpath(racine)
+    candidat = os.path.realpath(os.path.join(racine, chemin_relatif))
+    return candidat if candidat == racine or candidat.startswith(racine + os.sep) else None
 
 
 # ---------------------------------------------------------------------------

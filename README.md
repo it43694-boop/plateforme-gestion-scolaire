@@ -280,8 +280,9 @@ dans les fichiers de déploiement.
   déclaré par le client) - `NB_PROXYS_CONFIANCE` ajuste le nombre de sauts.
 - **Attribution des rôles à accès total restreinte** : développeur, fondateur
   et administrateur général ne sont plus attribuables depuis l'espace
-  développeur (uniquement en console), pour limiter la portée d'un compte
-  développeur compromis.
+  développeur (voir la Phase 58 : le propriétaire de la plateforme crée le
+  fondateur et l'administrateur général depuis sa page, ou la console),
+  pour limiter la portée d'un compte développeur compromis.
 - **Authentification à deux facteurs (TOTP)**, activable en self-service
   (`/comptes/2fa/activer/`) pour tout compte, recommandée pour les rôles à
   privilège élevé. Non forcée à l'activation - une politique d'obligation par
@@ -2095,6 +2096,81 @@ Pour que la base ne grossisse pas sans fin et garder moins de données personnel
 - Le journal d'audit (`entretien_quotidien`) note des compteurs, jamais un texte de message ; rien n'est écrit quand il n'y a rien à effacer.
 - **Pas fait volontairement** : les notifications et le journal d'audit ne sont pas purgés (le journal est une preuve ; les notifications
   n'ont pas été demandées). La durée est la même pour toutes les écoles (réglage de la plateforme, pas de l'école).
+
+## État du projet : Phase 58 — Créer un fondateur ou un administrateur général sans terminal
+
+Avant, ces deux rôles à accès total (hors matrice de permissions) ne pouvaient être créés que par la console technique (`manage.py shell`),
+et la page `/admin/` n'a pas de champ « établissement ». Maintenant, le **propriétaire de la plateforme** (superutilisateur) les crée depuis
+**Plateforme → Établissements → Comptes → Ajouter un compte de direction** (`espace_plateforme/views.py::creer_compte_direction`) :
+- Rôle (fondateur ou administrateur général : seuls ces deux, jamais développeur, enseignant, etc.), prénom, nom, email (unique, minuscules).
+- **Mot de passe provisoire généré** (12 caractères, `XXXX-XXXX-XXXX`) et affiché **une seule fois**, à remettre à la personne ; jamais conservé
+  en clair, ni au journal d'audit, ni dans un message de session. Même mécanisme que les élèves : remplacé dès la première connexion
+  (`doit_changer_mot_de_passe`), expire après 72 h, et la **double authentification est imposée** (`ROLES_2FA_OBLIGATOIRE`).
+- **Nouveau mot de passe provisoire** (bouton sur la ligne du compte dans la liste des comptes de l'école) pour un compte de direction dont la
+  fiche est perdue ou le mot de passe expiré ; il déverrouille aussi le compte. Refusé (404) pour tout autre rôle ou une autre école.
+- Réservé au propriétaire : un développeur d'école, un fondateur ou toute autre personne est redirigé. Le développeur d'une école ne peut toujours
+  pas s'attribuer ces rôles ni les donner (`espace_developpeur`). Journal d'audit : `creation_compte_direction` et
+  `mot_de_passe_provisoire_direction` (email, rôle, école, expiration ; jamais le mot de passe).
+- Le développeur d'une école reste créé avec l'école (« Créer un établissement »). La console reste possible.
+- **Mot de passe provisoire expiré** : le message dit à qui s'adresser selon le rôle (« l'administrateur de la plateforme » pour un compte de
+  direction, « le secrétariat de l'école » pour un élève), seulement une fois le mot de passe vérifié.
+- **L'espace développeur n'est plus un module du fondateur ni de l'administrateur général** (`permissions_matrix.models.MODULES_RESERVES_AU_DEVELOPPEUR`) :
+  il ne figure plus dans « Modules auxquels vous avez accès » et `PermissionMatrix.a_acces` / `modules_autorises` le refusent à ces deux rôles ;
+  leur accès au reste de l'école ne change pas. Les pages de l'espace développeur leur étaient déjà refusées (`role_requis`). Les rôles
+  de direction sont définis une seule fois (`comptes.roles.ROLES_DIRECTION_GENERALE`).
+
+## État du projet : Phase 59 — Audit de fuites de données (octobre 2026)
+
+**Méthode** : (1) historique git complet cherché pour des clés, jetons, mots de passe et URL de base ; (2) réglages de sécurité relus ; (3) les 155
+routes classées par décorateur d'accès ; (4) une **matrice rôle x route** exécutée sur des données réelles de test (les 17 rôles, plus le parent, l'élève et
+l'enseignant liés, sur les objets d'un élève précis : aucune route à paramètre ne répond 200 à un parent, un élève, un enseignant, un bibliothécaire ou un
+membre du personnel qui n'est pas lié à l'élève ; l'espace développeur ne répond 200 qu'au développeur) ; (5) relecture ciblée : recherches d'objets par
+identifiant, exports, PDF, journaux, assistant IA, mode hors connexion, connexion et inscription.
+
+**Corrigé** (tests dans `comptes/test_durcissement_fuites.py`) :
+1. **CSV : injection de formule** (`finances` journal de caisse, `statistiques` effectifs). Le neutralisateur `cellule_csv` n'existait que pour la fiche annuelle ;
+   il est maintenant partagé (`comptes/excel.py`) et appliqué aux deux autres CSV. Les exports Excel l'avaient déjà.
+2. **Synthèse des alertes (IA)** mise en cache **par rôle** : un enseignant pouvait lire la phrase calculée à partir des élèves d'un autre enseignant (des chiffres,
+   jamais de noms). La clé de cache est désormais le contenu des alertes lui-même.
+3. **Saisie de notes et d'absences** : deux messages d'erreur différents (« aucun élève » / « pas inscrit dans cette classe ») permettaient à tout enseignant de savoir
+   quels matricules existent dans les autres écoles ; or le matricule sert d'identifiant de connexion à l'élève. Un seul message désormais.
+4. **Connexion** : le message « compte verrouillé » n'apparaissait que pour un compte existant (quelques essais ratés suffisaient à le savoir, et à verrouiller
+   le compte de quelqu'un). Le message est identique pour un identifiant inconnu, un mauvais mot de passe et un compte verrouillé ; le verrouillage, lui, tient.
+5. **Journaux de l'hébergeur** (stdout) : la ligne d'audit contenait noms, emails, matricules et libellés (`cible`, `details`). Elle ne porte plus que l'action et des
+   numéros internes ; le journal d'audit en base, visible de l'école seule, garde tout le détail.
+6. **Durcissement** : un lien d'image `/media/../..` ne peut plus faire lire un fichier du serveur au générateur de PDF des bulletins (`_chemin_dans`) ;
+   la politique CSP ajoute `form-action 'self'`.
+
+**Vérifié, sans défaut** : aucun secret réel dans l'historique (seulement des exemples et des valeurs de test) ; DEBUG coupé par défaut, clé secrète obligatoire, cookies
+sécurisés, HSTS ; fichiers servis par liens signés ; emails en masse en copie cachée ; aucune redirection ouverte, aucun SQL brut, aucun `eval`/`pickle`/`subprocess` ;
+`|safe` seulement sur de l'aide statique ; données envoyées à l'IA externe (jamais de nom ni de matricule, seulement des chiffres) ; cache hors connexion effacé à la
+déconnexion et à l'affichage de la page de connexion ; routes JSON de recherche cloisonnées par école ; pages publiques de l'accueil et de l'annuaire.
+
+**Restes, à décider** (voir aussi « À faire ») :
+- La clé TOTP (`totp_secret`) est stockée **en clair** en base : une fuite de la base permettrait de contourner la double authentification d'un compte dont le mot de
+  passe serait aussi trouvé. La chiffrer demande une migration des données et lie les clés à `DJANGO_SECRET_KEY` (changer la clé obligerait à réactiver la 2FA de
+  tous les comptes).
+- Les pages publiques de vérification (QR des bulletins et attestations) renvoient le **matricule** de l'élève, qui sert aussi d'identifiant de connexion.
+- Le formulaire public d'inscription dit si un email ou un téléphone existe déjà (limité à 10 essais par minute et par adresse).
+- À l'inscription d'un élève, un matricule saisi à la main qui existe déjà dans une autre école est refusé : le matricule est unique dans toute la base.
+- La CSP autorise les images `https:` de n'importe quelle origine (logos du stockage).
+- Dépôt GitHub public : l'historique contient l'adresse email personnelle de l'auteur ; bucket de stockage à passer en privé (déjà prévu).
+
+## État du projet : Phase 60 — Retrouver un élève par son nom (sans retenir le matricule)
+
+Trois écrans exigeaient de connaître le matricule ; la barre de recherche, les paiements et les fiches de personnel acceptaient déjà le nom.
+- **Saisie des notes et des absences** (`pedagogie/forms.py::EleveDeLaClasseMixin`) : le champ « Élève » accepte le nom ou le matricule. La liste des
+  élèves de la classe est dans la page (`<datalist>`), donc la saisie par nom marche aussi hors connexion ; elle ne contient que les élèves
+  actuellement inscrits dans CETTE classe, « NOM Prénom », avec le matricule seulement pour distinguer des homonymes (le matricule est aussi l'identifiant
+  de connexion de l'élève). Le serveur accepte : le matricule seul, « NOM Prénom (matricule) », ou le nom complet dans un sens ou dans l'autre s'il est
+  unique dans la classe ; deux homonymes demandent de choisir ; **jamais un bout de nom** (pour ne pas noter le mauvais élève). Un seul message pour
+  « inconnu », « autre classe » et « autre école » (voir Phase 59).
+- **Assistant** : recherche en direct (`assistant:rechercher_eleve_json`) parmi les seuls élèves que le rôle peut consulter
+  (`scolarite.models.eleves_visibles_pour`, même règle que `eleve_visible_pour` en une requête : un enseignant ne trouve que ses classes, un directeur
+  de cycle que son cycle) ; un nom tapé en entier ouvre le dossier sans rien choisir. Les messages d'erreur existants sont inchangés.
+- **Toutes les recherches** (`scolarite/recherche.py`) ignorent les accents, les majuscules et l'ordre des mots : « aissata maiga » trouve « MAIGA Aïssata »
+  (barre du haut, paiements, fiches de personnel, assistant). La recherche se fait en Python sur des listes déjà limitées à ce que la personne peut voir.
+- Test navigateur de bout en bout : note et absence saisies par nom, recherche en direct, dossier ouvert.
 
 ## Sauvegardes locales (base de données et médias)
 

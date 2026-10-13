@@ -6,7 +6,7 @@
     <div>
         <h1>Assistant</h1>
         {% if ia_disponible %}
-        <p>Matricule pour le dossier d'un élève précis, ou une question seule pour une vue d'ensemble de l'établissement selon votre rôle.</p>
+        <p>Le nom (ou le matricule) d'un élève pour son dossier, ou une question seule pour une vue d'ensemble de l'établissement selon votre rôle.</p>
         {% else %}
         <p>Recherche à partir des données réelles et autorisées pour votre rôle - sans IA générative.</p>
         {% endif %}
@@ -16,9 +16,14 @@
 <div class="card mb-3 mw-560">
     <div class="card-body">
         <form method="get" data-attente>
-            <label class="form-label">Matricule de l'élève {% if ia_disponible %}(optionnel){% endif %}</label>
-            <div class="d-flex gap-2 mb-3">
-                <input type="text" name="matricule" value="{{ matricule }}" class="form-control" placeholder="Ex. 202612345">
+            <label class="form-label" for="champ-eleve">Élève {% if ia_disponible %}(optionnel){% endif %}</label>
+            <div class="recherche-conteneur mb-3">
+                <input type="text" id="champ-eleve" name="matricule" value="{{ matricule }}" class="form-control" autocomplete="off"
+                       placeholder="Tapez un nom, un prénom ou un matricule..."
+                       data-recherche-url="{% url 'assistant:rechercher_eleve_json' %}"
+                       data-recherche-cible="champ-eleve"
+                       data-recherche-affichage="nom_complet" data-recherche-valeur="nom_complet">
+                <div class="recherche-resultats" data-recherche-resultats></div>
             </div>
             {% if ia_disponible %}
             <label class="form-label">

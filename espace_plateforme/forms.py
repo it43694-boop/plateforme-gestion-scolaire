@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 
 from comptes.forms import BootstrapFormMixin
 from comptes.models import Utilisateur
+from comptes.roles import ROLES_DIRECTION_GENERALE, Role
 from django.utils import timezone
 
 from etablissement.models import Etablissement, FactureAbonnement
@@ -73,3 +74,26 @@ class ReglementFactureForm(BootstrapFormMixin, forms.Form):
         label="Référence (facultatif)", max_length=100, required=False,
         help_text="Numéro de transaction Mobile Money, de virement ou de chèque.",
     )
+
+
+# Les deux rôles à accès total qui ne sont pas dans la matrice de permissions et ne s'attribuent pas depuis l'espace
+# développeur d'une école (un compte développeur compromis ne doit pas pouvoir s'en servir). Le développeur d'une école, lui,
+# est créé avec l'école (CreerEtablissementForm).
+ROLES_DIRECTION = tuple(role.value for role in ROLES_DIRECTION_GENERALE)
+
+
+class CreerCompteDirectionForm(BootstrapFormMixin, forms.Form):
+    role = forms.ChoiceField(
+        label="Rôle", choices=[(valeur, dict(Role.choices)[valeur]) for valeur in ROLES_DIRECTION],
+        help_text="Les deux ont le même accès complet à l'école. Ni l'un ni l'autre ne gère la matrice de permissions, les "
+                  "comptes ou la suppression d'un élève : cela reste au développeur de l'école.",
+    )
+    prenom = forms.CharField(label="Prénom", max_length=100)
+    nom = forms.CharField(label="Nom", max_length=100)
+    email = forms.EmailField(label="Email")
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+        if Utilisateur.objects.filter(email__iexact=email).exists():
+            raise ValidationError("Un compte existe déjà avec cet email.")
+        return email

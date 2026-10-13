@@ -6,13 +6,16 @@
         <h1>Comptes de {{ etablissement.nom }}</h1>
         <p>{{ page_obj.paginator.count }} compte{{ page_obj.paginator.count|pluralize }}.</p>
     </div>
-    <a href="{% url 'espace_plateforme:liste_etablissements' %}" class="btn btn-outline-secondary btn-sm">← Retour aux établissements</a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'espace_plateforme:creer_compte_direction' etablissement.id %}" class="btn btn-primary btn-sm">Ajouter un compte de direction</a>
+        <a href="{% url 'espace_plateforme:liste_etablissements' %}" class="btn btn-outline-secondary btn-sm">← Retour aux établissements</a>
+    </div>
 </div>
 <div class="card">
     <div class="card-body">
         {% if comptes %}
         <table class="table">
-            <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th></tr></thead>
+            <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th></th></tr></thead>
             <tbody>
                 {% for compte in comptes %}
                 <tr>
@@ -20,6 +23,15 @@
                     <td>{{ compte.email }}</td>
                     <td>{{ compte.get_role_display }}</td>
                     <td>{{ compte.get_statut_display }}</td>
+                    <td class="text-end">
+                        {% if compte.role in roles_direction %}
+                        <form method="post" action="{% url 'espace_plateforme:mot_de_passe_direction' etablissement.id compte.id %}" class="d-inline"
+                              data-confirmer="Générer un nouveau mot de passe provisoire pour {{ compte.nom_complet }} ? L'ancien mot de passe ne fonctionnera plus.">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-outline-secondary">Nouveau mot de passe provisoire</button>
+                        </form>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

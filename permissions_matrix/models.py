@@ -4,6 +4,12 @@ from comptes.roles import Role, ROLES_ACCES_TOTAL_INCONDITIONNEL
 from permissions_matrix.modules import Module
 
 
+# Modules qu'aucun rôle à accès total n'a, sauf le développeur : fondateur et administrateur général ont accès à tout le reste
+# de l'école, mais pas à la gestion technique (comptes, matrice de permissions, journal d'audit). Les pages de l'espace
+# développeur sont déjà réservées à ce rôle (role_requis) ; ceci évite aussi que le module s'affiche chez les autres.
+MODULES_RESERVES_AU_DEVELOPPEUR = {Module.ESPACE_DEVELOPPEUR.value}
+
+
 class PermissionMatrix(models.Model):
     """
     Matrice de permissions modulable depuis l'espace développeur, sans
@@ -55,7 +61,7 @@ class PermissionMatrix(models.Model):
         au lieu de répondre simplement par l'autorisation trouvée.
         """
         if role in {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL}:
-            return True
+            return getattr(module, "value", module) not in MODULES_RESERVES_AU_DEVELOPPEUR or role == Role.DEVELOPPEUR.value
         return bool(
             cls.objects.filter(role=role, module=module, etablissement=etablissement)
             .values_list("autorise", flat=True).first()
@@ -64,7 +70,10 @@ class PermissionMatrix(models.Model):
     @classmethod
     def modules_autorises(cls, role: str, etablissement=None) -> list[str]:
         if role in {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL}:
-            return [m.value for m in Module]
+            return [
+                m.value for m in Module
+                if m.value not in MODULES_RESERVES_AU_DEVELOPPEUR or role == Role.DEVELOPPEUR.value
+            ]
         return list(
             cls.objects.filter(role=role, autorise=True, etablissement=etablissement).values_list("module", flat=True)
         )

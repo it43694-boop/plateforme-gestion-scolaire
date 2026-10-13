@@ -105,7 +105,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         champRecherche.addEventListener("input", function () {
             clearTimeout(delai);
-            cible.value = "";
+            if (cible !== champRecherche) cible.value = ""; // champ de recherche = champ envoyé : on garde ce qui est tapé
             var terme = champRecherche.value.trim();
             if (terme.length < 2) { masquerResultats(); return; }
             delai = setTimeout(function () {
@@ -127,7 +127,7 @@ document.addEventListener("DOMContentLoaded", function () {
                             ligne.className = "recherche-resultat-item";
                             ligne.textContent = item[cleAffichage];
                             ligne.addEventListener("click", function () {
-                                cible.value = item[cleValeur];
+                                if (cible !== champRecherche) cible.value = item[cleValeur];
                                 champRecherche.value = item[cleAffichage];
                                 masquerResultats();
                                 cible.dispatchEvent(new Event("change"));

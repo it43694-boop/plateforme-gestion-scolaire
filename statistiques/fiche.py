@@ -460,14 +460,7 @@ def construire_fiche(utilisateur, annee) -> dict:
 # Export CSV
 # ---------------------------------------------------------------------------
 
-def cellule_csv(valeur):
-    """
-    Texte sûr pour un tableur : une cellule qui commence par = + - @ serait interprétée comme une
-    formule (injection de formule via un nom d'école ou de classe saisi par un utilisateur).
-    """
-    if isinstance(valeur, str) and valeur[:1] in {"=", "+", "-", "@", "\t", "\r"}:
-        return "'" + valeur
-    return "" if valeur is None else valeur
+from comptes.excel import cellule_csv  # noqa: E402,F401 (défini dans comptes.excel, partagé par les exports CSV)
 
 
 def lignes_csv(fiche) -> list[list]:

@@ -9,8 +9,10 @@ from scolarite.models import AnneeScolaire, role_autorise_pour_plan
 # Les rôles à accès total inconditionnel (développeur, fondateur,
 # administrateur général) ne sont jamais attribuables depuis cette interface :
 # un compte développeur compromis ne doit pas pouvoir s'en servir pour créer
-# une porte dérobée permanente sur un autre compte. Leur attribution ne passe
-# que par la console (shell Django / admin), jamais par le web.
+# une porte dérobée permanente sur un autre compte. Seul le propriétaire de la
+# plateforme les attribue : fondateur et administrateur général depuis sa page
+# « Comptes » d'une école (espace_plateforme.views.creer_compte_direction), le
+# développeur d'une école à la création de l'école, ou par la console.
 ROLES_ATTRIBUABLES = [
     (valeur, libelle) for valeur, libelle in Role.choices
     if valeur not in {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL}

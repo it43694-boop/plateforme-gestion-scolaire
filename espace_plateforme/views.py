@@ -15,7 +15,8 @@ from comptes.models import Utilisateur
 from comptes.roles import Role, StatutCompte
 from espace_developpeur.forms import ParametresEtablissementForm
 from espace_plateforme.forms import (
-    CreerEtablissementForm, EmettreFactureForm, ModifierPlanEtablissementForm, ReglementFactureForm,
+    ROLES_DIRECTION, CreerCompteDirectionForm, CreerEtablissementForm, EmettreFactureForm, ModifierPlanEtablissementForm,
+    ReglementFactureForm,
 )
 from etablissement.abonnements import annuler_facture, emettre_facture, enregistrer_reglement, synthese_abonnements
 from etablissement.models import Etablissement, FactureAbonnement, PlanEtablissement
@@ -53,7 +54,72 @@ def voir_comptes_etablissement(request, etablissement_id):
     page_obj = Paginator(comptes, 30).get_page(request.GET.get("page"))
     return render(request, "espace_plateforme/comptes_etablissement.html", {
         "etablissement": etablissement, "page_obj": page_obj, "comptes": page_obj.object_list,
+        "roles_direction": ROLES_DIRECTION,
     })
+
+
+def _remettre_mot_de_passe_direction(request, compte, etablissement, action):
+    """
+    Pose un mot de passe provisoire sur un compte de direction et l'affiche UNE seule fois (jamais conservé en clair, ni au
+    journal d'audit, ni dans un message de session). Même mécanisme que celui des élèves : à remplacer dès la première
+    connexion, expire au bout de DUREE_MOT_DE_PASSE_PROVISOIRE_HEURES. Plus long (12 caractères) : le compte a un accès total.
+    """
+    from datetime import timedelta
+
+    from comptes.utils import DUREE_MOT_DE_PASSE_PROVISOIRE_HEURES, generer_mot_de_passe_provisoire
+
+    mot_de_passe = generer_mot_de_passe_provisoire(groupes=3)
+    expire_le = timezone.now() + timedelta(hours=DUREE_MOT_DE_PASSE_PROVISOIRE_HEURES)
+    compte.set_password(mot_de_passe)
+    compte.doit_changer_mot_de_passe = True
+    compte.mot_de_passe_provisoire_expire_le = expire_le
+    compte.tentatives_connexion_echouees = 0
+    compte.verrouille_jusqu_a = None
+    compte.save()
+    enregistrer_action(
+        acteur=request.user, action=action, cible=compte.email,
+        details={"role": compte.role, "etablissement": etablissement.nom, "expire_le": expire_le.isoformat()},
+        request=request,
+    )
+    return render(request, "espace_plateforme/mot_de_passe_direction.html", {
+        "etablissement": etablissement, "compte": compte, "mot_de_passe": mot_de_passe, "expire_le": expire_le,
+        "duree_heures": DUREE_MOT_DE_PASSE_PROVISOIRE_HEURES, "nouveau": action == "creation_compte_direction",
+    })
+
+
+@est_proprietaire_plateforme
+def creer_compte_direction(request, etablissement_id):
+    """
+    Crée un fondateur ou un administrateur général pour une école, sans passer par la console. Le mot de passe est généré
+    et affiché une seule fois ; le compte devra le remplacer à sa première connexion, et la double authentification lui est
+    imposée (ROLES_2FA_OBLIGATOIRE). Réservé au propriétaire de la plateforme : le développeur d'une école ne peut pas
+    s'attribuer ces rôles ni les donner.
+    """
+    etablissement = get_object_or_404(Etablissement, id=etablissement_id)
+    formulaire = CreerCompteDirectionForm(request.POST or None)
+    if request.method == "POST" and formulaire.is_valid():
+        compte = Utilisateur(
+            email=formulaire.cleaned_data["email"], prenom=formulaire.cleaned_data["prenom"].strip(),
+            nom=formulaire.cleaned_data["nom"].strip(), role=formulaire.cleaned_data["role"], etablissement=etablissement,
+            statut=StatutCompte.ACTIF, is_active=True, email_verifie=True,
+        )
+        compte.set_unusable_password()
+        compte.full_clean(exclude=["password"])
+        with transaction.atomic():
+            compte.save()
+            return _remettre_mot_de_passe_direction(request, compte, etablissement, "creation_compte_direction")
+    return render(request, "espace_plateforme/creer_compte_direction.html", {
+        "formulaire": formulaire, "etablissement": etablissement,
+    })
+
+
+@est_proprietaire_plateforme
+@require_http_methods(["POST"])
+def mot_de_passe_direction(request, etablissement_id, utilisateur_id):
+    """Nouveau mot de passe provisoire pour un fondateur ou un administrateur général de l'école (oublié, expiré ou perdu)."""
+    etablissement = get_object_or_404(Etablissement, id=etablissement_id)
+    compte = get_object_or_404(Utilisateur, id=utilisateur_id, etablissement=etablissement, role__in=ROLES_DIRECTION)
+    return _remettre_mot_de_passe_direction(request, compte, etablissement, "mot_de_passe_provisoire_direction")
 
 
 @est_proprietaire_plateforme

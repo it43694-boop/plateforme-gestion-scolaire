@@ -57,20 +57,18 @@ def rechercher_eleve_json(request):
     """
     if not _peut_gerer_les_paiements(request.user):
         raise PermissionDenied("Vous n'avez pas accès à cette recherche.")
-    from django.db.models import Q
     from django.http import JsonResponse
     from scolarite.models import Inscription, classes_visibles_pour
+    from scolarite.recherche import filtrer
 
     terme = request.GET.get("q", "").strip()
     if len(terme) < 2:
         return JsonResponse({"resultats": []})
-    eleves = Utilisateur.objects.filter(
+    eleves = filtrer(Utilisateur.objects.filter(
         role=Role.ELEVE, etablissement=request.user.etablissement,
         inscriptions__classe__in=classes_visibles_pour(request.user),
         inscriptions__statut=Inscription.Statut.EN_COURS,
-    ).filter(
-        Q(nom__icontains=terme) | Q(prenom__icontains=terme) | Q(matricule__icontains=terme),
-    ).distinct().order_by("nom", "prenom")[:10]
+    ).distinct().order_by("nom", "prenom"), terme, "nom", "prenom", "matricule", limite=10)
     return JsonResponse({
         "resultats": [
             {"matricule": e.matricule, "nom_complet": f"{e.nom_complet} ({e.matricule})"}
@@ -288,17 +286,15 @@ def rechercher_employe_json(request):
     sélectionner sans avoir à déjà connaître leur email par cœur (voir le
     champ de recherche sur la page de saisie d'un salaire).
     """
-    from django.db.models import Q
     from django.http import JsonResponse
+    from scolarite.recherche import filtrer
 
     terme = request.GET.get("q", "").strip()
     if len(terme) < 2:
         return JsonResponse({"resultats": []})
-    employes = Utilisateur.objects.filter(
+    employes = filtrer(Utilisateur.objects.filter(
         etablissement=request.user.etablissement,
-    ).exclude(role=Role.ELEVE).filter(
-        Q(nom__icontains=terme) | Q(prenom__icontains=terme) | Q(email__icontains=terme),
-    ).order_by("nom", "prenom")[:10]
+    ).exclude(role=Role.ELEVE).order_by("nom", "prenom"), terme, "nom", "prenom", "email", limite=10)
     return JsonResponse({
         "resultats": [
             {"email": e.email, "nom_complet": f"{e.nom_complet} ({e.get_role_display()})"}
@@ -577,6 +573,8 @@ def journal_caisse_syscohada(request):
 def journal_caisse_syscohada_csv(request):
     import csv
 
+    from comptes.excel import cellule_csv
+
     mouvements = MouvementCaisse.objects.filter(
         etablissement=request.user.etablissement, annule=False,
     ).order_by("date_mouvement")
@@ -588,7 +586,7 @@ def journal_caisse_syscohada_csv(request):
     ecrivain.writerow(["Date", "Pièce", "Libellé", "Compte de contrepartie", "Débit (Caisse)", "Crédit (Caisse)"])
     for mouvement in mouvements:
         ecrivain.writerow([
-            mouvement.date_mouvement.strftime("%d/%m/%Y"), mouvement.reference, mouvement.description,
-            mouvement.compte_contrepartie, mouvement.debit_caisse, mouvement.credit_caisse,
+            mouvement.date_mouvement.strftime("%d/%m/%Y"), cellule_csv(mouvement.reference), cellule_csv(mouvement.description),
+            cellule_csv(mouvement.compte_contrepartie), mouvement.debit_caisse, mouvement.credit_caisse,
         ])
     return reponse

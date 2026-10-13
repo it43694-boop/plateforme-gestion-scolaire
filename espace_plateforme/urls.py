@@ -9,6 +9,13 @@ urlpatterns = [
     path("creer/", views.creer_etablissement, name="creer_etablissement"),
     path("<int:etablissement_id>/modifier/", views.modifier_etablissement, name="modifier_etablissement"),
     path("<int:etablissement_id>/comptes/", views.voir_comptes_etablissement, name="voir_comptes_etablissement"),
+    path(
+        "<int:etablissement_id>/comptes/direction/creer/", views.creer_compte_direction, name="creer_compte_direction",
+    ),
+    path(
+        "<int:etablissement_id>/comptes/<int:utilisateur_id>/mot-de-passe-provisoire/",
+        views.mot_de_passe_direction, name="mot_de_passe_direction",
+    ),
     path("<int:etablissement_id>/basculer-actif/", views.basculer_actif, name="basculer_actif"),
     path("<int:etablissement_id>/modifier-plan/", views.modifier_plan, name="modifier_plan"),
     path("<int:etablissement_id>/acceder/", views.acceder_etablissement, name="acceder_etablissement"),

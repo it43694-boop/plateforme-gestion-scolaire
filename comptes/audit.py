@@ -30,4 +30,11 @@ def enregistrer_action(acteur, action: str, cible: str = "", details: dict | Non
         details=details or {},
         adresse_ip=adresse_ip,
     )
-    logger.info("%s | acteur=%s | cible=%s | details=%s", action, acteur, cible, details or {})
+    # Le journal d'audit en base (visible de l'école concernée seulement) garde tout le détail. Les journaux de l'hébergeur,
+    # eux, ne reçoivent que l'action et des numéros internes : ni nom, ni email, ni matricule, ni montant.
+    authentifie = getattr(acteur, "is_authenticated", False)
+    logger.info(
+        "%s | acteur=%s | etablissement=%s", action,
+        getattr(acteur, "pk", None) if authentifie else None,
+        getattr(acteur, "etablissement_id", None) if authentifie else None,
+    )

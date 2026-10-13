@@ -20,7 +20,7 @@ from comptes.forms import (
     MotDePasseOublieForm, VerificationEmailForm,
 )
 from comptes.models import CodeVerificationEmail, Notification, Utilisateur, notifications_visibles_pour
-from comptes.roles import ROLES_VALIDATION_COMPTES, Role, StatutCompte
+from comptes.roles import ROLES_DIRECTION_GENERALE, ROLES_VALIDATION_COMPTES, Role, StatutCompte
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +171,12 @@ def renvoyer_code(request):
 # Connexion / déconnexion
 # ---------------------------------------------------------------------------
 
+MESSAGE_CONNEXION_REFUSEE = (
+    "Email ou mot de passe incorrect, ou compte temporairement verrouillé après plusieurs échecs. "
+    "Réessayez dans quelques minutes."
+)
+
+
 @ratelimit(key="ip", rate="10/m", method="POST", block=False)
 def connexion(request):
     if getattr(request, "limited", False):
@@ -192,11 +198,10 @@ def connexion(request):
         email = utilisateur_cible.email if utilisateur_cible else identifiant
 
         if utilisateur_cible and utilisateur_cible.verrouille():
-            messages.error(
-                request,
-                "Ce compte est temporairement verrouillé suite à plusieurs échecs de connexion. "
-                "Réessayez plus tard.",
-            )
+            # Même message que pour un identifiant inconnu ou un mauvais mot de passe : sinon, quelques essais ratés sur
+            # l'identifiant de quelqu'un suffiraient à savoir si son compte existe (le message de verrouillage n'apparaît
+            # jamais pour un identifiant qui n'existe pas).
+            messages.error(request, MESSAGE_CONNEXION_REFUSEE)
             return render(request, "comptes/connexion.html", {"formulaire": formulaire})
 
         utilisateur = authenticate(request, username=email, password=mot_de_passe)
@@ -208,7 +213,7 @@ def connexion(request):
                     acteur=utilisateur_cible, action="echec_connexion",
                     cible=email, request=request,
                 )
-            messages.error(request, "Email ou mot de passe incorrect.")
+            messages.error(request, MESSAGE_CONNEXION_REFUSEE)
         elif utilisateur.statut == StatutCompte.EN_ATTENTE_VERIFICATION_EMAIL:
             messages.warning(request, "Veuillez d'abord vérifier votre adresse email.")
             request.session["utilisateur_en_verification_id"] = utilisateur.id
@@ -224,9 +229,13 @@ def connexion(request):
             utilisateur.doit_changer_mot_de_passe and utilisateur.mot_de_passe_provisoire_expire_le
             and utilisateur.mot_de_passe_provisoire_expire_le < timezone.now()
         ):
+            # Le mot de passe vient d'être vérifié : on peut dire à qui s'adresser. Un compte de direction a été créé par
+            # le propriétaire de la plateforme, pas par le secrétariat de l'école.
             messages.error(
                 request,
-                "Votre mot de passe provisoire a expiré. Demandez-en un nouveau au secrétariat de l'école.",
+                "Votre mot de passe provisoire a expiré. Demandez-en un nouveau à l'administrateur de la plateforme."
+                if utilisateur.role in ROLES_DIRECTION_GENERALE
+                else "Votre mot de passe provisoire a expiré. Demandez-en un nouveau au secrétariat de l'école.",
             )
         elif utilisateur.etablissement_id and not utilisateur.etablissement.actif:
             messages.error(
@@ -418,8 +427,8 @@ def redirection_tableau_de_bord(request):
 
 def _synthese_alertes_en_cache(utilisateur, alertes):
     """
-    Phrase de synthèse générée par l'Assistant IA, mise en cache 1h par
-    établissement+rôle (les chiffres affichés, eux, restent toujours
+    Phrase de synthèse générée par l'Assistant IA, mise en cache 1h, la clé étant
+    le contenu des alertes lui-même (les chiffres affichés, eux, restent toujours
     calculés en direct à chaque chargement - voir assistant.alertes - seule
     cette phrase peut avoir jusqu'à 1h de retard). Dégrade silencieusement
     vers aucune synthèse si l'API est indisponible : les alertes restent
@@ -432,7 +441,14 @@ def _synthese_alertes_en_cache(utilisateur, alertes):
     if not ia_disponible():
         return ""
 
-    cle = f"synthese_alertes_{utilisateur.etablissement_id}_{utilisateur.role}"
+    # La clé est le contenu même des alertes (titres et descriptions : des chiffres, jamais de noms), pas le rôle : deux
+    # enseignants du même établissement n'ont pas les mêmes classes, donc pas les mêmes chiffres, et ne doivent jamais se
+    # partager la phrase de synthèse de l'autre. Des alertes identiques donnent la même phrase, sans appel de plus à l'IA.
+    import hashlib
+    import json
+
+    contenu = json.dumps([[a["titre"], a["description"]] for a in alertes], ensure_ascii=False)
+    cle = "synthese_alertes_" + hashlib.sha256(contenu.encode("utf-8")).hexdigest()
     synthese = cache.get(cle)
     if synthese is not None:
         return synthese

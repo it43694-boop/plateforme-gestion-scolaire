@@ -99,9 +99,13 @@ ALPHABET_MOT_DE_PASSE_PROVISOIRE = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuv
 DUREE_MOT_DE_PASSE_PROVISOIRE_HEURES = 72
 
 
-def generer_mot_de_passe_provisoire() -> str:
-    """Mot de passe provisoire aléatoire au format XXXX-XXXX (jamais déduit du matricule ni du nom)."""
+def generer_mot_de_passe_provisoire(groupes: int = 2) -> str:
+    """
+    Mot de passe provisoire aléatoire au format XXXX-XXXX (jamais déduit du matricule ni du nom). `groupes` ajoute des
+    groupes de quatre caractères : XXXX-XXXX-XXXX pour un compte à accès total (comptes de direction).
+    """
     import secrets
 
-    caracteres = [secrets.choice(ALPHABET_MOT_DE_PASSE_PROVISOIRE) for _ in range(8)]
-    return "".join(caracteres[:4]) + "-" + "".join(caracteres[4:])
+    return "-".join(
+        "".join(secrets.choice(ALPHABET_MOT_DE_PASSE_PROVISOIRE) for _ in range(4)) for _ in range(groupes)
+    )

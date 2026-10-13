@@ -149,7 +149,7 @@ def exporter_effectifs_csv(request):
         taux_reussite = round(100 * classe.admis / total_decide, 1) if total_decide else ""
         taux_echec = round(100 * classe.redouble / total_decide, 1) if total_decide else ""
         writer.writerow([
-            classe.nom, classe.get_cycle_display(),
+            cellule_csv(classe.nom), classe.get_cycle_display(),
             classe.effectif_actif, classe.garcons, classe.filles,
             taux_reussite, taux_echec,
         ])

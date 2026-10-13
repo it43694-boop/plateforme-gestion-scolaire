@@ -9,7 +9,8 @@ from finances.models import Paiement
 from pedagogie.models import Absence, Note
 from permissions_matrix.models import PermissionMatrix
 from permissions_matrix.modules import Module
-from scolarite.models import Inscription, dossier_complet, eleve_visible_pour
+from scolarite.models import Inscription, dossier_complet, eleve_visible_pour, eleves_visibles_pour
+from scolarite.recherche import PLUSIEURS, filtrer, trouver_eleve
 from assistant.services import (
     AssistantIndisponible,
     anonymiser_question,
@@ -132,6 +133,23 @@ def _creneaux_pour_assistant(utilisateur):
 
 
 @module_requis(Module.ASSISTANT)
+def rechercher_eleve_json(request):
+    """
+    Recherche en direct (JS) d'un élève par nom, prénom ou matricule, parmi les seuls élèves que le rôle de la personne a le
+    droit de consulter (eleves_visibles_pour : un enseignant ne trouve que les élèves de ses classes).
+    """
+    from django.http import JsonResponse
+
+    terme = request.GET.get("q", "").strip()
+    if len(terme) < 2:
+        return JsonResponse({"resultats": []})
+    eleves = filtrer(eleves_visibles_pour(request.user).order_by("nom", "prenom"), terme, "nom", "prenom", "matricule", limite=10)
+    return JsonResponse({"resultats": [
+        {"matricule": e.matricule, "nom_complet": f"{e.nom_complet} ({e.matricule})"} for e in eleves
+    ]})
+
+
+@module_requis(Module.ASSISTANT)
 def poser_question(request):
     """
     Deux modes, tous deux restitués uniquement à partir des données que le
@@ -166,7 +184,7 @@ def poser_question(request):
 
     if not matricule and question_libre:
         if not ia_disponible():
-            erreur = "Indiquez le matricule d'un élève pour lancer une recherche - la question générale nécessite l'Assistant IA, non configuré ici."
+            erreur = "Indiquez le nom ou le matricule d'un élève pour lancer une recherche - la question générale nécessite l'Assistant IA, non configuré ici."
         else:
             resultat_general = construire_donnees_generales(request.user)
             limite_atteinte = is_ratelimited(
@@ -193,10 +211,18 @@ def poser_question(request):
 
     if matricule:
         # Limité à l'école de l'utilisateur : « aucun élève » et « élève d'une autre école » doivent se confondre.
-        eleve = Utilisateur.objects.filter(
-            matricule=matricule, role=Role.ELEVE, etablissement_id=request.user.etablissement_id,
-        ).first()
-        if not eleve:
+        # Le nom suffit (« MAIGA Aïssata », ou le choix fait dans la recherche) : parmi les seuls élèves que cette personne a le
+        # droit de consulter. Un matricule tapé reste accepté tel quel, avec les mêmes messages qu'avant.
+        eleve, probleme = trouver_eleve(matricule, eleves_visibles_pour(request.user))
+        if eleve is None and probleme == PLUSIEURS:
+            erreur = "Plusieurs élèves portent ce nom : choisissez-en un dans la liste proposée sous le champ."
+        elif eleve is None:
+            eleve = Utilisateur.objects.filter(
+                matricule=matricule, role=Role.ELEVE, etablissement_id=request.user.etablissement_id,
+            ).first()
+        if erreur:
+            pass
+        elif not eleve:
             erreur = "Aucun élève trouvé avec ce matricule."
         elif not eleve_visible_pour(request.user, eleve):
             erreur = "Vous n'avez pas accès aux informations de cet élève."

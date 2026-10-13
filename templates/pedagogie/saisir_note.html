@@ -24,6 +24,7 @@
                             </div>
                         </div>
                     {% endfor %}
+                    <datalist id="eleves-de-la-classe">{% for option in formulaire.options_eleves %}<option value="{{ option }}"></option>{% endfor %}</datalist>
                     <button type="submit" class="btn btn-primary w-100">Enregistrer</button>
                 </form>
             </div>

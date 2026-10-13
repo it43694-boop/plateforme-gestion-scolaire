@@ -17,7 +17,10 @@ class AccesRolesPleinPouvoirTests(TestCase):
     def test_acces_total_sans_aucune_ligne_en_base(self):
         self.assertTrue(PermissionMatrix.a_acces(Role.DEVELOPPEUR.value, Module.ASSISTANT.value))
         self.assertTrue(PermissionMatrix.a_acces(Role.FONDATEUR.value, Module.FINANCES.value))
-        self.assertTrue(PermissionMatrix.a_acces(Role.ADMINISTRATEUR_GENERAL.value, Module.ESPACE_DEVELOPPEUR.value))
+        # L'espace développeur reste réservé au développeur, même pour un rôle à accès total.
+        self.assertTrue(PermissionMatrix.a_acces(Role.DEVELOPPEUR.value, Module.ESPACE_DEVELOPPEUR.value))
+        self.assertFalse(PermissionMatrix.a_acces(Role.ADMINISTRATEUR_GENERAL.value, Module.ESPACE_DEVELOPPEUR.value))
+        self.assertFalse(PermissionMatrix.a_acces(Role.FONDATEUR.value, Module.ESPACE_DEVELOPPEUR.value))
 
     def test_modules_autorises_retourne_tous_les_modules(self):
         self.assertEqual(
@@ -210,3 +213,71 @@ class UniciteRoleModuleEtablissementTests(TestCase):
                 PermissionMatrix.objects.create(
                     etablissement=etablissement, role=Role.SECRETAIRE.value, module=Module.ELEVES.value, autorise=False,
                 )
+
+
+class EspaceDeveloppeurReserveAuDeveloppeurTests(TestCase):
+    """
+    Fondateur et administrateur général ont accès à tout l'école, mais l'espace développeur (comptes, matrice, journal d'audit)
+    n'est jamais un de leurs modules : il ne s'affiche pas chez eux et ses pages leur sont refusées.
+    """
+
+    PAGES = (
+        "espace_developpeur:parametres_etablissement", "espace_developpeur:liste_comptes",
+        "espace_developpeur:matrice_permissions", "espace_developpeur:annees_scolaires", "espace_developpeur:journal_audit",
+    )
+
+    def setUp(self):
+        from etablissement.models import Etablissement
+        from espace_plateforme.tests import creer_utilisateur_actif
+
+        self.ecole = Etablissement.objects.create(nom="École réservée")
+        PermissionMatrix.seed_pour(self.ecole)
+        self.comptes = {
+            role: creer_utilisateur_actif(f"{role.value}@reserve.test", role, self.ecole)
+            for role in (Role.DEVELOPPEUR, Role.FONDATEUR, Role.ADMINISTRATEUR_GENERAL)
+        }
+
+    def test_la_liste_des_modules(self):
+        tous = {m.value for m in Module}
+        self.assertEqual(set(PermissionMatrix.modules_autorises(Role.DEVELOPPEUR.value)), tous)
+        for role in (Role.FONDATEUR, Role.ADMINISTRATEUR_GENERAL):
+            with self.subTest(role=role.value):
+                self.assertEqual(
+                    set(PermissionMatrix.modules_autorises(role.value, etablissement=self.ecole)),
+                    tous - {Module.ESPACE_DEVELOPPEUR.value},
+                )
+
+    def test_a_acces_accepte_un_module_ou_son_nom(self):
+        for module in (Module.ESPACE_DEVELOPPEUR, Module.ESPACE_DEVELOPPEUR.value):
+            self.assertTrue(PermissionMatrix.a_acces(Role.DEVELOPPEUR, module))
+            self.assertFalse(PermissionMatrix.a_acces(Role.FONDATEUR, module))
+            self.assertFalse(PermissionMatrix.a_acces(Role.ADMINISTRATEUR_GENERAL, module))
+
+    def test_le_reste_de_l_ecole_leur_reste_ouvert(self):
+        for role in (Role.FONDATEUR, Role.ADMINISTRATEUR_GENERAL):
+            for module in Module:
+                if module != Module.ESPACE_DEVELOPPEUR:
+                    with self.subTest(role=role.value, module=module.value):
+                        self.assertTrue(PermissionMatrix.a_acces(role.value, module.value))
+
+    def test_le_tableau_de_bord_ne_montre_pas_l_espace_developpeur_au_fondateur(self):
+        from django.urls import reverse
+
+        for role, doit_le_voir in ((Role.FONDATEUR, False), (Role.ADMINISTRATEUR_GENERAL, False), (Role.DEVELOPPEUR, True)):
+            self.client.force_login(self.comptes[role])
+            page = self.client.get(reverse("comptes:redirection_tableau_de_bord"), follow=True)
+            with self.subTest(role=role.value):
+                self.assertEqual(page.status_code, 200)
+                self.assertEqual("Espace développeur" in page.content.decode(), doit_le_voir)
+
+    def test_aucune_page_de_l_espace_developpeur_n_est_ouverte_ni_proposee(self):
+        from django.urls import reverse
+
+        for role in (Role.FONDATEUR, Role.ADMINISTRATEUR_GENERAL):
+            self.client.force_login(self.comptes[role])
+            for nom in self.PAGES:
+                with self.subTest(role=role.value, page=nom):
+                    self.assertEqual(self.client.get(reverse(nom)).status_code, 403)
+            menu = self.client.get(reverse("comptes:redirection_tableau_de_bord"), follow=True).content.decode()
+            for libelle in ("Matrice de permissions", "Journal d'audit", "Années scolaires"):
+                self.assertNotIn(libelle, menu)
