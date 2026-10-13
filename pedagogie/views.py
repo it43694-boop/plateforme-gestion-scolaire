@@ -220,15 +220,18 @@ def _calculer_bulletin(eleve, inscription=None):
         poids = sum(n.affectation.coefficient for n in notes_du_trimestre)
         moyenne = round(total_pondere / poids, 2)
 
-        moyenne_plus_forte, moyenne_plus_faible = (None, None)
+        moyenne_plus_forte = moyenne_plus_faible = rang_trimestre = effectif_trimestre = None
         if inscription:
-            moyenne_plus_forte, moyenne_plus_faible = _moyennes_extremes_classe(inscription.classe, trimestre_valeur)
+            moyenne_plus_forte, moyenne_plus_faible, rang_trimestre, effectif_trimestre = _reperes_classe(
+                inscription, trimestre_valeur,
+            )
 
         bulletins_trimestre.append({
             "trimestre": trimestre_label, "lignes": lignes,
             "total_coefficients": poids, "total_moyenne_coefficiee": round(total_pondere, 2),
             "moyenne": moyenne, "appreciation": appreciation_pour(moyenne),
             "moyenne_plus_forte": moyenne_plus_forte, "moyenne_plus_faible": moyenne_plus_faible,
+            "rang": rang_trimestre, "effectif_classe": effectif_trimestre,
         })
         moyennes_par_trimestre.append({"trimestre": trimestre_label, "moyenne": moyenne})
         total_pondere_general += total_pondere
@@ -252,8 +255,8 @@ def _moyennes_generales_par_eleve(classe, eleves_ids, trimestre=None):
     Moyenne générale pondérée (par coefficient de matière) de chaque
     élève d'une classe, sur un trimestre donné ou tous confondus - calcul
     partagé par _calculer_classement (rang d'un élève précis) et
-    _moyennes_extremes_classe (plus forte/plus faible moyenne, affichées
-    sur le bulletin).
+    _reperes_classe (rang du trimestre, plus forte/plus faible moyenne,
+    affichés sur le bulletin).
     """
     from django.db.models import DecimalField, ExpressionWrapper, F, Sum
 
@@ -291,22 +294,37 @@ def _calculer_classement(inscription):
     if inscription.eleve_id not in moyennes:
         return None, len(eleves_classe)
 
-    classement = sorted(moyennes.values(), reverse=True)
-    rang = classement.index(moyennes[inscription.eleve_id]) + 1
-    return rang, len(eleves_classe)
+    return _rang_de_competition(moyennes, inscription.eleve_id), len(eleves_classe)
 
 
-def _moyennes_extremes_classe(classe, trimestre):
-    """Moyenne générale la plus forte et la plus faible de la classe pour un trimestre, affichées sur le bulletin à titre de repère."""
+def _rang_de_competition(moyennes, eleve_id):
+    """Rang de l'élève parmi {élève: moyenne}, ex æquo au même rang puis saut (1, 2, 2, 4) ; None s'il n'a pas de moyenne."""
+    if eleve_id not in moyennes:
+        return None
+    return sorted(moyennes.values(), reverse=True).index(moyennes[eleve_id]) + 1
+
+
+def _reperes_classe(inscription, trimestre):
+    """
+    (moyenne la plus forte, la plus faible, rang de l'élève, effectif de la classe) pour UN trimestre, affichés sur le
+    bulletin à titre de repère. Même règle que le rang de l'année (_calculer_classement) : élèves actuellement inscrits,
+    moyenne pondérée par les coefficients, ex æquo au même rang ; seuls ceux qui ont des notes ce trimestre sont classés.
+    """
     eleves_classe = set(
-        Inscription.objects.filter(classe=classe, statut=Inscription.Statut.EN_COURS).values_list("eleve_id", flat=True)
+        Inscription.objects.filter(
+            classe=inscription.classe, statut=Inscription.Statut.EN_COURS,
+        ).values_list("eleve_id", flat=True)
     )
     if not eleves_classe:
-        return None, None
-    moyennes = list(_moyennes_generales_par_eleve(classe, eleves_classe, trimestre=trimestre).values())
+        return None, None, None, None
+    moyennes = _moyennes_generales_par_eleve(inscription.classe, eleves_classe, trimestre=trimestre)
     if not moyennes:
-        return None, None
-    return round(max(moyennes), 2), round(min(moyennes), 2)
+        return None, None, None, len(eleves_classe)
+    valeurs = list(moyennes.values())
+    return (
+        round(max(valeurs), 2), round(min(valeurs), 2), _rang_de_competition(moyennes, inscription.eleve_id),
+        len(eleves_classe),
+    )
 
 
 @module_requis(Module.NOTES_BULLETINS)

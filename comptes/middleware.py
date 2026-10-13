@@ -263,3 +263,23 @@ class ContentSecurityPolicyMiddleware:
             "frame-ancestors 'none'"
         )
         return reponse
+
+
+class EntretienQuotidienMiddleware:
+    """
+    Lance l'entretien de la base (comptes.entretien : messages de plus de 30 jours, sessions expirées) à la première visite
+    d'un utilisateur connecté de la journée. Après la réponse : la page de l'utilisateur n'en dépend jamais, et une panne de
+    l'entretien est journalisée sans jamais l'atteindre.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        reponse = self.get_response(request)
+        utilisateur = getattr(request, "user", None)
+        if utilisateur is not None and utilisateur.is_authenticated and not request.path.startswith(("/static/", "/media/")):
+            from comptes.entretien import entretien_si_du
+
+            entretien_si_du()
+        return reponse

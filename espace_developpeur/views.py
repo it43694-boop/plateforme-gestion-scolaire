@@ -9,13 +9,16 @@ from comptes.decorators import role_requis
 from comptes.models import Utilisateur
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
 from espace_developpeur.forms import (
-    TOUS_CHAMPS_ADMINISTRATIFS, CreerAnneeScolaireForm, ModifierCompteForm, ParametresEtablissementForm,
-    CHAMPS_CONSERVES, champs_applicables, est_vide, valeur_vide,
+    TOUS_CHAMPS_ADMINISTRATIFS, ConfirmerRetraitEleveForm, CreerAnneeScolaireForm, ModifierCompteForm,
+    ParametresEtablissementForm, CHAMPS_CONSERVES, champs_applicables, est_vide, valeur_vide,
+)
+from espace_developpeur.retrait_eleve import (
+    anonymiser_eleve, historique_eleve, historique_lisible, mode_de_retrait, supprimer_eleve,
 )
 from etablissement.models import Etablissement
 from permissions_matrix.models import PermissionMatrix
 from permissions_matrix.modules import Module
-from scolarite.models import AnneeScolaire
+from scolarite.models import AnneeScolaire, eleve_de_l_etablissement_ou_404
 
 # Cahier des charges : « Seul rôle pouvant attribuer les rôles/statuts et
 # gérer la matrice de permissions. » - une restriction volontairement plus
@@ -278,4 +281,41 @@ def journal_audit(request):
     page_obj = Paginator(entrees, 50).get_page(request.GET.get("page"))
     return render(request, "espace_developpeur/journal_audit.html", {
         "page_obj": page_obj, "entrees": page_obj.object_list, "recherche": recherche,
+    })
+
+
+@role_requis(*ROLE_ESPACE_DEVELOPPEUR)
+def retirer_eleve(request, matricule):
+    """
+    Supprime un élève sans historique (doublon créé par erreur) ou anonymise un élève qui en a un (voir
+    espace_developpeur.retrait_eleve). Le mode est décidé ICI par le serveur, jamais par le formulaire : on ne peut pas
+    forcer une suppression d'élève qui a des paiements. Le journal d'audit note le numéro interne et des compteurs,
+    jamais le nom, le matricule ni un numéro de téléphone.
+    """
+    eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
+    historique = historique_eleve(eleve)
+    mode = mode_de_retrait(eleve, historique)
+    formulaire = ConfirmerRetraitEleveForm(request.POST or None, matricule=eleve.matricule or "")
+
+    if request.method == "POST" and mode != "deja_anonymise" and formulaire.is_valid():
+        identifiant = f"eleve-{eleve.pk}"
+        if mode == "suppression":
+            supprimer_eleve(eleve)
+            enregistrer_action(
+                acteur=request.user, action="suppression_eleve", cible=identifiant, details={}, request=request,
+            )
+            messages.success(request, "L'élève a été supprimé définitivement.")
+        else:
+            bilan = anonymiser_eleve(eleve)
+            enregistrer_action(
+                acteur=request.user, action="anonymisation_eleve", cible=identifiant,
+                details={"historique_conserve": historique, **bilan}, request=request,
+            )
+            messages.success(request, "L'élève a été anonymisé : son nom et ses coordonnées sont effacés, ses chiffres restent.")
+        return redirect("scolarite:liste_eleves")
+
+    return render(request, "espace_developpeur/retirer_eleve.html", {
+        "eleve": eleve, "mode": mode, "historique": historique_lisible(historique), "formulaire": formulaire,
+        "inscriptions": eleve.inscriptions.count(), "parents_lies": eleve.parents_lies.count(),
+        "parents_en_attente": eleve.parents_en_attente.count(),
     })

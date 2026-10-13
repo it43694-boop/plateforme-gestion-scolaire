@@ -68,22 +68,28 @@
                 </table>
             </div>
             <div class="row g-3 mt-2">
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md">
                     <div class="mini-stat-label">Moyenne obtenue</div>
                     <div class="mini-stat-valeur">{{ bulletin.moyenne }}/20</div>
                 </div>
-                <div class="col-6 col-md-3">
+                {% if bulletin.rang %}
+                <div class="col-6 col-md">
+                    <div class="mini-stat-label">Rang du trimestre</div>
+                    <div class="mini-stat-valeur">{{ bulletin.rang }}{% if bulletin.rang == 1 %}er{% else %}ème{% endif %} sur {{ bulletin.effectif_classe }}</div>
+                </div>
+                {% endif %}
+                <div class="col-6 col-md">
                     <div class="mini-stat-label">Appréciation</div>
                     <div class="mini-stat-valeur">{{ bulletin.appreciation }}</div>
                 </div>
                 {% if bulletin.moyenne_plus_forte %}
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md">
                     <div class="mini-stat-label">Moyenne la plus forte</div>
                     <div class="mini-stat-valeur">{{ bulletin.moyenne_plus_forte }}/20</div>
                 </div>
                 {% endif %}
                 {% if bulletin.moyenne_plus_faible %}
-                <div class="col-6 col-md-3">
+                <div class="col-6 col-md">
                     <div class="mini-stat-label">Moyenne la plus faible</div>
                     <div class="mini-stat-valeur">{{ bulletin.moyenne_plus_faible }}/20</div>
                 </div>

@@ -8,6 +8,7 @@
         <div><h1>Messagerie</h1><p>Échangez directement avec {% if request.user.role == "parent" %}les enseignants de vos enfants{% else %}les parents de vos élèves{% endif %}.</p></div>
     </div>
 </div>
+{% include "communication/_rappel_conservation.html" %}
 
 <div class="card mb-3">
     <div class="card-body">

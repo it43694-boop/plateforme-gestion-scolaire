@@ -1,0 +1,3 @@
+{% load conservation %}{% duree_conservation_messages_jours as jours_conservation %}{% if jours_conservation %}
+<p class="texte-note mb-3">Les messages sont effacés automatiquement après {{ jours_conservation }} jour{{ jours_conservation|pluralize }}.</p>
+{% endif %}

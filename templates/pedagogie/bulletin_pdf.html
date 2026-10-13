@@ -126,6 +126,9 @@
     <table class="recap">
         <tr>
             <td><span class="libelle">Moyenne obtenue</span><span class="valeur">{{ bulletin.moyenne }}/20</span></td>
+            {% if bulletin.rang %}
+            <td><span class="libelle">Rang du trimestre</span><span class="valeur">{{ bulletin.rang }}{% if bulletin.rang == 1 %}er{% else %}ème{% endif %} sur {{ bulletin.effectif_classe }}</span></td>
+            {% endif %}
             <td><span class="libelle">Appréciation</span><span class="valeur">{{ bulletin.appreciation }}</span></td>
             {% if bulletin.moyenne_plus_forte %}
             <td><span class="libelle">Moyenne la plus forte</span><span class="valeur">{{ bulletin.moyenne_plus_forte }}/20</span></td>

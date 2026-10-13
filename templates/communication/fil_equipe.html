@@ -9,6 +9,7 @@
     </div>
     <a href="{% url 'communication:liste_equipes' %}" class="btn btn-outline-secondary btn-sm">Retour aux équipes</a>
 </div>
+{% include "communication/_rappel_conservation.html" %}
 <div class="alert alert-warning">Discussion pédagogique réservée aux enseignants et à la direction autorisée. N'y partagez pas de données personnelles d'élèves.</div>
 <div class="card mb-3"><div class="card-body">
     {% if messages_fil %}

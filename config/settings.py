@@ -108,6 +108,8 @@ MIDDLEWARE = [
     "comptes.middleware.ChangementMotDePasseObligatoireMiddleware",
     # Pas de cache navigateur pour les pages d'un utilisateur connecté (ordinateurs partagés)
     "comptes.middleware.PagesPriveesNonMisesEnCacheMiddleware",
+    # Entretien quotidien de la base (messages anciens, sessions expirées), au plus une fois par jour
+    "comptes.middleware.EntretienQuotidienMiddleware",
     # Content-Security-Policy (défense en profondeur contre l'injection de script)
     "comptes.middleware.ContentSecurityPolicyMiddleware",
 ]
@@ -393,6 +395,13 @@ DUREE_VALIDITE_CODE_VERIFICATION_MINUTES = 10
 # Nombre de tentatives de connexion échouées avant verrouillage temporaire
 NB_TENTATIVES_CONNEXION_AVANT_VERROUILLAGE = 5
 DUREE_VERROUILLAGE_MINUTES = 15
+
+# Entretien de la base (comptes/entretien.py) : les messages de la messagerie et des fils d'équipe sont effacés au bout de
+# ce nombre de jours (0 = jamais), et les sessions de connexion expirées chaque jour. L'entretien se déclenche tout seul, au
+# plus une fois par jour, à la première visite d'un utilisateur connecté (le plan gratuit de Render n'a pas de cron) ;
+# ENTRETIEN_AUTOMATIQUE=False le coupe (la commande `manage.py entretien` reste disponible).
+DUREE_CONSERVATION_MESSAGES_JOURS = env.int("DUREE_CONSERVATION_MESSAGES_JOURS", default=30)
+ENTRETIEN_AUTOMATIQUE = env.bool("ENTRETIEN_AUTOMATIQUE", default=True)
 
 # ---------------------------------------------------------------------------
 # Adresse IP réelle du client à travers le(s) proxy(s) de confiance (voir

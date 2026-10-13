@@ -80,6 +80,7 @@
         <button class="btn btn-sm btn-outline-secondary">Mot de passe provisoire</button>
     </form>
     {% endif %}
+    {% if peut_retirer_eleve %}<a href="{% url 'espace_developpeur:retirer_eleve' eleve.matricule %}" class="btn btn-sm btn-outline-danger">Supprimer / anonymiser</a>{% endif %}
     {% if inscription_active and peut_cloturer_inscription %}<a href="{% url 'scolarite:cloturer_inscription' eleve.matricule %}" class="btn btn-sm btn-outline-danger">Clôturer l'inscription (abandon/transfert)</a>{% endif %}
 </div>
 

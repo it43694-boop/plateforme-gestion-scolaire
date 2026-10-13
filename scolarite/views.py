@@ -114,6 +114,7 @@ def dossier_eleve(request, matricule):
         "peut_voir_notes": peut_voir_notes, "peut_voir_absences": peut_voir_absences, "peut_voir_finances": peut_voir_finances,
         "peut_cloturer_inscription": request.user.role not in ROLES_INSCRIPTION_ELEVE_INTERDITE,
         "peut_corriger_dossier": peut_corriger_dossier_eleve(request.user, eleve),
+        "peut_retirer_eleve": request.user.role == Role.DEVELOPPEUR.value,
         "peut_mot_de_passe_provisoire": request.user.role in ROLES_MOT_DE_PASSE_PROVISOIRE_ELEVE,
     }
 

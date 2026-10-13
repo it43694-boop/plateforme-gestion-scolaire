@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block titre %}{% if mode == "suppression" %}Supprimer{% else %}Anonymiser{% endif %} un élève{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>{% if mode == "suppression" %}Supprimer un élève{% elif mode == "anonymisation" %}Anonymiser un élève{% else %}Élève déjà anonymisé{% endif %}</h1>
+        <p>{{ eleve.nom_complet }} - matricule {{ eleve.matricule }}</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-7">
+        {% if mode == "deja_anonymise" %}
+        <div class="card mb-3"><div class="card-body">
+            <p class="mb-0">Cet élève est déjà anonymisé : il n'y a plus de nom ni de coordonnées à effacer. Ses chiffres (notes, absences, paiements) sont conservés.</p>
+        </div></div>
+        <a href="{% url 'scolarite:dossier_eleve' eleve.matricule %}" class="btn btn-outline-secondary">Retour au dossier</a>
+
+        {% else %}
+        <div class="card mb-3">
+            <div class="card-body">
+                {% if mode == "suppression" %}
+                <p class="titre-section">Suppression définitive</p>
+                <p>Cet élève n'a <strong>aucun historique</strong> (ni paiement, ni note, ni absence, ni document remis, ni message) : c'est le cas d'un doublon ou d'une inscription faite par erreur.</p>
+                <p class="mb-2">Seront supprimés pour toujours :</p>
+                <ul>
+                    <li>son compte et ses informations personnelles ;</li>
+                    <li>{{ inscriptions }} inscription{{ inscriptions|pluralize }} ;</li>
+                    <li>{{ parents_en_attente }} parent{{ parents_en_attente|pluralize }} sans compte (les comptes parents déjà liés ne sont pas touchés).</li>
+                </ul>
+                <p class="text-danger mb-0"><strong>Cette action est irréversible.</strong></p>
+
+                {% else %}
+                <p class="titre-section">Anonymisation</p>
+                <p>Cet élève a un historique que l'école doit conserver (comptabilité, statistiques officielles, documents déjà remis) :</p>
+                <ul>
+                    {% for nombre, libelle in historique %}<li>{{ nombre }} {{ libelle }}</li>{% endfor %}
+                </ul>
+                <p>On ne peut donc pas le supprimer sans fausser ces chiffres. L'anonymisation efface <strong>la personne</strong> et garde <strong>les chiffres</strong>.</p>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <p class="small mb-1"><strong>Effacé</strong></p>
+                        <ul class="small mb-0">
+                            <li>nom, prénom, email, téléphone, matricule ;</li>
+                            <li>lieu et n° d'acte de naissance, jour de naissance ;</li>
+                            <li>les parents sans compte ({{ parents_en_attente }}) et le lien avec les parents ({{ parents_lies }}) : leurs comptes restent ;</li>
+                            <li>les messages parents-enseignants à son sujet et les notifications qui le nomment ;</li>
+                            <li>les motifs d'absence et de sortie, le justificatif de transfert.</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="small mb-1"><strong>Conservé</strong></p>
+                        <ul class="small mb-0">
+                            <li>sexe, année et mois de naissance, handicap, déplacement (statistiques) ;</li>
+                            <li>inscriptions, notes, absences, paiements, résultats d'examen ;</li>
+                            <li>les documents déjà remis restent vérifiables (ils n'affichent plus que le pseudonyme).</li>
+                        </ul>
+                    </div>
+                </div>
+                <p class="text-danger mt-3 mb-0"><strong>Cette action est irréversible</strong> : le compte est désactivé et le nom ne peut pas être retrouvé.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% for champ in formulaire %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }} : <strong>{{ eleve.matricule }}</strong></label>
+                        {{ champ }}
+                        {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-danger">{% if mode == "suppression" %}Supprimer définitivement{% else %}Anonymiser définitivement{% endif %}</button>
+                    <a href="{% url 'scolarite:dossier_eleve' eleve.matricule %}" class="btn btn-outline-secondary">Annuler</a>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

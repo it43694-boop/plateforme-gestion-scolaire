@@ -9,6 +9,7 @@
     </div>
     <a href="{% url 'communication:liste_annonces' %}" class="btn btn-outline-secondary btn-sm">Retour</a>
 </div>
+{% include "communication/_rappel_conservation.html" %}
 {% if aucun_fil %}
 <div class="card"><div class="card-body"><div class="etat-vide"><p>Aucune équipe disponible pour vos affectations de l'année active.</p></div></div></div>
 {% else %}

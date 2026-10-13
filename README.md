@@ -2048,6 +2048,54 @@ un numéro identique n'est pas répété).
 - Correction : un compteur animé collait l'unité au chiffre (« 1 460 000FCFA ») ; l'unité est désormais un élément à part
   (`.stat-unite`) séparé du nombre par une espace. Les nombres décimaux (« 66,7 % ») ne sont pas animés.
 
+## État du projet : Phase 56 — Supprimer ou anonymiser un élève
+
+Avant, un élève ne pouvait pas être retiré : l'inscription, les paiements et les bulletins sont protégés à dessein (comptabilité,
+statistiques, authenticité des documents remis). Réservé au **développeur de l'école** (`espace_developpeur/retrait_eleve.py`, route
+`espace-developpeur/eleves/<matricule>/retirer/`, bouton « Supprimer / anonymiser » sur le dossier), pour un élève de son école
+(autre école : 404), après avoir **retapé le matricule**. Le mode est décidé par le serveur, jamais par le formulaire :
+- **Suppression définitive** : aucun historique (ni paiement, aide, note, absence, résultat d'examen, document remis, sortie, message).
+  C'est le doublon ou l'inscription faite par erreur ; le compte, les inscriptions et la famille sans compte disparaissent.
+- **Anonymisation** : il y a un historique. La personne est effacée, les chiffres restent. Effacés : prénom, nom, email, téléphone,
+  matricule (devient `ANON-<n°>`), lieu et acte de naissance, jour de naissance, famille sans compte, lien avec les parents (leurs
+  comptes ne sont pas touchés), messages parents-enseignants à son sujet, notifications qui le nomment, motifs d'absence et de sortie,
+  justificatif de transfert (supprimé du disque). Gardés : sexe, année et mois de naissance, handicap, déplacement, inscriptions,
+  notes, absences, paiements, résultats d'examen. Le compte est désactivé et sans mot de passe. Un test vérifie que les totaux de la
+  fiche annuelle sont identiques avant et après.
+- Le journal d'audit (`suppression_eleve`, `anonymisation_eleve`) note le numéro interne et des compteurs, jamais un nom, un matricule
+  ou un numéro de téléphone.
+- **Limites** : irréversible ; les sauvegardes de l'hébergeur gardent l'élève jusqu'à leur expiration ; l'année et le mois de naissance
+  gardés pour les âges des statistiques sont, avec le sexe et la classe, des quasi-identifiants dans une très petite classe (voir
+  `docs/dossier_apdp.md`, à valider avec un juriste). Les entrées plus anciennes du journal d'audit portent encore l'ancien matricule,
+  qui ne mène plus à personne.
+
+### Rang par trimestre sur le bulletin (`pedagogie/views.py::_reperes_classe`)
+Le bulletin (écran et PDF) n'affichait que le rang général de l'année. Chaque bloc de trimestre porte maintenant « Rang du trimestre :
+3ème sur 27 », à côté de la moyenne obtenue et des moyennes la plus forte et la plus faible. Même règle que le rang de l'année et que
+la colonne « Rang » du relevé Excel (un test les compare) : élèves actuellement inscrits, moyenne pondérée par les coefficients, ex æquo
+au même rang puis saut (1, 1, 3). Seuls les élèves qui ont des notes ce trimestre sont classés, mais l'effectif affiché est celui de la
+classe, comme pour le rang de l'année. Pas de rang pour une inscription d'une année passée (personne n'y est plus « en cours »), comme
+avant. Sur téléphone, l'en-tête d'une page (titre et actions) passe à la ligne au lieu de déborder.
+
+## État du projet : Phase 57 — Entretien quotidien de la base (messages anciens, sessions expirées)
+
+Pour que la base ne grossisse pas sans fin et garder moins de données personnelles (`comptes/entretien.py`) :
+- **Messages** de la messagerie parent-enseignant et des fils d'équipe de plus de `DUREE_CONSERVATION_MESSAGES_JOURS` jours (**30** par
+  défaut ; **0 = jamais effacés**), lus ou non. Irréversible. Les annonces, notifications, notes, paiements et dossiers ne sont pas touchés.
+  Les pages de messagerie le rappellent (« Les messages sont effacés automatiquement après 30 jours »), via la balise
+  `duree_conservation_messages_jours` (`communication/templatetags/conservation.py`) ; le rappel disparaît si la durée est à 0.
+- **Sessions de connexion expirées** (table `django_session`) : Django ne les supprime jamais lui-même, chaque connexion en ajoute une.
+  Une session expirée ne peut plus servir : personne n'est déconnecté.
+- **Lancement** : le plan gratuit de Render n'a pas de cron, donc `EntretienQuotidienMiddleware` lance l'entretien à la première visite
+  d'un utilisateur connecté, **au plus une fois par 24 h** (marqueur dans le cache : partagé avec Redis, par processus sinon, sans gravité
+  car les purges sont sans effet une seconde fois). Il s'exécute après la réponse ; une panne est journalisée et jamais retentée avant
+  le lendemain, sans jamais casser la page. `ENTRETIEN_AUTOMATIQUE=False` le coupe.
+- **Commande** : `python manage.py entretien` (tâche planifiée sur un hébergement payant, ou à la main) ; `--simulation` compte sans
+  effacer, `--jours N` change la durée pour cet appel.
+- Le journal d'audit (`entretien_quotidien`) note des compteurs, jamais un texte de message ; rien n'est écrit quand il n'y a rien à effacer.
+- **Pas fait volontairement** : les notifications et le journal d'audit ne sont pas purgés (le journal est une preuve ; les notifications
+  n'ont pas été demandées). La durée est la même pour toutes les écoles (réglage de la plateforme, pas de l'école).
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

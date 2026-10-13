@@ -177,3 +177,19 @@ class CreerAnneeScolaireForm(BootstrapFormMixin, forms.Form):
             date_fin=self.cleaned_data["date_fin"],
             est_active=self.cleaned_data["est_active"],
         )
+
+
+class ConfirmerRetraitEleveForm(BootstrapFormMixin, forms.Form):
+    """Le développeur retape le matricule : un clic distrait ne suffit pas pour effacer un élève."""
+
+    confirmation = forms.CharField(label="Retapez le matricule pour confirmer", max_length=20)
+
+    def __init__(self, *args, matricule, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._matricule = matricule
+
+    def clean_confirmation(self):
+        saisi = self.cleaned_data["confirmation"].strip()
+        if saisi != self._matricule:
+            raise forms.ValidationError("Ce n'est pas le matricule de cet élève.")
+        return saisi

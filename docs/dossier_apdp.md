@@ -61,9 +61,25 @@ héberger les données dans une région précise ? Quels contrats (clauses de so
 ## 5. Droits des personnes
 
 Accès, rectification, suppression et opposition : adressés à l'établissement (responsable du traitement), qui peut
-corriger les données dans la plateforme. Pour un mineur, les droits s'exercent par ses parents ou son tuteur.
-**À confirmer :** procédure de suppression complète d'un élève après son départ (la plateforme conserve aujourd'hui
-l'historique d'inscription) et durées de conservation légales par catégorie de document.
+corriger les données dans la plateforme (« Corriger le dossier » sur la fiche de l'élève). Pour un mineur, les droits
+s'exercent par ses parents ou son tuteur.
+
+**Suppression :** le développeur de l'école peut retirer un élève (« Supprimer / anonymiser » sur sa fiche), après avoir retapé
+son matricule. Sans historique (doublon créé par erreur), l'élève est supprimé définitivement. Avec un historique (paiements,
+notes, absences, documents remis), il est **anonymisé** : nom, prénom, email, téléphone, matricule, lieu et acte de naissance,
+jour de naissance, famille sans compte, messages parents-enseignants, notifications qui le nomment, motifs d'absence et de sortie
+et justificatif de transfert sont effacés ; le sexe, l'année et le mois de naissance, le handicap, le déplacement et les
+chiffres (notes, absences, paiements) sont conservés pour la comptabilité et les statistiques officielles. Cette opération est
+irréversible et notée au journal d'audit sans nom ni matricule.
+**À confirmer avec le juriste :** (1) si l'année et le mois de naissance, le sexe et le handicap gardés suffisent à dire
+« anonymisé » dans une très petite classe, ou s'il faut les supprimer aussi ; (2) les durées de conservation légales par
+catégorie de document, avant lesquelles une suppression complète serait interdite. Les sauvegardes de la base (hébergeur)
+gardent l'élève jusqu'à leur expiration.
+
+**Minimisation :** les messages de la messagerie parents-enseignants et des fils d'équipe sont effacés automatiquement au bout de
+30 jours (réglable), et les sessions de connexion expirées chaque jour. Les autres données (notes, paiements, dossiers, journal
+d'audit, notifications) sont gardées jusqu'à une décision de l'école : leurs durées restent à fixer (voir ci-dessous). La page
+« Confidentialité » ne mentionne pas encore l'effacement des messages : à ajouter après relecture par le juriste.
 
 ## 6. Questions à poser au juriste
 
