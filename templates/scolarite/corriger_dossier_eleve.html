@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block titre %}Corriger le dossier de {{ eleve.nom_complet }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Corriger le dossier - {{ eleve.nom_complet }}</h1>
+        <p>Matricule {{ eleve.matricule }} : il ne change pas, car il figure déjà sur les documents remis.</p>
+    </div>
+</div>
+
+<form method="post" novalidate>
+    {% csrf_token %}
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <p class="titre-section">Renseignements de l'élève</p>
+            {% for erreur in formulaire.non_field_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+            <div class="row g-3">
+                {% for champ in formulaire %}
+                <div class="col-md-6">
+                    <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <p class="titre-section">Parents</p>
+            {% if parents_lies %}
+            <p class="text-muted small mb-1">Parents qui ont un compte (ce sont leurs propres données, elles ne se modifient pas ici) :</p>
+            <ul class="small mb-3">
+                {% for parent in parents_lies %}<li>{{ parent.nom_complet }} - {{ parent.email }}{% if parent.telephone %} - {{ parent.telephone }}{% endif %}</li>{% endfor %}
+            </ul>
+            {% endif %}
+
+            <p class="text-muted small">
+                Parents sans compte : leur email sert à les relier automatiquement dès qu'ils créent leur compte avec cet email.
+                Le numéro de téléphone sert aux messages WhatsApp et SMS.
+            </p>
+            {{ parents.management_form }}
+            {% for erreur in parents.non_form_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+            {% for ligne in parents %}
+            {{ ligne.id }}
+            <div class="row g-2 mb-3 align-items-end">
+                {% for champ in ligne.visible_fields %}
+                {% if champ.name != "DELETE" %}
+                <div class="col-md-3">
+                    <label class="form-label small" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+                {% endif %}
+                {% endfor %}
+                {% if ligne.DELETE %}
+                <div class="col-12">
+                    <div class="form-check">
+                        {{ ligne.DELETE }}
+                        <label class="form-check-label small" for="{{ ligne.DELETE.id_for_label }}">{{ ligne.DELETE.label }}</label>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <p class="text-muted small mb-0">Cet élève a déjà deux parents liés.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Enregistrer les corrections</button>
+    <a href="{% url 'scolarite:dossier_eleve' eleve.matricule %}" class="btn btn-outline-secondary">Annuler</a>
+</form>
+{% endblock %}

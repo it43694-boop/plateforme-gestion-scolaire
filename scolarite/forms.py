@@ -1,3 +1,5 @@
+import datetime
+
 from django import forms
 
 from comptes.forms import BootstrapFormMixin
@@ -9,7 +11,7 @@ from scolarite.models import PAS_MONTANT as PAS_MONTANT_PAR_DEFAUT
 from scolarite.models import (
     DEVISE_PAR_DEFAUT, NOMBRE_VERSEMENTS_FIXE, AnneeScolaire, Classe, Cycle, DomaineProfessionnel, EcheancierFrais,
     FiliereProfessionnelle,
-    Inscription, NIVEAUX_PAR_CYCLE, Niveau, Periodicite, Serie, cycles_autorises_pour,
+    Inscription, NIVEAUX_PAR_CYCLE, Niveau, ParentEnAttente, Periodicite, Serie, cycles_autorises_pour,
 )
 
 
@@ -241,3 +243,110 @@ class CloturerInscriptionForm(BootstrapFormMixin, forms.Form):
         if cleaned.get("decision") == Inscription.Statut.TRANSFERE and not cleaned.get("destination_libelle"):
             self.add_error("destination_libelle", "Indiquez l'établissement de destination.")
         return cleaned
+
+
+class CorrigerDossierEleveForm(BootstrapFormMixin, forms.Form):
+    """
+    Les renseignements d'un élève qui peuvent se corriger après l'inscription. Jamais le matricule : il figure déjà
+    sur les documents remis (bulletins, attestations) et sert de clé partout.
+    """
+
+    CHAMPS = (
+        "prenom", "nom", "sexe", "date_naissance", "lieu_naissance", "numero_acte_naissance", "handicap",
+        "statut_deplacement",
+    )
+
+    prenom = forms.CharField(label="Prénom", max_length=100)
+    nom = forms.CharField(label="Nom", max_length=100)
+    sexe = forms.ChoiceField(label="Sexe", choices=Sexe.choices)
+    date_naissance = forms.DateField(
+        label="Date de naissance", required=False,
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )
+    lieu_naissance = forms.CharField(label="Lieu de naissance", max_length=120, required=False)
+    numero_acte_naissance = forms.CharField(label="N° d'extrait d'acte de naissance", max_length=60, required=False)
+    handicap = forms.ChoiceField(
+        label="Situation de handicap", choices=[("", "— Aucune —")] + SituationHandicap.choices, required=False,
+    )
+    statut_deplacement = forms.ChoiceField(
+        label="Situation de déplacement", choices=[("", "— Aucune —")] + StatutDeplacement.choices, required=False,
+    )
+
+    def __init__(self, *args, eleve, **kwargs):
+        kwargs.setdefault("initial", {nom: getattr(eleve, nom) or "" for nom in self.CHAMPS})
+        super().__init__(*args, **kwargs)
+
+    def clean_date_naissance(self):
+        date = self.cleaned_data.get("date_naissance")
+        if date and date > datetime.date.today():
+            raise forms.ValidationError("La date de naissance ne peut pas être dans le futur.")
+        return date
+
+    def appliquer(self, eleve) -> list[str]:
+        """Écrit les valeurs corrigées sur l'élève et rend les NOMS des champs réellement modifiés (jamais les valeurs)."""
+        modifies = []
+        for nom in self.CHAMPS:
+            valeur = self.cleaned_data.get(nom)
+            if isinstance(valeur, str):
+                valeur = valeur.strip()
+            if (getattr(eleve, nom) or "") != (valeur or ""):
+                setattr(eleve, nom, valeur)
+                modifies.append(nom)
+        if modifies:
+            eleve.save(update_fields=modifies)
+        return modifies
+
+
+class ParentEnAttenteForm(BootstrapFormMixin, forms.ModelForm):
+    class Meta:
+        model = ParentEnAttente
+        fields = ["email", "prenom", "nom", "telephone"]
+        labels = {"email": "Email", "prenom": "Prénom", "nom": "Nom", "telephone": "Téléphone"}
+
+    def __init__(self, *args, etablissement=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._etablissement = etablissement
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip()
+        compte = Utilisateur.objects.filter(email__iexact=email, etablissement=self._etablissement).first()
+        if compte and compte.role != Role.PARENT:
+            raise forms.ValidationError("Ce compte n'a pas le rôle « parent ».")
+        return email
+
+
+class BaseParentsEnAttenteFormSet(forms.BaseModelFormSet):
+    def add_fields(self, form, index):
+        super().add_fields(form, index)
+        if "DELETE" in form.fields:
+            form.fields["DELETE"].label = "Retirer ce parent"
+            form.fields["DELETE"].widget.attrs["class"] = "form-check-input"
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        vus = set()
+        for form in self.forms:
+            email = (form.cleaned_data.get("email") or "").lower()
+            if not email or form.cleaned_data.get("DELETE"):
+                continue
+            if email in vus:
+                raise forms.ValidationError("Deux parents ont le même email.")
+            vus.add(email)
+
+
+MAX_PARENTS_PAR_ELEVE = 2
+
+
+def formset_parents_en_attente(nb_parents_lies, nb_en_attente):
+    """
+    Un élève a au plus deux parents (comme à l'inscription) : on ne propose une ligne vide que s'il reste de la place,
+    en comptant les parents qui ont déjà un compte lié.
+    """
+    places = max(0, MAX_PARENTS_PAR_ELEVE - nb_parents_lies)
+    return forms.modelformset_factory(
+        ParentEnAttente, form=ParentEnAttenteForm, formset=BaseParentsEnAttenteFormSet, can_delete=True,
+        can_delete_extra=False, extra=1 if nb_en_attente < places else 0, max_num=max(places, nb_en_attente),
+        validate_max=True,
+    )

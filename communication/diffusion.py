@@ -99,10 +99,19 @@ def appliquer_modele(modele: str, valeurs: dict) -> str:
 
 
 def _contacts(eleve) -> list[tuple[str, str]]:
-    """(libellé, téléphone) de chaque parent qui a un numéro ; à défaut, le numéro de l'élève lui-même."""
+    """
+    (libellé, téléphone) de chaque parent qui a un numéro - ceux qui ont un compte, puis ceux qui n'en ont pas encore
+    (numéro donné à l'inscription, ParentEnAttente) ; à défaut, le numéro de l'élève lui-même.
+    """
     parents = sorted((p for p in eleve.parents_lies.all() if p.telephone), key=lambda p: (p.nom, p.prenom, p.pk))
-    if parents:
-        return [(parent.nom_complet, parent.telephone) for parent in parents]
+    contacts = [(parent.nom_complet, parent.telephone) for parent in parents]
+    deja = {telephone for _, telephone in contacts}
+    for attente in sorted(eleve.parents_en_attente.all(), key=lambda a: (a.cree_le, a.pk)):
+        if attente.telephone and attente.telephone not in deja:
+            contacts.append((f"{attente.prenom} {attente.nom}".strip() or attente.email, attente.telephone))
+            deja.add(attente.telephone)
+    if contacts:
+        return contacts
     if eleve.telephone:
         return [(f"{eleve.nom_complet} (élève)", eleve.telephone)]
     return []
@@ -116,7 +125,7 @@ def _inscriptions(classes, type_, date):
             classe__in=classes, date_absence=date,
         ).values("eleve"))
     inscriptions = inscriptions.select_related("eleve", "classe", "classe__echeancier").prefetch_related(
-        "eleve__parents_lies",
+        "eleve__parents_lies", "eleve__parents_en_attente",
     ).order_by("classe__nom", "eleve__nom", "eleve__prenom", "pk")
     if type_ != PAIEMENT:
         return [(inscription, None) for inscription in inscriptions]

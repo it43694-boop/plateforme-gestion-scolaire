@@ -124,7 +124,7 @@ def suivi_paiements(request):
     inscriptions = Inscription.objects.filter(
         classe__in=classes_visibles_pour(request.user), statut=Inscription.Statut.EN_COURS,
     ).select_related("eleve", "classe", "classe__echeancier", "classe__annee_scolaire").prefetch_related(
-        aides_actives, "eleve__parents_lies",
+        aides_actives, "eleve__parents_lies", "eleve__parents_en_attente",
     ).annotate(
         total_paye=Coalesce(Sum("paiements__montant", filter=Q(paiements__est_supprime=False)), 0),
     ).order_by("classe__nom", "eleve__nom")
@@ -151,8 +151,12 @@ def suivi_paiements(request):
         elif inscription.eleve.telephone:
             telephone_whatsapp = inscription.eleve.telephone
         else:
+            # Parents qui ont un compte d'abord, puis ceux dont on n'a que le numéro donné à l'inscription.
             telephone_whatsapp = next(
                 (p.telephone for p in inscription.eleve.parents_lies.all() if p.telephone), None,
+            ) or next(
+                (a.telephone for a in sorted(inscription.eleve.parents_en_attente.all(), key=lambda a: (a.cree_le, a.pk))
+                 if a.telephone), None,
             )
         message_whatsapp = (
             f"Bonjour, ceci est un rappel concernant le solde de scolarité de "

@@ -868,6 +868,14 @@ def peut_voir_etat_civil_eleve(utilisateur, eleve) -> bool:
     return utilisateur.role in ROLES_ETAT_CIVIL_ELEVE and eleve_visible_pour(utilisateur, eleve)
 
 
+def peut_corriger_dossier_eleve(utilisateur, eleve) -> bool:
+    """
+    Corriger les renseignements d'un élève (nom, naissance, parents en attente) : l'administration qui voit déjà
+    son état civil, pour un élève qu'elle peut voir. Jamais un parent, l'élève lui-même, un enseignant, un comptable.
+    """
+    return utilisateur.role in ROLES_ETAT_CIVIL_ELEVE and eleve_visible_pour(utilisateur, eleve)
+
+
 # ---------------------------------------------------------------------------
 # Résultats aux examens officiels
 # ---------------------------------------------------------------------------

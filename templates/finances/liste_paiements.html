@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load icones %}
+{% load icones montants %}
 {% block titre %}Paiements{% endblock %}
 {% block contenu %}
 <div class="page-header">
@@ -30,7 +30,7 @@
                         {{ paiement.get_tranche_display }}
                         {% if paiement.periodes_couvertes %}<br><span class="texte-secondaire">{{ paiement.periodes_couvertes|join:", " }}</span>{% endif %}
                     </td>
-                    <td class="text-end montant-val">{{ paiement.montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td class="text-end montant-val">{{ paiement.montant|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
                     <td>{{ paiement.get_mode_paiement_display }}</td>
                     <td>{{ paiement.date_paiement|date:"d/m/Y H:i" }}</td>
                     <td class="text-end">
@@ -39,7 +39,7 @@
                         <a href="{% url 'finances:corriger_paiement' paiement.id %}" class="btn btn-sm btn-outline-secondary">Corriger</a>
                         {% endif %}
                         {% if est_direction %}
-                        <form method="post" action="{% url 'finances:supprimer_paiement' paiement.id %}" class="d-inline" data-confirmer="Supprimer ce paiement de {{ paiement.eleve.nom_complet }} ({{ paiement.montant }} {{ etablissement.code_devise|default:"FCFA" }}) ? Cette action est irréversible.">
+                        <form method="post" action="{% url 'finances:supprimer_paiement' paiement.id %}" class="d-inline" data-confirmer="Supprimer ce paiement de {{ paiement.eleve.nom_complet }} ({{ paiement.montant|montant }} {{ etablissement.code_devise|default:"FCFA" }}) ? Cette action est irréversible.">
                             {% csrf_token %}
                             <button class="btn btn-sm btn-outline-danger">Supprimer</button>
                         </form>

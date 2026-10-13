@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load montants %}
 {% block titre %}Assistant{% endblock %}
 {% block contenu %}
 <div class="page-header">
@@ -94,7 +95,7 @@
             <thead><tr><th>Référence</th><th>Tranche</th><th class="text-end">Montant</th></tr></thead>
             <tbody>
                 {% for paiement in resultat.derniers_paiements %}
-                <tr><td>{{ paiement.reference }}</td><td>{{ paiement.get_tranche_display }}</td><td class="text-end montant-val">{{ paiement.montant }} {{ etablissement.code_devise|default:"FCFA" }}</td></tr>
+                <tr><td>{{ paiement.reference }}</td><td>{{ paiement.get_tranche_display }}</td><td class="text-end montant-val">{{ paiement.montant|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td></tr>
                 {% endfor %}
             </tbody>
         </table>

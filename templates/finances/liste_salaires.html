@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load icones %}
+{% load icones montants %}
 {% block titre %}Salaires{% endblock %}
 {% block contenu %}
 <div class="page-header">
@@ -27,7 +27,7 @@
                 <tr>
                     <td>{{ salaire.employe.nom_complet }}</td>
                     <td>{{ salaire.periode }}</td>
-                    <td class="text-end montant-val">{{ salaire.montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td class="text-end montant-val">{{ salaire.montant|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
                     <td>
                         <span class="badge {% if salaire.statut == 'paye' %}bg-success{% else %}bg-warning{% endif %}">
                             {{ salaire.get_statut_display }}
@@ -45,7 +45,7 @@
                         </form>
                         {% endif %}
                         {% if est_direction %}
-                        <form method="post" action="{% url 'finances:supprimer_salaire' salaire.id %}" class="d-inline" data-confirmer="Supprimer ce salaire de {{ salaire.employe.nom_complet }} ({{ salaire.montant }} {{ etablissement.code_devise|default:"FCFA" }}) ? Cette action est irréversible.">
+                        <form method="post" action="{% url 'finances:supprimer_salaire' salaire.id %}" class="d-inline" data-confirmer="Supprimer ce salaire de {{ salaire.employe.nom_complet }} ({{ salaire.montant|montant }} {{ etablissement.code_devise|default:"FCFA" }}) ? Cette action est irréversible.">
                             {% csrf_token %}
                             <button class="btn btn-sm btn-outline-danger">Supprimer</button>
                         </form>

@@ -5,7 +5,8 @@
 <div class="page-header">
     <div>
         <h1>Bonjour, {{ user.prenom }}</h1>
-        <p>{{ user.get_role_display }}</p>
+        {% now "l j F Y" as date_du_jour %}
+        <p>{{ user.get_role_display }} · {{ date_du_jour|capfirst }}</p>
     </div>
 </div>
 

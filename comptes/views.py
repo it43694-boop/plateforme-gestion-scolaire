@@ -382,13 +382,14 @@ def redirection_tableau_de_bord(request):
         })
         actions_rapides.append({"label": "Gérer les classes", "url": "scolarite:liste_classes"})
     if Module.FINANCES.value in valeurs_autorisees:
+        from django.contrib.humanize.templatetags.humanize import intcomma
         from finances.models import Paiement
         total = Paiement.objects.filter(
             etablissement=request.user.etablissement, est_supprime=False,
         ).aggregate(total=Sum("montant"))["total"] or 0
         devise = getattr(request.user.etablissement, "code_devise", "FCFA")
         indicateurs.append({
-            "label": "Encaissements", "valeur": f"{total} {devise}",
+            "label": "Encaissements", "valeur": f"{intcomma(total)} {devise}",
             "icone": "finances", "couleur": "vert",
         })
         actions_rapides.append({"label": "Suivre les paiements", "url": "finances:suivi_paiements"})

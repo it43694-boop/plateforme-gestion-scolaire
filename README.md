@@ -2003,6 +2003,51 @@ numéro unique par le serveur (voir « À faire »).
 - Le motif de sortie d'un élève (abandon ou transfert) s'affichait comme deux champs de texte vides : les boutons radio recevaient
   la classe `form-control`. Corrigé dans le mélangeur commun des formulaires (`BootstrapFormMixin`), avec un test.
 
+## État du projet : Phase 55 — Finition premium, montants lisibles, correction du dossier d'un élève
+
+Trois volets, sans migration. Le premier est purement visuel (`static/css/toumai.css`, `static/js/app.js`, `templates/base.html`,
+`templates/comptes/tableau_de_bord.html`) : tout reste conforme à la CSP (aucun `style=""` dans les gabarits ; le JavaScript
+n'écrit que dans le CSSOM) et **optionnel** : sans JavaScript, la page est complète.
+
+- **Mouvement** : transitions de page natives (View Transitions, ignorées par les navigateurs qui ne les connaissent pas), trait de
+  chargement doré au clic sur un lien ou à l'envoi d'un formulaire, indicateur or sur le lien actif du menu latéral, apparition en cascade
+  des sections du menu, ondulation au clic sur les boutons, apparition au défilement (uniquement ce qui est sous la ligne de
+  flottaison ; tout est visible à l'impression), halo doré qui suit la souris sur l'accueil, la connexion et l'annuaire, bascule
+  clair/sombre en fondu, compteurs animés des tableaux de bord.
+- **Menu du compte** : l'avatar en haut à droite ouvre un menu (thème, mot de passe, email, codes de secours, 2FA, déconnexion) à la
+  place des six boutons qui occupaient trois lignes sur téléphone. Un élément `<details>` : fonctionne sans JavaScript ; le script
+  le referme au clic ailleurs et avec Échap.
+- **Connexion** : anneau doré en pointillés qui tourne lentement derrière la carte, filet doré animé sur la carte.
+- **Respect des préférences** : `prefers-reduced-motion` coupe toutes les animations (les compteurs affichent directement la valeur
+  finale) ; les effets au survol ne s'appliquent qu'aux appareils avec souris (`hover: hover`).
+
+### Corriger le dossier d'un élève (`scolarite/views.py::corriger_dossier_eleve`, route `eleves/<matricule>/corriger/`)
+Avant, un nom, une date de naissance ou un numéro de parent saisi de travers à l'inscription ne se corrigeait nulle part (seuls le
+lieu de naissance, le n° d'acte, le handicap et le déplacement l'étaient, dans l'Espace développeur).
+- **Qui** : l'administration qui voit déjà l'état civil des élèves (`peut_corriger_dossier_eleve` : direction, secrétariat, directeurs
+  de cycle pour leur cycle, super-administrateur, développeur), jamais un parent, l'élève, un enseignant, un comptable, le Censeur ni
+  le Surveillant général. Un élève d'une autre école est « introuvable » (404).
+- **Quoi** : prénom, nom, sexe, date de naissance (pas dans le futur), lieu et acte de naissance, handicap, déplacement ; et les
+  **parents sans compte** (`ParentEnAttente`) : email, nom, prénom, téléphone, ajout (deux parents au plus, comptes liés compris) et
+  retrait. Un email qui correspond à un compte parent de l'école le relie aussitôt ; un email de compte non-parent est refusé.
+- **Jamais** : le matricule (il figure sur les documents remis), l'email technique de l'élève, les données d'un parent qui a un compte
+  (ce sont les siennes), et le téléphone propre de l'élève (unique dans toute la base : le vérifier révélerait l'existence d'un
+  numéro dans une autre école).
+- Le journal d'audit (`correction_dossier_eleve`) note les **noms** des champs modifiés, jamais leurs valeurs.
+
+### Numéros des parents sans compte
+Le bouton WhatsApp de « Suivi des paiements » et la page « Messages aux familles » ne lisaient que les numéros des parents ayant un
+compte et celui de l'élève : le numéro donné à l'inscription par un parent qui n'avait pas encore créé son compte (affiché sur la
+fiche dans « En attente ») était ignoré. Ils l'utilisent maintenant (comptes liés d'abord, puis le plus ancien parent en attente ;
+un numéro identique n'est pas répété).
+
+### Montants (`comptes/templatetags/montants.py`)
+- Filtre `montant` : `{{ paiement.montant|montant }}` affiche « 1 460 000 » (séparateur de milliers français, espace insécable) ;
+  la devise suit `{{ etablissement.code_devise|default:"FCFA" }}`. Appliqué aux listes de paiements, caisse, salaires, contrats,
+  journal SYSCOHADA, dossier élève, portail parent, statistiques financières et assistant ; le tableau de bord en fait autant côté vue.
+- Correction : un compteur animé collait l'unité au chiffre (« 1 460 000FCFA ») ; l'unité est désormais un élément à part
+  (`.stat-unite`) séparé du nombre par une espace. Les nombres décimaux (« 66,7 % ») ne sont pas animés.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

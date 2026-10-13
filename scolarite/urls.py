@@ -16,6 +16,7 @@ urlpatterns = [
         "eleves/<str:matricule>/mot-de-passe-provisoire/",
         views.mot_de_passe_provisoire, name="mot_de_passe_provisoire",
     ),
+    path("eleves/<str:matricule>/corriger/", views.corriger_dossier_eleve, name="corriger_dossier_eleve"),
     path(
         "eleves/<str:matricule>/cloturer/",
         views.cloturer_inscription_vue, name="cloturer_inscription",

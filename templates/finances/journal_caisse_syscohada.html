@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load icones %}
+{% load icones montants %}
 {% block titre %}Journal de caisse SYSCOHADA{% endblock %}
 {% block contenu %}
 <div class="page-header">
@@ -29,8 +29,8 @@
                 <tr>
                     <td>{{ ligne.compte }}</td>
                     <td>{{ ligne.libelle }}</td>
-                    <td class="text-end montant-val">{{ ligne.debit }} {{ etablissement.code_devise|default:"FCFA" }}</td>
-                    <td class="text-end montant-val">{{ ligne.credit }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td class="text-end montant-val">{{ ligne.debit|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td class="text-end montant-val">{{ ligne.credit|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -55,8 +55,8 @@
                     <td>{{ mouvement.reference }}</td>
                     <td>{{ mouvement.description }}</td>
                     <td>{{ mouvement.compte_contrepartie }}</td>
-                    <td class="text-end montant-val">{% if mouvement.debit_caisse %}{{ mouvement.debit_caisse }} {{ etablissement.code_devise|default:"FCFA" }}{% endif %}</td>
-                    <td class="text-end montant-val">{% if mouvement.credit_caisse %}{{ mouvement.credit_caisse }} {{ etablissement.code_devise|default:"FCFA" }}{% endif %}</td>
+                    <td class="text-end montant-val">{% if mouvement.debit_caisse %}{{ mouvement.debit_caisse|montant }} {{ etablissement.code_devise|default:"FCFA" }}{% endif %}</td>
+                    <td class="text-end montant-val">{% if mouvement.credit_caisse %}{{ mouvement.credit_caisse|montant }} {{ etablissement.code_devise|default:"FCFA" }}{% endif %}</td>
                 </tr>
                 {% endfor %}
             </tbody>

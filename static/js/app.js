@@ -481,19 +481,31 @@ document.addEventListener("DOMContentLoaded", function () {
     var reductionMouvement = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     document.querySelectorAll("[data-compteur]").forEach(function (el) {
         var texte = el.textContent.trim();
-        var correspondance = texte.match(/^([\d\s]+)(.*)$/);
+        // Un nombre (avec ses séparateurs de milliers) puis une unité éventuelle (« 1460000 FCFA ») : l'espace reste
+        // ENTRE le nombre et l'unité (avant, il était absorbé par le nombre et « FCFA » se collait au chiffre).
+        var correspondance = texte.match(/^(\d+(?:[\s\u00a0\u202f]\d{3})*)\s*(.*)$/);
         if (!correspondance) return;
-        var cible = parseInt(correspondance[1].replace(/\s/g, ""), 10);
-        var suffixe = correspondance[2];
-        if (isNaN(cible) || cible === 0 || reductionMouvement) return;
+        var cible = parseInt(correspondance[1].replace(/[\s\u00a0\u202f]/g, ""), 10);
+        var unite = correspondance[2];
+        if (isNaN(cible) || cible === 0 || /^[,.\d]/.test(unite)) return; // « 66,7 % » : nombre décimal, laissé tel quel
+        function afficher(valeur) {
+            el.textContent = valeur.toLocaleString("fr-FR").replace(/\u202f/g, "\u00a0"); // espace insécable ordinaire (police du thème)
+            if (unite) {
+                var marque = document.createElement("span");
+                marque.className = "stat-unite";
+                marque.textContent = unite;
+                el.appendChild(document.createTextNode(" "));
+                el.appendChild(marque);
+            }
+        }
+        if (reductionMouvement) { afficher(cible); return; }
         var duree = 600;
         var debut = null;
         function etape(horodatage) {
             if (!debut) debut = horodatage;
             var progression = Math.min((horodatage - debut) / duree, 1);
-            el.textContent = Math.floor(progression * cible).toLocaleString("fr-FR") + suffixe;
+            afficher(Math.floor(progression * cible));
             if (progression < 1) requestAnimationFrame(etape);
-            else el.textContent = cible.toLocaleString("fr-FR") + suffixe;
         }
         requestAnimationFrame(etape);
     });
@@ -528,3 +540,138 @@ if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register("/sw.js").catch(function () {});
     });
 }
+
+
+/* ========================================================================
+   Finition premium (phase 55) : trait de chargement, apparition au défilement, halo qui suit le curseur,
+   ondulation des boutons, bascule de thème en douceur.
+   Tout est facultatif : sans ce script, la page est complète. Rien n'est caché tant qu'il n'a pas tourné,
+   et prefers-reduced-motion le désactive.
+   ======================================================================== */
+(function () {
+    "use strict";
+    var racine = document.documentElement;
+    var reduit = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // --- Trait de chargement doré -------------------------------------------------------------------
+    var barre = document.createElement("div");
+    barre.className = "barre-chargement";
+    barre.setAttribute("aria-hidden", "true");
+    function demarrerBarre() {
+        if (reduit) return;
+        if (!barre.parentNode) document.body.appendChild(barre);
+        barre.classList.remove("actif");
+        void barre.offsetWidth; // relance la transition si le trait était déjà parti
+        barre.classList.add("actif");
+    }
+    document.addEventListener("click", function (evenement) {
+        var lien = evenement.target.closest && evenement.target.closest("a[href]");
+        if (!lien || evenement.defaultPrevented || evenement.button !== 0) return;
+        if (evenement.metaKey || evenement.ctrlKey || evenement.shiftKey || evenement.altKey) return;
+        if (lien.target && lien.target !== "_self") return;
+        if (lien.hasAttribute("download") || lien.hasAttribute("data-telechargement")) return;
+        var adresse = lien.getAttribute("href") || "";
+        if (!adresse || adresse.charAt(0) === "#" || /^(mailto|tel|sms|javascript):/i.test(adresse)) return;
+        if (lien.origin && lien.origin !== window.location.origin) return;
+        if (/\.(pdf|xlsx|csv|zip)(\?|$)/i.test(lien.pathname)) return;
+        demarrerBarre();
+    });
+    document.addEventListener("submit", function (evenement) {
+        if (!evenement.defaultPrevented && !evenement.target.hasAttribute("data-hors-ligne")) demarrerBarre();
+    });
+    window.addEventListener("pageshow", function () { barre.classList.remove("actif"); }); // retour arrière (cache de page)
+
+    // --- Ondulation au clic sur les boutons ------------------------------------------------------------
+    document.addEventListener("pointerdown", function (evenement) {
+        if (reduit) return;
+        var bouton = evenement.target.closest && evenement.target.closest(".btn:not(:disabled):not(.disabled)");
+        if (!bouton) return;
+        var boite = bouton.getBoundingClientRect();
+        var taille = Math.max(boite.width, boite.height) * 2;
+        var onde = document.createElement("span");
+        onde.className = "btn-ondulation";
+        onde.style.width = onde.style.height = taille + "px";
+        onde.style.left = (evenement.clientX - boite.left - taille / 2) + "px";
+        onde.style.top = (evenement.clientY - boite.top - taille / 2) + "px";
+        bouton.appendChild(onde);
+        setTimeout(function () { if (onde.parentNode) onde.parentNode.removeChild(onde); }, 600);
+    }, { passive: true });
+
+    // --- Halo doré qui suit le curseur (zones sombres, écrans avec souris seulement) ---------------------
+    if (!reduit && window.matchMedia && window.matchMedia("(hover: hover)").matches) {
+        document.querySelectorAll(".vitrine-hero, .auth-scene, .annuaire-contenu").forEach(function (zone) {
+            var image = null;
+            zone.addEventListener("mousemove", function (evenement) {
+                if (image) return;
+                image = requestAnimationFrame(function () {
+                    var boite = zone.getBoundingClientRect();
+                    zone.style.setProperty("--mx", (evenement.clientX - boite.left) + "px");
+                    zone.style.setProperty("--my", (evenement.clientY - boite.top) + "px");
+                    zone.style.setProperty("--halo-opacite", "1");
+                    image = null;
+                });
+            });
+            zone.addEventListener("mouseleave", function () { zone.style.setProperty("--halo-opacite", "0"); });
+        });
+    }
+
+    // --- Apparition au défilement : uniquement ce qui est sous la ligne de flottaison ----------------------
+    if (!reduit && "IntersectionObserver" in window) {
+        var cibles = document.querySelectorAll(
+            ".app-content > .card, .app-content > .row, .app-content > form, .app-content > .table-responsive, " +
+            ".vitrine-section h2, .vitrine-section .vitrine-carte, .vitrine-section .guide-role, .vitrine-securite-corps"
+        );
+        var seuil = window.innerHeight * 0.92;
+        var observateur = new IntersectionObserver(function (entrees) {
+            entrees.forEach(function (entree) {
+                if (entree.isIntersecting) {
+                    entree.target.classList.add("visible");
+                    observateur.unobserve(entree.target);
+                }
+            });
+        }, { rootMargin: "0px 0px -8% 0px", threshold: 0.06 });
+        var rang = 0;
+        cibles.forEach(function (cible) {
+            if (cible.getBoundingClientRect().top < seuil) return; // déjà visible : l'animation d'entrée habituelle suffit
+            cible.classList.add("reveal");
+            if (cible.parentElement && cible.parentElement.classList.contains("vitrine-grille")) {
+                cible.style.transitionDelay = ((rang++ % 3) * 70) + "ms"; // cascade des cartes d'une même rangée
+            }
+            observateur.observe(cible);
+        });
+        window.addEventListener("beforeprint", function () {
+            document.querySelectorAll(".reveal").forEach(function (element) { element.classList.add("visible"); });
+        });
+    }
+
+    // --- Bascule clair / sombre en douceur ----------------------------------------------------------------
+    var boutonTheme = document.querySelector("[data-bouton-theme]");
+    if (boutonTheme && !reduit) {
+        boutonTheme.addEventListener("click", function () {
+            racine.classList.add("bascule-theme");
+            setTimeout(function () { racine.classList.remove("bascule-theme"); }, 500);
+        });
+    }
+})();
+
+
+/* Menu du compte : se referme au clic ailleurs, avec Échap, et après le choix du thème. */
+(function () {
+    "use strict";
+    var menu = document.querySelector("[data-menu-compte]");
+    if (!menu) return;
+    document.addEventListener("click", function (evenement) {
+        if (menu.open && !menu.contains(evenement.target)) menu.open = false;
+    });
+    document.addEventListener("keydown", function (evenement) {
+        if (evenement.key !== "Escape" || !menu.open) return;
+        menu.open = false;
+        var declencheur = menu.querySelector("summary");
+        if (declencheur) declencheur.focus();
+    });
+    menu.addEventListener("click", function (evenement) {
+        if (evenement.target.closest && evenement.target.closest("[data-bouton-theme]")) {
+            setTimeout(function () { menu.open = false; }, 380); // le temps de voir le thème changer
+        }
+    });
+})();

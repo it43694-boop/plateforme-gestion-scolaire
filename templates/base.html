@@ -78,21 +78,32 @@
             </form>
             {% endif %}
             <div class="topbar-utilisateur">
-                <span><span class="role">{{ user.get_role_display }}</span> - {{ user.nom_complet }}</span>
-                <div class="avatar-initiales">{{ user.prenom|first }}{{ user.nom|first }}</div>
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bouton-theme>Mode sombre</button>
-                <a href="{% url 'comptes:changer_mot_de_passe' %}" class="btn btn-sm btn-outline-secondary">Mot de passe</a>
-                <a href="{% url 'comptes:changer_email' %}" class="btn btn-sm btn-outline-secondary">Email</a>
-                {% if user.deux_facteurs_actif %}
-                <a href="{% url 'comptes:regenerer_codes_secours_2fa' %}" class="btn btn-sm btn-outline-secondary">Codes de secours</a>
-                <a href="{% url 'comptes:desactiver_2fa' %}" class="btn btn-sm btn-outline-secondary">2FA activée</a>
-                {% else %}
-                <a href="{% url 'comptes:activer_2fa' %}" class="btn btn-sm btn-outline-secondary">Activer la 2FA</a>
-                {% endif %}
-                <form method="post" action="{% url 'comptes:deconnexion' %}" class="mb-0">
-                    {% csrf_token %}
-                    <button class="btn btn-sm btn-outline-secondary" type="submit">{% icone "sortie" %} Déconnexion</button>
-                </form>
+                <span class="topbar-identite"><span class="role">{{ user.get_role_display }}</span> - {{ user.nom_complet }}</span>
+                <details class="menu-compte" data-menu-compte>
+                    <summary class="menu-compte-declencheur" aria-label="Mon compte">
+                        <span class="avatar-initiales">{{ user.prenom|first }}{{ user.nom|first }}</span>
+                        <svg class="menu-compte-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                    </summary>
+                    <div class="menu-compte-panneau">
+                        <div class="menu-compte-entete">
+                            <strong>{{ user.nom_complet }}</strong>
+                            <span>{{ user.get_role_display }}</span>
+                        </div>
+                        <button type="button" class="menu-compte-entree" data-bouton-theme>Mode sombre</button>
+                        <a class="menu-compte-entree" href="{% url 'comptes:changer_mot_de_passe' %}">Mot de passe</a>
+                        <a class="menu-compte-entree" href="{% url 'comptes:changer_email' %}">Email</a>
+                        {% if user.deux_facteurs_actif %}
+                        <a class="menu-compte-entree" href="{% url 'comptes:regenerer_codes_secours_2fa' %}">Codes de secours</a>
+                        <a class="menu-compte-entree" href="{% url 'comptes:desactiver_2fa' %}">Désactiver la 2FA</a>
+                        {% else %}
+                        <a class="menu-compte-entree" href="{% url 'comptes:activer_2fa' %}">Activer la 2FA</a>
+                        {% endif %}
+                        <form method="post" action="{% url 'comptes:deconnexion' %}" class="menu-compte-formulaire">
+                            {% csrf_token %}
+                            <button class="menu-compte-entree menu-compte-sortie" type="submit">{% icone "sortie" %} Déconnexion</button>
+                        </form>
+                    </div>
+                </details>
             </div>
             {% endif %}
         </header>

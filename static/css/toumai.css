@@ -1293,3 +1293,286 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 
 /* Boutons radio et cases d'un champ à choix (Django les rend « <label><input> texte</label> ») : un peu d'air avant le texte. */
 label > .form-check-input { margin-right: 0.5rem; margin-top: 0.2em; cursor: pointer; }
+
+
+/* ========================================================================
+   Finition premium (phase 55) : mouvement, relief et détails de matière.
+
+   Principes :
+   - tout passe par transform et opacity (fluide sur un téléphone d'entrée de gamme, rien ne force la mise en page) ;
+   - rien ne cache de contenu sans JavaScript : les éléments « à révéler » ne sont masqués que par app.js ;
+   - un seul accent (l'or) par écran, comme dans le reste du système ;
+   - prefers-reduced-motion coupe l'ensemble (règle globale plus haut dans ce fichier).
+   ======================================================================== */
+
+:root {
+  --ease-sortie: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-ressort: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* --- Navigation entre pages : fondu continu, barres latérale et haute immobiles ------------------ */
+/* Navigateurs récents (Chrome, Edge, Safari 18+) ; ailleurs, la page se charge comme avant. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+  .sidebar { view-transition-name: barre-laterale; }
+  .topbar { view-transition-name: barre-haute; }
+  ::view-transition-old(root) { animation: 0.14s var(--ease-sortie) both vt-sortie; }
+  ::view-transition-new(root) { animation: 0.22s var(--ease-sortie) both vt-entree; }
+}
+@keyframes vt-sortie { to { opacity: 0; } }
+@keyframes vt-entree { from { opacity: 0; } }
+
+/* --- Trait de chargement doré (app.js) : retour immédiat à chaque clic, utile sur réseau lent ------- */
+.barre-chargement {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 3000;
+  background: linear-gradient(90deg, var(--gold-600), var(--gold-400), var(--gold-500));
+  box-shadow: 0 0 12px rgba(209, 169, 82, 0.7);
+  transform: scaleX(0); transform-origin: left; opacity: 0; pointer-events: none;
+}
+.barre-chargement.actif {
+  opacity: 1; transform: scaleX(0.82);
+  transition: transform 9s cubic-bezier(0.08, 0.6, 0.25, 1), opacity 0.12s linear;
+}
+
+/* --- Barre latérale : indicateur doré qui glisse, entrée en cascade ------------------------------------ */
+.sidebar {
+  background-image:
+    radial-gradient(120% 45% at 0% 0%, rgba(185, 139, 46, 0.10), transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 30%);
+  scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+.nav-lien { position: relative; }
+.nav-lien::before {
+  content: ""; position: absolute; left: -0.85rem; top: 20%; bottom: 20%; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--gold-400);
+  transform: scaleY(0); transform-origin: center;
+  transition: transform 0.32s var(--ease-sortie);
+}
+.nav-lien.actif::before { transform: scaleY(1); }
+.nav-lien.actif { font-weight: 600; box-shadow: inset 0 0 0 1px rgba(185, 139, 46, 0.22); }
+@media (hover: hover) {
+  .nav-lien { transition: background 0.15s ease, color 0.15s ease, padding-left 0.25s var(--ease-sortie); }
+  .nav-lien:hover { padding-left: 0.85rem; }
+  .nav-lien:hover::before { transform: scaleY(0.55); }
+  .nav-lien.actif:hover::before { transform: scaleY(1); }
+}
+@keyframes nav-entree { from { opacity: 0; transform: translateX(-10px); } }
+.nav-section { animation: nav-entree 0.5s var(--ease-sortie) both; }
+.nav-section:nth-child(2) { animation-delay: 0.04s; }
+.nav-section:nth-child(3) { animation-delay: 0.08s; }
+.nav-section:nth-child(4) { animation-delay: 0.12s; }
+.nav-section:nth-child(5) { animation-delay: 0.16s; }
+.nav-section:nth-child(n+6) { animation-delay: 0.2s; }
+
+/* Emblème de l'établissement : un halo discret qui respire */
+@keyframes halo-emblème {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(209, 169, 82, 0.34); }
+  55% { box-shadow: 0 0 0 9px rgba(209, 169, 82, 0); }
+}
+.marque-emblème { animation: halo-emblème 5s ease-in-out infinite; }
+
+/* --- Titres de page : un trait doré qui se dessine ------------------------------------------------------ */
+@keyframes trait-or { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.page-header h1::after {
+  content: ""; display: block; width: 44px; height: 3px; margin-top: 0.5rem; border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold-500), var(--gold-400));
+  transform-origin: left; animation: trait-or 0.7s 0.25s var(--ease-sortie) both;
+}
+
+/* --- Boutons : relief, reflet au survol, appui sensible, ondulation ------------------------------------ */
+.btn { position: relative; overflow: hidden; transition: filter 0.12s ease, background 0.15s ease, color 0.15s ease, transform 0.18s var(--ease-sortie), border-color 0.2s ease, box-shadow 0.25s var(--ease-sortie); }
+.btn:active { transform: translateY(0) scale(0.975); }
+.btn-primary {
+  background-image: linear-gradient(180deg, var(--gold-400), var(--gold-500));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 2px rgba(18, 32, 61, 0.22);
+}
+.btn-primary:hover, .btn-primary:focus {
+  background-image: linear-gradient(180deg, var(--gold-500), var(--gold-600));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 6px 16px -6px rgba(154, 116, 35, 0.55);
+}
+.btn-primary::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: skewX(-18deg) translateX(0); opacity: 0; pointer-events: none;
+}
+@media (hover: hover) {
+  .btn-primary:hover::after { opacity: 1; transform: skewX(-18deg) translateX(420%); transition: transform 0.75s var(--ease-sortie), opacity 0.2s ease; }
+}
+.btn-outline-secondary:hover, .btn-outline-primary:hover { box-shadow: 0 6px 14px -8px rgba(18, 32, 61, 0.35); }
+.btn-ondulation {
+  position: absolute; border-radius: 50%; background: currentColor; opacity: 0.22; pointer-events: none;
+  transform: scale(0); animation: ondulation 0.55s var(--ease-sortie) forwards;
+}
+@keyframes ondulation { to { transform: scale(1); opacity: 0; } }
+
+/* --- Panneaux : plus de bond sur les grands blocs, relief seulement ; les tuiles du tableau de bord réagissent ---- */
+.card:hover, .panel:hover { transform: none; }
+@media (hover: hover) {
+  .card:has(> .card-body > .stat-carte):hover { transform: translateY(-3px); }
+}
+.stat-carte-icone { transition: transform 0.35s var(--ease-ressort); }
+@media (hover: hover) {
+  .card:hover .stat-carte-icone { transform: scale(1.1) rotate(-5deg); }
+}
+.stat-carte-valeur { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.stat-unite { font-family: var(--police-texte); font-size: 0.5em; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-500); margin-left: 0.15em; }
+.alertes-tableau-bord { position: relative; }
+@keyframes alerte-pouls { 0%, 100% { box-shadow: var(--ombre-panneau); } 50% { box-shadow: var(--ombre-panneau), -4px 0 14px -6px rgba(209, 169, 82, 0.7); } }
+.alertes-tableau-bord { animation: entree-douce 0.35s ease both, alerte-pouls 3.4s 1s ease-in-out 3; }
+
+/* --- Tableaux : filet doré au survol d'une ligne, pastilles de statut ----------------------------------- */
+.table tbody tr td:first-child { transition: box-shadow 0.2s var(--ease-sortie), background-color 0.2s ease; }
+.table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--gold-400); }
+.badge.bg-success::before, .badge.bg-warning::before, .badge.bg-danger::before {
+  content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 0.4em; border-radius: 50%;
+  background: currentColor; vertical-align: 0.08em;
+}
+
+/* --- Formulaires : halo de focus qui se déploie, erreurs qui apparaissent en douceur -------------------- */
+.form-control { transition: background-color 0.2s ease, color 0.2s ease, border-color 0.15s ease, box-shadow 0.28s var(--ease-sortie); }
+.form-control:focus { box-shadow: 0 0 0 4px rgba(185, 139, 46, 0.2); }
+@keyframes erreur-entree { from { opacity: 0; transform: translateY(-5px); } }
+.text-danger.small, .alert-danger, .alert-warning, .alert-success { animation: erreur-entree 0.32s var(--ease-sortie) both; }
+
+/* --- Notifications : un liseré qui se vide pendant les 6 secondes d'affichage ----------------------------- */
+.toast-message { position: relative; overflow: hidden; }
+.toast-message::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: currentColor; opacity: 0.28;
+  transform-origin: left; animation: toast-liseré 6s linear forwards;
+}
+@keyframes toast-liseré { to { transform: scaleX(0); } }
+
+/* --- Détails de matière --------------------------------------------------------------------------------- */
+* { scrollbar-width: thin; scrollbar-color: var(--line-300) transparent; }
+.etat-vide::before { animation: flottement 4.5s ease-in-out infinite; }
+@keyframes flottement { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.vitrine-carte, .guide-role { transition: transform 0.3s var(--ease-sortie), box-shadow 0.3s var(--ease-sortie), border-color 0.2s ease; }
+@media (hover: hover) {
+  .vitrine-carte:hover { transform: translateY(-4px); border-color: var(--gold-400); box-shadow: 0 18px 36px -20px rgba(18, 32, 61, 0.35); }
+  .guide-role:hover { border-color: var(--gold-400); }
+}
+.vitrine-carte-icone { transition: transform 0.4s var(--ease-ressort); }
+@media (hover: hover) { .vitrine-carte:hover .vitrine-carte-icone { transform: scale(1.12) rotate(-6deg); } }
+.btn-hero-primaire { transition: transform 0.2s var(--ease-sortie), box-shadow 0.3s var(--ease-sortie), background 0.15s ease; box-shadow: 0 10px 28px -12px rgba(209, 169, 82, 0.65); }
+@media (hover: hover) { .btn-hero-primaire:hover { transform: translateY(-2px); box-shadow: 0 16px 34px -12px rgba(209, 169, 82, 0.8); } }
+
+/* --- Halo doré qui suit le curseur (app.js) sur les zones sombres : accueil, connexion, annuaire ---------- */
+.vitrine-hero-fond::after, .auth-scene::before, .annuaire-contenu::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: var(--halo-opacite, 0);
+  background: radial-gradient(520px circle at var(--mx, 70%) var(--my, 30%), rgba(209, 169, 82, 0.16), transparent 62%);
+  transition: opacity 0.6s ease;
+}
+.auth-scene { position: relative; overflow: hidden; }
+.auth-conteneur { position: relative; z-index: 1; }
+@keyframes carte-auth-entree { from { opacity: 0; transform: translateY(18px) scale(0.985); } }
+.auth-carte { animation: carte-auth-entree 0.6s var(--ease-sortie) both; }
+.auth-emblème, .auth-logo { animation: carte-auth-entree 0.6s 0.1s var(--ease-sortie) both; }
+
+/* --- Apparition au défilement (app.js) : seulement ce qui est sous la ligne de flottaison -------------------- */
+.reveal { opacity: 0; transform: translateY(20px); animation: none !important; transition: opacity 0.6s var(--ease-sortie), transform 0.6s var(--ease-sortie); }
+.reveal.visible { opacity: 1; transform: none; }
+@media print { .reveal { opacity: 1 !important; transform: none !important; } .barre-chargement { display: none; } }
+
+/* --- Bascule clair / sombre : toutes les surfaces changent en douceur ------------------------------------- */
+html.bascule-theme *, html.bascule-theme *::before, html.bascule-theme *::after {
+  transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, fill 0.4s ease !important;
+}
+
+
+/* ========================================================================
+   Menu du compte (phase 55) : un seul avatar à la place de six boutons.
+   ======================================================================== */
+.topbar-utilisateur { flex-wrap: nowrap; gap: 0.75rem; }
+.menu-compte { position: relative; }
+.menu-compte-declencheur {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 3px 9px 3px 3px; border-radius: 999px;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.menu-compte-declencheur::-webkit-details-marker { display: none; }
+.menu-compte-declencheur:hover, .menu-compte[open] > .menu-compte-declencheur {
+  background: var(--paper-050); border-color: var(--line-200);
+}
+.menu-compte-declencheur:focus-visible { outline: 2px solid var(--gold-500); outline-offset: 2px; }
+.menu-compte-declencheur .avatar-initiales { transition: box-shadow 0.2s ease; }
+.menu-compte[open] .avatar-initiales { box-shadow: 0 0 0 2px var(--paper-000), 0 0 0 4px var(--gold-500); }
+.menu-compte-chevron { color: var(--ink-500); transition: transform 0.22s ease; }
+.menu-compte[open] .menu-compte-chevron { transform: rotate(180deg); }
+
+.menu-compte-panneau {
+  position: absolute; right: 0; top: calc(100% + 10px); z-index: 60;
+  min-width: 240px; max-width: calc(100vw - 2rem);
+  background: var(--paper-000); border: 1px solid var(--line-200);
+  border-radius: var(--rayon-panneau); box-shadow: var(--ombre-flottante);
+  padding: 0.4rem;
+  transform-origin: top right;
+  animation: menu-compte-apparition 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.menu-compte-panneau::before {
+  content: ""; position: absolute; top: -6px; right: 18px; width: 10px; height: 10px;
+  background: var(--paper-000); border-left: 1px solid var(--line-200); border-top: 1px solid var(--line-200);
+  transform: rotate(45deg);
+}
+@keyframes menu-compte-apparition {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+.menu-compte-entete {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 0.55rem 0.7rem 0.7rem; margin-bottom: 0.3rem;
+  border-bottom: 1px solid var(--line-200);
+}
+.menu-compte-entete strong { font-family: var(--police-affichage); font-size: 0.95rem; font-weight: 600; }
+.menu-compte-entete span { color: var(--ink-500); font-size: 0.78rem; }
+
+.menu-compte-entree {
+  display: flex; align-items: center; gap: 0.5rem;
+  width: 100%; text-align: left;
+  background: none; border: 0; border-radius: var(--rayon-controle);
+  padding: 0.5rem 0.7rem; font: inherit; font-size: 0.86rem;
+  color: var(--texte-principal); text-decoration: none; cursor: pointer;
+  transition: background 0.12s ease, box-shadow 0.12s ease, padding-left 0.15s ease;
+}
+.menu-compte-entree:hover, .menu-compte-entree:focus-visible {
+  background: var(--paper-050); box-shadow: inset 2px 0 0 var(--gold-500); padding-left: 0.9rem; outline: none;
+  color: var(--texte-principal); text-decoration: none;
+}
+.menu-compte-formulaire { margin: 0.3rem 0 0; padding-top: 0.3rem; border-top: 1px solid var(--line-200); }
+.menu-compte-sortie { color: var(--danger-600); }
+.menu-compte-sortie:hover, .menu-compte-sortie:focus-visible { color: var(--danger-600); }
+
+@media (max-width: 520px) {
+  .topbar-identite { display: none; }
+}
+@media print {
+  .menu-compte { display: none; }
+}
+
+
+/* --- Connexion : anneau doré en pointillés qui tourne lentement derrière la carte, filet doré sur la carte -------- */
+.auth-scene::after {
+  content: ""; position: absolute; left: 50%; top: 50%; z-index: 0; pointer-events: none;
+  width: min(130vmin, 1000px); aspect-ratio: 1; translate: -50% -50%;
+  background: repeating-conic-gradient(from 0deg, rgba(209, 169, 82, 0.5) 0 0.45deg, transparent 0.45deg 3deg);
+  -webkit-mask: radial-gradient(circle, transparent 66%, #000 66.4%, #000 67.2%, transparent 67.6%);
+  mask: radial-gradient(circle, transparent 66%, #000 66.4%, #000 67.2%, transparent 67.6%);
+  opacity: 0.55;
+  animation: anneau-tourne 140s linear infinite;
+}
+@keyframes anneau-tourne { to { rotate: 360deg; } }
+.auth-carte { position: relative; }
+.auth-carte::before {
+  content: ""; position: absolute; top: 0; left: 16px; right: 16px; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold-500), var(--gold-400), var(--gold-500), transparent);
+  background-size: 200% 100%;
+  animation: filet-or 6s ease-in-out infinite alternate;
+}
+@keyframes filet-or { from { background-position: 0% 0; } to { background-position: 100% 0; } }
+
+/* La barre du haut passe au-dessus du contenu (le menu du compte déborde sur la page) ; sous la sidebar mobile (z-index 40). */
+.topbar { position: relative; z-index: 30; }
+
+/* Anneau doré fin : l'avatar reste visible en mode sombre (son fond est alors celui de la barre). */
+.menu-compte-declencheur .avatar-initiales { box-shadow: inset 0 0 0 1px rgba(209, 169, 82, 0.6); }

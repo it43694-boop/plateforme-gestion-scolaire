@@ -9,14 +9,17 @@ from comptes.decorators import module_requis
 from comptes.models import Utilisateur, creer_avec_matricule_unique, generer_matricule
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role, StatutCompte
 from permissions_matrix.modules import Module
-from scolarite.forms import AffecterEnseignantForm, CloturerInscriptionForm, CreerClasseForm, InscrireEleveForm
+from scolarite.forms import (
+    AffecterEnseignantForm, CloturerInscriptionForm, CorrigerDossierEleveForm, CreerClasseForm, InscrireEleveForm,
+    formset_parents_en_attente,
+)
 from scolarite.inscription_eleve import DOMAINE_EMAIL_AUTO_ELEVE, creer_eleve_inscrit  # noqa: F401 (réexporté)
 from scolarite.views_exports import droits_export_listes
 from scolarite.models import (
     Affectation, AnneeScolaire, Classe, Inscription, ParentEnAttente, TypeDocumentVerifiable, VerificationDocument,
     classes_visibles_pour, cloturer_inscription, dossier_complet, eleve_visible_pour, lier_parent_a_eleve, passer_eleve,
     NIVEAUX_PAR_CYCLE, Examen, Niveau, ResultatExamen, eleve_de_l_etablissement_ou_404, examens_pour_classe,
-    peut_voir_etat_civil_eleve,
+    peut_voir_etat_civil_eleve, peut_corriger_dossier_eleve, lier_parents_en_attente,
     calculer_total_du,
 )
 
@@ -110,6 +113,7 @@ def dossier_eleve(request, matricule):
         "peut_voir_etat_civil": peut_voir_etat_civil_eleve(request.user, eleve),
         "peut_voir_notes": peut_voir_notes, "peut_voir_absences": peut_voir_absences, "peut_voir_finances": peut_voir_finances,
         "peut_cloturer_inscription": request.user.role not in ROLES_INSCRIPTION_ELEVE_INTERDITE,
+        "peut_corriger_dossier": peut_corriger_dossier_eleve(request.user, eleve),
         "peut_mot_de_passe_provisoire": request.user.role in ROLES_MOT_DE_PASSE_PROVISOIRE_ELEVE,
     }
 
@@ -139,6 +143,60 @@ def dossier_eleve(request, matricule):
             contexte["solde_annee_active"] = total_du - paye_annee
 
     return render(request, "scolarite/dossier_eleve.html", contexte)
+
+
+@module_requis(Module.ELEVES)
+def corriger_dossier_eleve(request, matricule):
+    """
+    Corrige les renseignements d'un élève saisis de travers à l'inscription : nom, prénom, sexe, naissance, handicap,
+    déplacement, et les coordonnées des parents qui n'ont pas encore de compte (ParentEnAttente). Les parents qui ont
+    un compte ne sont pas modifiables ici : ce sont leurs propres données. Le matricule ne change jamais.
+    Le journal d'audit note QUELS champs ont changé, jamais leurs valeurs.
+    """
+    from django.core.exceptions import PermissionDenied
+    from django.db import transaction
+
+    eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
+    if not peut_corriger_dossier_eleve(request.user, eleve):
+        raise PermissionDenied("Vous n'avez pas le droit de corriger le dossier de cet élève.")
+
+    parents_lies = list(eleve.parents_lies.all())
+    en_attente = eleve.parents_en_attente.order_by("cree_le", "pk")
+    classe_formset = formset_parents_en_attente(len(parents_lies), en_attente.count())
+    formulaire = CorrigerDossierEleveForm(request.POST or None, eleve=eleve)
+    parents = classe_formset(
+        request.POST or None, queryset=en_attente, prefix="parents", form_kwargs={"etablissement": eleve.etablissement},
+    )
+
+    if request.method == "POST" and formulaire.is_valid() and parents.is_valid():
+        with transaction.atomic():
+            champs = formulaire.appliquer(eleve)
+            ajoutes_ou_modifies = parents.save(commit=False)
+            for parent_retire in parents.deleted_objects:
+                parent_retire.delete()
+            for attente in ajoutes_ou_modifies:
+                attente.eleve = eleve
+                attente.save()
+                # Un email qui correspond déjà à un compte parent de l'école : le lien se fait tout de suite.
+                compte = Utilisateur.objects.filter(
+                    email__iexact=attente.email, etablissement=eleve.etablissement, role=Role.PARENT,
+                ).first()
+                if compte:
+                    lier_parents_en_attente(compte)
+            parents_modifies = bool(ajoutes_ou_modifies or parents.deleted_objects)
+        if champs or parents_modifies:
+            enregistrer_action(
+                acteur=request.user, action="correction_dossier_eleve", cible=eleve.matricule,
+                details={"champs": champs, "parents_en_attente": parents_modifies}, request=request,
+            )
+            messages.success(request, f"Dossier de {eleve.nom_complet} corrigé.")
+        else:
+            messages.info(request, "Aucune modification.")
+        return redirect("scolarite:dossier_eleve", matricule=eleve.matricule)
+
+    return render(request, "scolarite/corriger_dossier_eleve.html", {
+        "eleve": eleve, "formulaire": formulaire, "parents": parents, "parents_lies": parents_lies,
+    })
 
 
 @module_requis(Module.ELEVES)

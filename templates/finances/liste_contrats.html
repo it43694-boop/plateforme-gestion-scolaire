@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load icones %}
+{% load icones montants %}
 {% block titre %}Contrats{% endblock %}
 {% block contenu %}
 <div class="page-header">
@@ -22,7 +22,7 @@
                     <td>{{ contrat.get_type_contrat_display }}</td>
                     <td>{{ contrat.date_debut|date:"d/m/Y" }}</td>
                     <td>{{ contrat.date_fin|date:"d/m/Y"|default:"-" }}</td>
-                    <td>{{ contrat.salaire_base }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td>{{ contrat.salaire_base|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
                     <td>
                         <span class="badge {% if contrat.est_actif %}bg-success{% else %}bg-secondary{% endif %}">
                             {% if contrat.est_actif %}Actif{% else %}Clôturé{% endif %}

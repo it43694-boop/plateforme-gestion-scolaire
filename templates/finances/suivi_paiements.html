@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load contact icones %}
+{% load contact icones montants %}
 {% block titre %}Suivi des paiements{% endblock %}
 {% block contenu %}
 <div class="page-header">
@@ -39,9 +39,9 @@
                 <tr>
                     <td>{{ ligne.inscription.eleve.nom_complet }} <span class="text-muted">({{ ligne.inscription.eleve.matricule }})</span></td>
                     <td>{{ ligne.inscription.classe }}</td>
-                    <td class="text-end montant-val">{{ ligne.total_du }} {{ etablissement.code_devise|default:"FCFA" }}</td>
-                    <td class="text-end montant-val">{{ ligne.total_paye }} {{ etablissement.code_devise|default:"FCFA" }}</td>
-                    <td class="text-end montant-val{% if ligne.solde > 0 %} negatif{% endif %}">{{ ligne.solde }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td class="text-end montant-val">{{ ligne.total_du|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td class="text-end montant-val">{{ ligne.total_paye|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td class="text-end montant-val{% if ligne.solde > 0 %} negatif{% endif %}">{{ ligne.solde|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
                     <td>
                         <span class="badge {% if ligne.statut == 'paye' %}bg-success{% elif ligne.statut == 'partiel' %}bg-warning{% else %}bg-danger{% endif %}">
                             {% if ligne.statut == 'paye' %}Payé{% elif ligne.statut == 'partiel' %}Partiel{% else %}Impayé{% endif %}

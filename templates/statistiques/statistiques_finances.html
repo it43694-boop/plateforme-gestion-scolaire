@@ -1,5 +1,5 @@
 {% extends "statistiques/base_statistiques.html" %}
-{% load icones %}
+{% load icones montants %}
 {% block contenu_stats %}
 <div class="page-header">
     <div class="page-header-titre">
@@ -14,11 +14,11 @@
             <thead><tr><th>Échéance</th><th class="text-end">Total encaissé</th></tr></thead>
             <tbody>
                 {% for ligne in par_tranche %}
-                <tr><td>{{ ligne.libelle }}</td><td class="text-end montant-val">{{ ligne.total }} {{ etablissement.code_devise|default:"FCFA" }}</td></tr>
+                <tr><td>{{ ligne.libelle }}</td><td class="text-end montant-val">{{ ligne.total|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td></tr>
                 {% endfor %}
             </tbody>
             <tfoot>
-                <tr class="ligne-totale"><td>Total général</td><td class="text-end montant-val">{{ total_general }} {{ etablissement.code_devise|default:"FCFA" }}</td></tr>
+                <tr class="ligne-totale"><td>Total général</td><td class="text-end montant-val">{{ total_general|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td></tr>
             </tfoot>
         </table>
     </div>
