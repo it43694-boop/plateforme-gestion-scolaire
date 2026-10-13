@@ -373,6 +373,11 @@ PAGES_LEGALES_VALIDEES = env.bool("PAGES_LEGALES_VALIDEES", default=False)
 # Texte imprimé en bas des factures d'abonnement : comment payer (numéro Mobile Money, compte bancaire...).
 ABONNEMENT_INSTRUCTIONS_PAIEMENT = env("ABONNEMENT_INSTRUCTIONS_PAIEMENT", default="")
 
+# Téléphones : WhatsApp et les SMS exigent le numéro avec l'indicatif du pays. Un numéro saisi en local (8 chiffres
+# au Mali) reçoit cet indicatif ; un numéro déjà international (« +221... », « 00221... ») n'est jamais modifié.
+INDICATIF_TELEPHONIQUE = env("INDICATIF_TELEPHONIQUE", default="223")
+LONGUEUR_NUMERO_LOCAL = env.int("LONGUEUR_NUMERO_LOCAL", default=8)
+
 # Assistant - mode génératif optionnel (cahier des charges : « mode sans IA
 # générative tant qu'aucune clé API n'est configurée »). Tant que
 # GROQ_API_KEY est vide, l'Assistant reste en mode recherche simple.

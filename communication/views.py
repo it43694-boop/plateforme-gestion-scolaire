@@ -14,6 +14,7 @@ from comptes.models import Notification, Utilisateur
 from comptes.roles import Role
 from communication.forms import EnvoyerMessageForm, PublierAnnonceForm
 from communication.models import Annonce, Message, Portee
+from communication.diffusion import types_autorises
 from communication.equipes import peut_utiliser_equipes
 from permissions_matrix.modules import Module
 from scolarite.models import Inscription, classes_visibles_pour
@@ -107,6 +108,7 @@ def liste_annonces(request):
         "page_obj": page_obj, "annonces": page_obj.object_list,
         "peut_publier": request.user.role not in ROLES_PUBLICATION_ANNONCE_INTERDITE,
         "peut_voir_equipes": peut_utiliser_equipes(request.user),
+        "peut_ecrire_aux_familles": bool(types_autorises(request.user)),
     })
 
 

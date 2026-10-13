@@ -1972,6 +1972,37 @@ demandent de nouveaux champs. À décider après avoir vu le questionnaire de co
 - La saisie hors connexion des notes et des absences existait déjà (file locale, synchronisation au retour du réseau, nettoyage à la
   déconnexion) ; à essayer sur un téléphone réel après le déploiement.
 
+## État du projet : Phase 54 — Messages aux familles (WhatsApp et SMS à envoyer à la main)
+
+Page **Ressources → Messages aux familles** (`communication/diffusion.py`, `communication/views_diffusion.py`). Sans fournisseur
+SMS ni clé : **le serveur n'envoie rien**. Chaque bouton ouvre WhatsApp (ou l'application de SMS) sur le téléphone ou l'ordinateur
+de la personne connectée, avec le numéro de la famille et le message déjà écrits ; rien ne part tant qu'elle n'appuie pas sur
+« Envoyer », et le message part de **son** numéro (pas d'accusé de réception, pas d'historique des envois).
+
+- **Quatre types** : annonce à une classe (une ligne par numéro), convocation (une ligne par parent et par élève), élèves absents
+  (à une date, aujourd'hui par défaut), relance de scolarité (solde non réglé, avec le montant).
+- Le message se modifie ; les mots `{eleve}` `{prenom}` `{classe}` `{ecole}` `{date}` `{solde}` sont remplacés famille par famille
+  (remplacement de ces seuls mots : un texte tapé ne peut rien évaluer). 500 caractères au plus.
+- **Copier pour un groupe WhatsApp** : seulement pour une annonce à une seule classe, et le message n'a alors aucun nom d'élève
+  ni montant (`{eleve}` devient « votre enfant ») : un message individuel n'existe que sous forme de liens individuels.
+- **Qui** : les rôles qui voient déjà les coordonnées des familles (direction, directeurs de cycle, secrétariat, surveillant
+  général ; la comptabilité pour la seule relance de scolarité), jamais un enseignant, un parent ou un élève. Un directeur de
+  cycle ne voit que son cycle ; une classe d'une autre école, d'un autre cycle ou d'une année passée est « introuvable ».
+- Chaque préparation est notée au journal d'audit (type, classe, nombre de lignes), sans numéro ni nom.
+- Les élèves sans numéro utilisable sont listés à part ; un numéro dont l'indicatif de pays est incertain est marqué « à vérifier ».
+
+**Numéros** (`comptes/utils.py::numero_international`) : WhatsApp et les SMS exigent l'indicatif du pays. Avant, un numéro saisi en
+local (76 00 00 00) donnait un lien refusé par WhatsApp, y compris sur « Suivi des paiements ». Désormais un numéro local reçoit
+`INDICATIF_TELEPHONIQUE` (223 par défaut, `LONGUEUR_NUMERO_LOCAL` = 8) ; un numéro déjà international (`+221...`, `00221...`) n'est
+jamais modifié ; tout autre numéro est gardé tel quel et signalé.
+
+Hors de portée sans fournisseur payant : l'envoi automatique en masse, les accusés de réception et les messages envoyés d'un
+numéro unique par le serveur (voir « À faire »).
+
+### Correction liée
+- Le motif de sortie d'un élève (abandon ou transfert) s'affichait comme deux champs de texte vides : les boutons radio recevaient
+  la classe `form-control`. Corrigé dans le mélangeur commun des formulaires (`BootstrapFormMixin`), avec un test.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

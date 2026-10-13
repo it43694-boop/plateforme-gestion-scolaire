@@ -3,6 +3,25 @@ document.addEventListener("DOMContentLoaded", function () {
         bouton.addEventListener("click", function () { window.print(); });
     });
 
+    // Copier un texte dans le presse-papiers (message à coller dans un groupe WhatsApp).
+    document.querySelectorAll("[data-copier]").forEach(function (bouton) {
+        var libelle = bouton.textContent;
+        bouton.addEventListener("click", function () {
+            var source = document.querySelector(bouton.getAttribute("data-copier"));
+            if (!source) return;
+            var fini = function () {
+                bouton.textContent = "Copié";
+                setTimeout(function () { bouton.textContent = libelle; }, 2500);
+            };
+            var repli = function () { source.select(); document.execCommand("copy"); fini(); };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(source.value).then(fini, repli);
+            } else {
+                repli();
+            }
+        });
+    });
+
     document.querySelectorAll("[data-auto-submit]").forEach(function (champ) {
         champ.addEventListener("change", function () { champ.form.submit(); });
     });

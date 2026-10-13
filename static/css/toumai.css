@@ -1289,3 +1289,7 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 .compta-onglets a.actif { color: var(--ink-900); border-bottom-color: var(--gold-600); font-weight: 600; }
 .plan-numero { width: 7rem; font-variant-numeric: tabular-nums; font-weight: 600; }
 .plan-detail { padding-left: 1.25rem !important; color: var(--ink-500); }
+
+
+/* Boutons radio et cases d'un champ à choix (Django les rend « <label><input> texte</label> ») : un peu d'air avant le texte. */
+label > .form-check-input { margin-right: 0.5rem; margin-top: 0.2em; cursor: pointer; }

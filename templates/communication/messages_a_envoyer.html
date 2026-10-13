@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Messages aux familles{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone vert">{% icone "cloche" 24 %}</div>
+        <div><h1>Messages aux familles</h1><p>WhatsApp et SMS prêts à envoyer{% if annee %} · {{ annee.libelle }}{% endif %}</p></div>
+    </div>
+</div>
+
+<div class="alert alert-info">
+    <strong>Comment ça marche.</strong> L'application prépare les messages, <strong>vous</strong> les envoyez : chaque bouton ouvre
+    WhatsApp (ou l'application de SMS) sur votre téléphone ou votre ordinateur, avec le numéro de la famille et le texte déjà écrits.
+    Rien ne part tant que vous n'appuyez pas sur « Envoyer », et le message part de <strong>votre</strong> numéro.
+</div>
+
+<div class="card mb-3"><div class="card-body">
+    <form method="get" novalidate>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label" for="champ-type">Type de message</label>
+                <select name="type" id="champ-type" class="form-select">
+                    <option value="">Choisir un type</option>
+                    {% for code, libelle in types %}<option value="{{ code }}" {% if type_code == code %}selected{% endif %}>{{ libelle }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="champ-classe">Classe</label>
+                <select name="classe" id="champ-classe" class="form-select">
+                    <option value="">Choisir une classe</option>
+                    <option value="toutes" {% if classe_choisie == "toutes" %}selected{% endif %}>Toutes mes classes</option>
+                    {% for classe in classes %}<option value="{{ classe.pk }}" {% if classe_choisie == classe.pk|stringformat:"d" %}selected{% endif %}>{{ classe.nom }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="champ-date">Date</label>
+                <input type="date" name="date" id="champ-date" value="{{ date_texte }}" class="form-control">
+                <div class="form-text">Absences : le jour de l'absence (aujourd'hui par défaut). Convocation : le jour du rendez-vous.</div>
+            </div>
+            <div class="col-12">
+                <label class="form-label" for="champ-texte">Message</label>
+                <textarea name="texte" id="champ-texte" rows="3" maxlength="500" class="form-control" placeholder="Laissez vide pour utiliser le message proposé, puis modifiez-le si besoin.">{{ texte }}</textarea>
+                <div class="form-text">
+                    Mots remplacés pour chaque famille : <code>{eleve}</code> <code>{prenom}</code> <code>{classe}</code> <code>{ecole}</code> <code>{date}</code> <code>{solde}</code>
+                    (<code>{solde}</code> pour la relance de scolarité seulement ; dans une annonce, <code>{eleve}</code> devient « votre enfant »).
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Préparer les messages</button>
+    </form>
+    {% if not type_code %}
+    <hr>
+    <ul class="mb-0 texte-secondaire">
+        {% for libelle, aide in aide_types %}<li><strong>{{ libelle }}</strong> : {{ aide }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+</div></div>
+
+{% if erreur %}<div class="alert alert-danger">{{ erreur }}</div>{% endif %}
+
+{% if resultat %}
+    {% if message_groupe %}
+    <div class="card mb-3"><div class="card-body">
+        <h2 class="titre-section">Pour le groupe WhatsApp de la classe</h2>
+        <textarea id="message-groupe" class="form-control" rows="3" readonly>{{ message_groupe }}</textarea>
+        <button type="button" class="btn btn-outline-secondary btn-sm mt-2" data-copier="#message-groupe">Copier le message</button>
+        <p class="texte-note mb-0">À coller dans le groupe. Ne collez jamais dans un groupe un message qui contient le nom d'un élève ou un montant : les familles se verraient entre elles.</p>
+    </div></div>
+    {% endif %}
+
+    <div class="card mb-3"><div class="card-body">
+        <h2 class="titre-section">Familles à contacter <span class="texte-secondaire">({{ resultat.lignes|length }} message{{ resultat.lignes|length|pluralize }})</span></h2>
+        {% if apercu %}<p class="texte-secondaire mb-2"><strong>Exemple de message :</strong> {{ apercu }}</p>{% endif %}
+        {% if lignes %}
+        <div class="table-responsive">
+        <table class="table">
+            <thead><tr><th>Famille</th><th>Élève(s)</th><th>Numéro</th><th class="text-end">Envoyer</th></tr></thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td>{{ ligne.famille }}</td>
+                    <td>{{ ligne.eleves|join:", " }}</td>
+                    <td>{{ ligne.telephone }}{% if ligne.a_verifier %} <span class="badge bg-warning text-dark" title="Numéro sans indicatif de pays reconnu : vérifiez-le avant d'envoyer">à vérifier</span>{% endif %}</td>
+                    <td class="text-end">
+                        <a class="btn btn-sm btn-outline-success" target="_blank" rel="noopener" href="{{ ligne.whatsapp }}">WhatsApp</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ ligne.sms }}">SMS</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% if page_obj.has_other_pages %}
+        <nav class="d-flex gap-2 align-items-center">
+            {% if page_obj.has_previous %}<a class="btn btn-sm btn-outline-secondary" href="?{{ parametres_page }}&page={{ page_obj.previous_page_number }}">Précédent</a>{% endif %}
+            <span class="texte-secondaire">Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?{{ parametres_page }}&page={{ page_obj.next_page_number }}">Suivant</a>{% endif %}
+        </nav>
+        {% endif %}
+        {% else %}
+        <div class="etat-vide"><p>Aucune famille à contacter pour ces critères.</p></div>
+        {% endif %}
+    </div></div>
+
+    {% if resultat.sans_numero %}
+    <div class="card mb-3"><div class="card-body">
+        <h2 class="titre-section">Sans numéro utilisable ({{ resultat.sans_numero|length }})</h2>
+        <p class="mb-1">{{ resultat.sans_numero|join:", " }}</p>
+        <p class="texte-note mb-0">Aucun parent n'a de numéro valide pour ces élèves : ajoutez-le dans la fiche du parent ou de l'élève.</p>
+    </div></div>
+    {% endif %}
+{% endif %}
+{% endblock %}

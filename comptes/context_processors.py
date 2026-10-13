@@ -120,6 +120,10 @@ def navigation(request):
         ressources.append({"label": "Annonces", "url": "communication:liste_annonces"})
         if role in {Role.PARENT.value, Role.ENSEIGNANT.value}:
             ressources.append({"label": "Messagerie", "url": "communication:liste_conversations"})
+    from communication.diffusion import types_pour_role  # import local : évite un cycle au chargement des réglages
+
+    if request.user.etablissement_id and types_pour_role(role, lambda module: module in modules_autorises):
+        ressources.append({"label": "Messages aux familles", "url": "communication:messages_a_envoyer"})
     if "statistiques" in modules_autorises:
         ressources.append({"label": "Statistiques", "url": "statistiques:vue_ensemble"})
     if "assistant" in modules_autorises:

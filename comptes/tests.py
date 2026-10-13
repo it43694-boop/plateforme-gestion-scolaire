@@ -826,11 +826,39 @@ class LienWhatsappTests(TestCase):
         self.assertEqual(lien_whatsapp("", "Message"), "")
         self.assertEqual(lien_whatsapp(None, "Message"), "")
 
-    def test_ne_devine_jamais_dindicatif_pays(self):
+    def test_un_numero_local_recoit_l_indicatif_du_pays(self):
+        """Avant : « wa.me/76000000 », un lien que WhatsApp refuse (il exige l'indicatif)."""
         from comptes.utils import lien_whatsapp
-        # Numéro local sans indicatif : parti tel quel, jamais complété au hasard.
-        lien = lien_whatsapp("76000000", "Test")
-        self.assertEqual(lien, "https://wa.me/76000000?text=Test")
+        self.assertEqual(lien_whatsapp("76000000", "Test"), "https://wa.me/22376000000?text=Test")
+        self.assertEqual(lien_whatsapp("76 00 00 00", "Test"), "https://wa.me/22376000000?text=Test")
+
+    def test_un_numero_international_n_est_jamais_modifie(self):
+        from comptes.utils import lien_whatsapp, numero_international
+        self.assertEqual(lien_whatsapp("+221 77 123 45 67", "Test"), "https://wa.me/221771234567?text=Test")
+        self.assertEqual(numero_international("00221 77 123 45 67"), ("221771234567", True))
+        self.assertEqual(numero_international("22376000000"), ("22376000000", True))
+
+    def test_un_numero_douteux_est_garde_tel_quel_et_signale(self):
+        from comptes.utils import lien_whatsapp, numero_international
+        self.assertEqual(numero_international("123456789"), ("123456789", False))  # ni local ni international
+        self.assertEqual(lien_whatsapp("123456789", "Test"), "https://wa.me/123456789?text=Test")
+        for impossible in ("1234", "abc", "+" + "1" * 20):  # trop court, sans chiffre, trop long
+            self.assertEqual(numero_international(impossible), ("", False))
+            self.assertEqual(lien_whatsapp(impossible, "Test"), "")
+
+    def test_l_indicatif_se_regle_par_pays(self):
+        from django.test import override_settings
+        from comptes.utils import numero_international
+        with override_settings(INDICATIF_TELEPHONIQUE="225", LONGUEUR_NUMERO_LOCAL=10):
+            self.assertEqual(numero_international("0102030405"), ("2250102030405", True))
+            self.assertEqual(numero_international("76000000"), ("76000000", False))  # 8 chiffres : plus un numéro local
+
+    def test_lien_sms(self):
+        from comptes.utils import lien_sms
+        self.assertEqual(lien_sms("76000000", "Bonjour & merci"), "sms:+22376000000?&body=Bonjour%20%26%20merci")
+        self.assertEqual(lien_sms("123456789", "x"), "sms:123456789?&body=x")  # indicatif inconnu : pas de « + »
+        self.assertEqual(lien_sms("", "x"), "")
+        self.assertEqual(lien_sms(None, "x"), "")
 
 
 class SauvegarderDonneesTests(TestCase):

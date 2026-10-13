@@ -1,5 +1,6 @@
 import datetime
 import os
+import re
 import tempfile
 
 from django.core.exceptions import ValidationError
@@ -1239,6 +1240,22 @@ class CloturerInscriptionTests(TestCase):
         self.eleve = creer_utilisateur_actif("eleve-cloture@example.com", Role.ELEVE)
         self.inscription = Inscription.objects.create(eleve=self.eleve, classe=self.classe)
         self.url = reverse("scolarite:cloturer_inscription", args=[self.eleve.matricule])
+
+    def test_le_motif_de_sortie_s_affiche_en_boutons_radio_cochables(self):
+        """Avec la classe `form-control`, les deux boutons radio s'affichaient comme des champs de texte vides."""
+        self.client.force_login(self.direction)
+        page = self.client.get(self.url)
+        self.assertContains(page, 'type="radio"', count=2)
+        champ = page.context["formulaire"].fields["decision"]
+        self.assertEqual(champ.widget.attrs["class"], "form-check-input")
+        for bouton in re.findall(r"<input[^>]*type=\"radio\"[^>]*>", page.content.decode("utf-8")):
+            self.assertIn("form-check-input", bouton)
+            self.assertNotIn("form-control", bouton)
+        self.assertContains(page, "Abandon")
+        self.assertContains(page, "Transfert vers une autre école")
+        # les vrais champs de saisie gardent leur apparence
+        self.assertIn("form-control", page.context["formulaire"].fields["motif"].widget.attrs["class"])
+        self.assertIn("form-control", page.context["formulaire"].fields["destination_libelle"].widget.attrs["class"])
 
     def test_marquer_abandon(self):
         self.client.force_login(self.direction)

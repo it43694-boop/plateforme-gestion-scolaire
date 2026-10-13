@@ -7,6 +7,9 @@
         <div class="page-header-icone vert">{% icone "cloche" 24 %}</div>
         <div><h1>Annonces</h1></div>
     </div>
+    {% if peut_ecrire_aux_familles %}
+    <a href="{% url 'communication:messages_a_envoyer' %}" class="btn btn-outline-secondary btn-sm">Messages aux familles</a>
+    {% endif %}
     {% if peut_voir_equipes %}
     <a href="{% url 'communication:liste_equipes' %}" class="btn btn-outline-secondary btn-sm">Équipes pédagogiques</a>
     {% endif %}

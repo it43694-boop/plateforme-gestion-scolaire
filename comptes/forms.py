@@ -8,13 +8,19 @@ from comptes.roles import Role, StatutCompte
 
 
 class BootstrapFormMixin:
-    """Applique la classe Bootstrap `form-control` à tous les champs visibles."""
+    """
+    Applique la classe Bootstrap `form-control` aux champs de saisie visibles, et `form-check-input` aux cases et
+    boutons radio (avec `form-control`, un bouton radio s'afficherait comme un champ de texte vide : impossible à cocher).
+    """
+
+    # Widgets dont chaque <input> est une case ou un bouton radio.
+    WIDGETS_A_COCHER = (forms.CheckboxInput, forms.RadioSelect, forms.CheckboxSelectMultiple)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for champ in self.fields.values():
             classe_existante = champ.widget.attrs.get("class", "")
-            if not isinstance(champ.widget, (forms.CheckboxInput,)):
+            if not isinstance(champ.widget, self.WIDGETS_A_COCHER):
                 champ.widget.attrs["class"] = (classe_existante + " form-control").strip()
             else:
                 champ.widget.attrs["class"] = (classe_existante + " form-check-input").strip()

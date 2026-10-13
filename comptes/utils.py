@@ -4,6 +4,40 @@ from urllib.parse import quote
 from django.conf import settings
 
 
+LONGUEUR_MIN_NUMERO, LONGUEUR_MAX_NUMERO = 8, 15  # chiffres d'un numéro international (norme E.164 : 15 au plus)
+
+
+def numero_international(telephone) -> tuple[str, bool]:
+    """
+    (chiffres du numéro avec indicatif, numéro sûr ?) - WhatsApp et les SMS exigent l'indicatif du pays.
+
+    - « +221 77 123 45 67 » ou « 00221 77... » : déjà international, jamais modifié (sûr) ;
+    - un numéro local (LONGUEUR_NUMERO_LOCAL chiffres, 8 au Mali) reçoit INDICATIF_TELEPHONIQUE (sûr) ;
+    - un numéro qui commence déjà par l'indicatif, avec la bonne longueur, est gardé tel quel (sûr) ;
+    - tout autre numéro est gardé tel quel mais signalé « à vérifier » : on ne devine jamais un indicatif ;
+    - un numéro vide ou de longueur impossible donne ("", False).
+    """
+    brut = str(telephone or "").strip()
+    chiffres = re.sub(r"\D", "", brut)
+    if not chiffres:
+        return "", False
+    sur = False
+    if brut.startswith("+"):
+        sur = True
+    elif chiffres.startswith("00"):
+        chiffres, sur = chiffres[2:], True
+    else:
+        indicatif = str(settings.INDICATIF_TELEPHONIQUE)
+        longueur_locale = int(settings.LONGUEUR_NUMERO_LOCAL)
+        if len(chiffres) == longueur_locale:
+            chiffres, sur = indicatif + chiffres, True
+        elif chiffres.startswith(indicatif) and len(chiffres) == len(indicatif) + longueur_locale:
+            sur = True
+    if not LONGUEUR_MIN_NUMERO <= len(chiffres) <= LONGUEUR_MAX_NUMERO:
+        return "", False
+    return chiffres, sur
+
+
 def lien_whatsapp(telephone, message) -> str:
     """
     Lien wa.me pré-rempli - une alternative sans clé API, sans compte
@@ -13,16 +47,24 @@ def lien_whatsapp(telephone, message) -> str:
     rédigé et clique elle-même sur Envoyer - jamais un envoi silencieux
     déclenché par le serveur.
 
-    Ne devine jamais un indicatif pays manquant : le logiciel reste
-    générique (pas propre à un pays), donc un numéro saisi sans indicatif
-    part tel quel plutôt que de risquer un mauvais indicatif ajouté à tort.
+    Le numéro reçoit l'indicatif du pays s'il est saisi en local (voir numero_international) ; un numéro qui
+    n'est ni local ni international est gardé tel quel plutôt que d'y ajouter un indicatif au hasard.
     """
-    if not telephone:
-        return ""
-    chiffres = re.sub(r"\D", "", telephone)
+    chiffres, _ = numero_international(telephone)
     if not chiffres:
         return ""
     return f"https://wa.me/{chiffres}?text={quote(message)}"
+
+
+def lien_sms(telephone, message) -> str:
+    """
+    Lien « sms: » : ouvre l'application de messages du téléphone avec le texte déjà écrit ; la personne appuie elle-même
+    sur Envoyer. « ?&body= » est la forme comprise à la fois par Android et par iPhone.
+    """
+    chiffres, sur = numero_international(telephone)
+    if not chiffres:
+        return ""
+    return f"sms:{'+' if sur else ''}{chiffres}?&body={quote(message, safe='')}"
 
 
 def ip_client_fiable(request) -> str:
