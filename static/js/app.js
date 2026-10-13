@@ -675,3 +675,43 @@ if ("serviceWorker" in navigator) {
         }
     });
 })();
+
+
+/* Messages aux familles : des boutons ajoutent « le nom de l'élève », « la classe »... dans le message ; l'application remplace
+   chaque mot pour chaque famille (voir communication/diffusion.py). Le bouton « Montant dû » ne sert qu'à la relance de scolarité. */
+(function () {
+    "use strict";
+    var conteneur = document.querySelector("[data-mots-a-inserer]");
+    if (!conteneur) return;
+    var champ = document.getElementById(conteneur.dataset.cibleInsertion);
+    if (!champ) return;
+    conteneur.hidden = false;
+    var selecteurType = document.getElementById(conteneur.dataset.selecteurType);
+
+    function afficherSelonLeType() {
+        var type = selecteurType ? selecteurType.value : "";
+        conteneur.querySelectorAll("[data-types]").forEach(function (bouton) {
+            bouton.hidden = bouton.dataset.types.split(" ").indexOf(type) === -1;
+        });
+    }
+    if (selecteurType) selecteurType.addEventListener("change", afficherSelonLeType);
+    afficherSelonLeType();
+
+    conteneur.addEventListener("click", function (evenement) {
+        var bouton = evenement.target.closest("[data-inserer-mot]");
+        if (!bouton) return;
+        var mot = bouton.dataset.insererMot;
+        var valeur = champ.value;
+        var debut = typeof champ.selectionStart === "number" ? champ.selectionStart : valeur.length;
+        var fin = typeof champ.selectionEnd === "number" ? champ.selectionEnd : debut;
+        // Les espaces nécessaires sont ajoutés pour la personne : « Bonjour,{eleve}rendez-vous » deviendrait illisible.
+        var avant = debut > 0 ? valeur.charAt(debut - 1) : "";
+        var apres = fin < valeur.length ? valeur.charAt(fin) : "";
+        var texte = (avant && !/[\s(«'"]/.test(avant) ? " " : "") + mot + (apres && !/[\s.,;:!?)»]/.test(apres) ? " " : "");
+        var nouvelle = valeur.slice(0, debut) + texte + valeur.slice(fin);
+        champ.focus();
+        if (champ.maxLength > 0 && nouvelle.length > champ.maxLength) return; // message déjà trop long : rien ne change
+        champ.value = nouvelle;
+        champ.setSelectionRange(debut + texte.length, debut + texte.length);
+    });
+})();

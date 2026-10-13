@@ -40,16 +40,25 @@ def purger_messages_anciens(*, jours=None, maintenant=None, simulation=False) ->
     Efface les messages de plus de `jours` jours (par défaut le réglage). Rend {"messages": n, "messages_equipe": m}.
     Avec `simulation`, compte sans effacer. Une durée à 0 désactive l'effacement.
     """
+    from django.urls import reverse
+
     from communication.models import Message, MessageEquipe
+    from comptes.models import Notification
 
     jours = duree_conservation_messages() if jours is None else max(0, int(jours))
     if jours == 0:
-        return {"messages": 0, "messages_equipe": 0}
+        return {"messages": 0, "messages_equipe": 0, "notifications_de_messages": 0}
     limite = (maintenant or timezone.now()) - timedelta(days=jours)
     resultat = {}
     for cle, modele in (("messages", Message), ("messages_equipe", MessageEquipe)):
         anciens = modele.objects.filter(envoye_le__lt=limite)
         resultat[cle] = anciens.count() if simulation else anciens.delete()[0]
+    # Chaque message envoyé crée une notification qui en garde les 200 premiers caractères : elle part avec lui, sinon le
+    # texte « effacé » resterait lisible dans la liste des notifications de son destinataire.
+    notifications = Notification.objects.filter(
+        cree_le__lt=limite, url__startswith=reverse("communication:liste_conversations"),
+    )
+    resultat["notifications_de_messages"] = notifications.count() if simulation else notifications.delete()[0]
     return resultat
 
 

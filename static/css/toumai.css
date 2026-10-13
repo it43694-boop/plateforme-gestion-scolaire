@@ -1582,3 +1582,9 @@ html.bascule-theme *, html.bascule-theme *::before, html.bascule-theme *::after 
   .page-header { flex-wrap: wrap; }
   .entete-actions { flex-wrap: wrap; gap: 0.8rem; }
 }
+
+
+/* Messages aux familles : boutons qui ajoutent « le nom de l'élève », « la classe »... dans le message. */
+.mots-a-inserer { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.55rem; }
+.mots-a-inserer[hidden] { display: none; }
+.mots-a-inserer-titre { color: var(--ink-500); font-size: 0.8rem; margin-right: 0.15rem; }

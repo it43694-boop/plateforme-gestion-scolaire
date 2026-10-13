@@ -42,6 +42,16 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         dossier_parent = Path(options["destination"]).expanduser()
+        projet = Path(settings.BASE_DIR).resolve()
+        racine = dossier_parent.resolve()
+        if racine == projet or projet in racine.parents:
+            # Une sauvegarde contient TOUTES les données personnelles (élèves, parents, notes, paiements, empreintes des mots
+            # de passe, clés de double authentification) : dans le dossier du projet, un « git add » distrait la publierait
+            # avec le code, qui est public.
+            raise CommandError(
+                "La destination est dans le dossier du projet : une sauvegarde contient toutes les données personnelles et "
+                "ne doit jamais risquer d'être publiée avec le code. Choisissez un dossier en dehors du projet."
+            )
         dossier_parent.mkdir(parents=True, exist_ok=True)
 
         horodatage = timezone.now().strftime("%Y%m%d_%H%M%S")

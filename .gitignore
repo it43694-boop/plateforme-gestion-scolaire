@@ -11,3 +11,9 @@ venv/
 .coverage
 htmlcov/
 .claude/
+
+# Sauvegardes : elles contiennent TOUTES les données personnelles, jamais dans le dépôt (public)
+sauvegarde_*/
+sauvegardes/
+backups/
+*.dump

@@ -183,6 +183,10 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "comptes.validators.ComplexiteMotDePasseValidator"},
 ]
 
+# Durée de validité du lien de réinitialisation de mot de passe reçu par email : un jour (3 jours par défaut dans Django). Un
+# lien transféré ou resté dans une boîte partagée ne doit pas permettre de prendre le compte pendant trois jours.
+PASSWORD_RESET_TIMEOUT = 60 * 60 * 24
+
 LOGIN_URL = "comptes:connexion"
 LOGIN_REDIRECT_URL = "comptes:redirection_tableau_de_bord"
 LOGOUT_REDIRECT_URL = "comptes:connexion"

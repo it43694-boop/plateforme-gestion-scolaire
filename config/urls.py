@@ -17,6 +17,7 @@ Including another URLconf
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.shortcuts import redirect
 from django.urls import include, path
 
 from config.views import manifeste_pwa, sante, service_worker
@@ -25,6 +26,19 @@ from config.views import manifeste_pwa, sante, service_worker
 admin.site.site_header = f"{settings.NOM_PLATEFORME} - administration"
 admin.site.site_title = settings.NOM_PLATEFORME
 admin.site.index_title = "Administration de la plateforme"
+
+
+def connexion_de_l_administration(request, extra_context=None):
+    """
+    L'administration n'a PAS son propre formulaire de connexion : on passe par celui de l'application, qui limite les essais,
+    verrouille le compte après plusieurs échecs et exige la double authentification. Le formulaire d'origine de Django ne fait
+    rien de cela : un mot de passe seul aurait suffi pour entrer dans toutes les données de la plateforme. (Il répondait de
+    plus par une erreur 500 à un visiteur non connecté, l'administration lisant le rôle d'un utilisateur anonyme.)
+    """
+    return redirect("comptes:connexion")
+
+
+admin.site.login = connexion_de_l_administration
 
 urlpatterns = [
     path("admin/", admin.site.urls),

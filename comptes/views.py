@@ -243,13 +243,16 @@ def connexion(request):
                 "Cet établissement est temporairement suspendu. Contactez l'administrateur de la plateforme.",
             )
         else:
-            utilisateur.reinitialiser_tentatives_connexion()
             if utilisateur.deux_facteurs_actif:
                 # Mot de passe déjà vérifié à ce stade, mais pas de session
                 # ouverte avant le second facteur : login() n'est appelé que
                 # depuis verifier_2fa(), une fois le code confirmé.
+                # Les échecs ne sont PAS remis à zéro ici : sinon quelqu'un qui connaît le mot de passe pourrait, après
+                # quatre codes ratés, se reconnecter pour recommencer à zéro et deviner le code à six chiffres sans fin.
+                # Ils ne sont effacés qu'une fois le second facteur réussi (verifier_2fa).
                 request.session["utilisateur_en_attente_2fa_id"] = utilisateur.id
                 return redirect("comptes:verifier_2fa")
+            utilisateur.reinitialiser_tentatives_connexion()
             login(request, utilisateur)
             # L'établissement du compte fait foi pour la suite de la session,
             # quel que soit celui éventuellement présélectionné dans l'annuaire.
@@ -268,6 +271,12 @@ def verifier_2fa(request):
         return redirect("comptes:connexion")
     utilisateur = get_object_or_404(Utilisateur, id=utilisateur_id, deux_facteurs_actif=True)
 
+    if utilisateur.verrouille():
+        # Trop de codes faux : on ne propose plus rien avant la fin du verrouillage (même message qu'ailleurs).
+        del request.session["utilisateur_en_attente_2fa_id"]
+        messages.error(request, MESSAGE_CONNEXION_REFUSEE)
+        return redirect("comptes:connexion")
+
     if getattr(request, "limited", False):
         messages.error(request, "Trop de tentatives. Réessayez dans une minute.")
         return render(request, "comptes/verifier_2fa.html")
@@ -276,12 +285,14 @@ def verifier_2fa(request):
         code = request.POST.get("code", "")
         if utilisateur.verifier_code_2fa(code):
             del request.session["utilisateur_en_attente_2fa_id"]
+            utilisateur.reinitialiser_tentatives_connexion()
             login(request, utilisateur)
             request.session["etablissement_id"] = utilisateur.etablissement_id
             enregistrer_action(acteur=utilisateur, action="connexion_reussie_2fa", request=request)
             return redirect("comptes:redirection_tableau_de_bord")
         if utilisateur.verifier_et_consommer_code_secours(code):
             del request.session["utilisateur_en_attente_2fa_id"]
+            utilisateur.reinitialiser_tentatives_connexion()
             login(request, utilisateur)
             request.session["etablissement_id"] = utilisateur.etablissement_id
             # L'appareil TOTP est probablement celui qui a été perdu : on force
@@ -299,6 +310,11 @@ def verifier_2fa(request):
             )
             return redirect("comptes:activer_2fa")
         enregistrer_action(acteur=utilisateur, action="echec_code_2fa", request=request)
+        utilisateur.enregistrer_echec_connexion()  # même compteur et même verrouillage que le mot de passe
+        if utilisateur.verrouille():
+            del request.session["utilisateur_en_attente_2fa_id"]
+            messages.error(request, MESSAGE_CONNEXION_REFUSEE)
+            return redirect("comptes:connexion")
         messages.error(request, "Code invalide.")
 
     return render(request, "comptes/verifier_2fa.html")
@@ -551,7 +567,12 @@ def marquer_notification_lue(request, notification_id):
 
 
 @login_required
+@ratelimit(key="user", rate="5/m", method="POST", block=False)
 def changer_email(request):
+    if getattr(request, "limited", False):
+        # Le mot de passe actuel est redemandé : sans limite, une session laissée ouverte permettrait de le deviner.
+        messages.error(request, "Trop de tentatives. Réessayez dans une minute.")
+        return render(request, "comptes/changer_email.html", {"formulaire": ChangerEmailForm(request.user)})
     if request.method == "POST":
         formulaire = ChangerEmailForm(request.user, request.POST)
         if formulaire.is_valid():
@@ -584,7 +605,11 @@ def changer_email(request):
 
 
 @login_required
+@ratelimit(key="user", rate="5/m", method="POST", block=False)
 def changer_mot_de_passe(request):
+    if getattr(request, "limited", False):
+        messages.error(request, "Trop de tentatives. Réessayez dans une minute.")
+        return render(request, "comptes/changer_mot_de_passe.html", {"formulaire": ChangerMotDePasseForm(request.user)})
     if request.method == "POST":
         formulaire = ChangerMotDePasseForm(request.user, request.POST)
         if formulaire.is_valid():

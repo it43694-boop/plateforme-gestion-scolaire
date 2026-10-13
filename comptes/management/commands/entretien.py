@@ -18,7 +18,10 @@ class Command(BaseCommand):
         bilan = entretien_quotidien(jours=jours, simulation=options["simulation"])
         verbe = "seraient effacés" if options["simulation"] else "effacés"
         if jours:
-            self.stdout.write(f"Messages de plus de {jours} jours {verbe} : {bilan['messages']} (messagerie), {bilan['messages_equipe']} (fils d'équipe)")
+            self.stdout.write(
+                f"Messages de plus de {jours} jours {verbe} : {bilan['messages']} (messagerie), {bilan['messages_equipe']} (fils d'équipe), "
+                f"{bilan['notifications_de_messages']} (notifications de messages)"
+            )
         else:
             self.stdout.write("Effacement des messages désactivé (durée de conservation à 0).")
         self.stdout.write(f"Sessions de connexion expirées {verbe} : {bilan['sessions']}")

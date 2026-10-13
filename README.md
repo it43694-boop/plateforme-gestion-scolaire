@@ -1989,6 +1989,9 @@ de la personne connectée, avec le numéro de la famille et le message déjà é
 - **Qui** : les rôles qui voient déjà les coordonnées des familles (direction, directeurs de cycle, secrétariat, surveillant
   général ; la comptabilité pour la seule relance de scolarité), jamais un enseignant, un parent ou un élève. Un directeur de
   cycle ne voit que son cycle ; une classe d'une autre école, d'un autre cycle ou d'une année passée est « introuvable ».
+- Les mots remplacés pour chaque famille (`{eleve}`, `{prenom}`, `{classe}`, `{ecole}`, `{date}`, `{solde}`) ne sont plus listés avec leur code : des **boutons** (« Nom de l'élève »,
+  « Classe », « Montant dû »...) les ajoutent à l'endroit du curseur, avec les espaces nécessaires (`static/js/app.js`, `data-inserer-mot`) ; « Montant dû » n'apparaît que pour la relance
+  de scolarité. Sans JavaScript, les boutons restent cachés. Le serveur n'a pas changé : il remplace les mêmes mots.
 - Chaque préparation est notée au journal d'audit (type, classe, nombre de lignes), sans numéro ni nom.
 - Les élèves sans numéro utilisable sont listés à part ; un numéro dont l'indicatif de pays est incertain est marqué « à vérifier ».
 
@@ -2171,6 +2174,39 @@ Trois écrans exigeaient de connaître le matricule ; la barre de recherche, les
 - **Toutes les recherches** (`scolarite/recherche.py`) ignorent les accents, les majuscules et l'ordre des mots : « aissata maiga » trouve « MAIGA Aïssata »
   (barre du haut, paiements, fiches de personnel, assistant). La recherche se fait en Python sur des listes déjà limitées à ce que la personne peut voir.
 - Test navigateur de bout en bout : note et absence saisies par nom, recherche en direct, dossier ouvert.
+
+## État du projet : Phase 61 — Second audit de fuites (octobre 2026)
+
+**Méthode, en plus de la Phase 59** : (1) une **matrice « rôle x donnée »** : sur des données de test, pour chacun des 17 rôles plus six comptes liés ou non à l'élève,
+quelles données sensibles de l'élève (état civil, téléphone et email des parents, motif d'absence, message, salaire, paiement...) apparaissent dans quelles pages, exports
+Excel compris ; (2) une **matrice d'écriture** : pour chaque action en POST seul, quels rôles passent le contrôle d'accès (chaque appel annulé). Résultat : la politique
+est respectée partout (état civil et contacts des parents : direction du bon cycle, secrétariat, super-administrateur, famille concernée ; messages : le parent et
+l'enseignant concernés seulement ; aucun accès entre élèves, parents ou enseignants d'une même école ; actions d'administration réservées aux rôles prévus).
+(3) Relecture ciblée : sessions, double authentification, changements d'email et de mot de passe, notifications, sauvegardes, supervision, dépendances, fichiers suivis par git,
+chargements de fichiers (ZIP, Excel), emails.
+
+**Corrigé** (tests dans `comptes/test_durcissement_fuites_2.py`) :
+1. **Administration Django (`/admin/`)** : son formulaire de connexion répondait par une erreur 500 à un visiteur non connecté, et n'aurait de toute façon ni limité les essais
+   ni demandé la double authentification : un mot de passe seul aurait ouvert toutes les données. Il renvoie maintenant vers la connexion de l'application
+   (`config/urls.py::connexion_de_l_administration`) : verrouillage et double authentification s'appliquent.
+2. **Double authentification** : les codes faux ne verrouillaient jamais le compte (seule la limite par adresse IP, 10 par minute), et quelqu'un qui connaît le mot de passe pouvait
+   se reconnecter pour remettre le compteur à zéro. Les échecs comptent maintenant comme ceux du mot de passe (verrouillage après 5, message identique), et ne sont effacés
+   qu'après un second facteur réussi.
+3. **Changer l'email ou le mot de passe** : le mot de passe actuel pouvait être deviné sans limite depuis une session laissée ouverte. 5 essais par minute et par utilisateur.
+4. **Notifications de messages** : chacune garde les 200 premiers caractères du message ; l'effacement des messages à 30 jours (Phase 57) ne les touchait pas. Elles partent avec le message.
+5. **Lien de réinitialisation du mot de passe** : valable 1 jour (`PASSWORD_RESET_TIMEOUT`) au lieu de 3.
+6. **Sauvegardes** (`manage.py sauvegarder_donnees`) : refusées si la destination est dans le dossier du projet (le dépôt est public) ; `.gitignore` ignore `sauvegarde_*/`, `sauvegardes/`, `backups/`, `*.dump`.
+
+**Vérifié, sans défaut** : aucune adresse email, aucun numéro ni secret réel dans les fichiers suivis (seulement des valeurs fictives) ; supervision (Sentry) sans variables locales ni corps de
+requête ni données personnelles ; politique de mots de passe (10 caractères, majuscule, chiffre, caractère spécial) ; changement d'email protégé par le mot de passe actuel et signalé à l'ancienne adresse ;
+chargements ZIP et Excel bornés (taille, nombre de fichiers, extensions, signature) ; emails HTML échappés ; aucune exemption CSRF ; adresse IP des limites de fréquence prise derrière le proxy de confiance.
+
+**Restes** (en plus de ceux de la Phase 59) :
+- **Supabase** : si l'API de données (PostgREST) du projet est active et que les tables n'ont pas la sécurité par ligne (RLS), toute personne qui obtiendrait la clé publique du projet pourrait lire les
+  tables. À vérifier dans le tableau de bord Supabase : désactiver l'API de données (l'application se connecte directement à la base) ou activer la RLS sur toutes les tables. Non vérifiable depuis le code.
+- La file de saisie hors connexion (IndexedDB) garde les notes et absences non envoyées après une déconnexion, pour ne rien perdre : sur un ordinateur partagé, elle reste lisible jusqu'à l'envoi.
+- « Mot de passe oublié » : limité par adresse IP, pas par compte ; un envoi massif vers des comptes existants pourrait épuiser le quota d'emails du jour.
+- Le cache Redis sérialise avec pickle (réglage par défaut de django-redis) : le Redis doit rester privé (c'est le cas sur Render).
 
 ## Sauvegardes locales (base de données et médias)
 

@@ -64,7 +64,7 @@ class PurgeDesMessagesTests(EntretienBase):
         vieux, limite_ancienne, limite_recente, recent = (self.message(40), self.message(30.01), self.message(29.9), self.message(1))
         vieux_equipe, recent_equipe = self.message_equipe(45), self.message_equipe(2)
         resultat = purger_messages_anciens(maintenant=self.maintenant)
-        self.assertEqual(resultat, {"messages": 2, "messages_equipe": 1})
+        self.assertEqual(resultat, {"messages": 2, "messages_equipe": 1, "notifications_de_messages": 0})
         self.assertEqual(set(Message.objects.values_list("pk", flat=True)), {limite_recente.pk, recent.pk})
         self.assertEqual(list(MessageEquipe.objects.values_list("pk", flat=True)), [recent_equipe.pk])
 
@@ -77,7 +77,7 @@ class PurgeDesMessagesTests(EntretienBase):
         self.message(400)
         self.message_equipe(400)
         with override_settings(DUREE_CONSERVATION_MESSAGES_JOURS=0):
-            self.assertEqual(purger_messages_anciens(maintenant=self.maintenant), {"messages": 0, "messages_equipe": 0})
+            self.assertEqual(purger_messages_anciens(maintenant=self.maintenant), {"messages": 0, "messages_equipe": 0, "notifications_de_messages": 0})
         self.assertEqual((Message.objects.count(), MessageEquipe.objects.count()), (1, 1))
         self.assertEqual(purger_messages_anciens(jours=-5, maintenant=self.maintenant)["messages"], 0)
 
@@ -88,7 +88,7 @@ class PurgeDesMessagesTests(EntretienBase):
     def test_la_simulation_compte_sans_effacer(self):
         self.message(40)
         self.message_equipe(40)
-        self.assertEqual(purger_messages_anciens(maintenant=self.maintenant, simulation=True), {"messages": 1, "messages_equipe": 1})
+        self.assertEqual(purger_messages_anciens(maintenant=self.maintenant, simulation=True), {"messages": 1, "messages_equipe": 1, "notifications_de_messages": 0})
         self.assertEqual((Message.objects.count(), MessageEquipe.objects.count()), (1, 1))
 
     def test_les_annonces_et_les_notifications_anciennes_ne_sont_pas_touchees(self):
@@ -130,7 +130,7 @@ class EntretienQuotidienTests(EntretienBase):
         self.session(expiree=True)
         entretien_quotidien()
         entree = JournalAudit.objects.get(action="entretien_quotidien")
-        self.assertEqual(entree.details, {"messages": 1, "messages_equipe": 0, "sessions": 1})
+        self.assertEqual(entree.details, {"messages": 1, "messages_equipe": 0, "notifications_de_messages": 0, "sessions": 1})
         self.assertIsNone(entree.acteur)
         self.assertNotIn(SECRET, f"{entree.cible} {entree.details}")
 

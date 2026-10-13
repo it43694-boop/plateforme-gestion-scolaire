@@ -41,9 +41,21 @@
             <div class="col-12">
                 <label class="form-label" for="champ-texte">Message</label>
                 <textarea name="texte" id="champ-texte" rows="3" maxlength="500" class="form-control" placeholder="Laissez vide pour utiliser le message proposé, puis modifiez-le si besoin.">{{ texte }}</textarea>
+                {# Caché tant que le script n'est pas chargé : sans lui, ces boutons ne feraient rien. #}
+                <div class="mots-a-inserer" data-mots-a-inserer data-cible-insertion="champ-texte" data-selecteur-type="champ-type" hidden>
+                    <span class="mots-a-inserer-titre">Ajouter dans le message :</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{eleve}">Nom de l'élève</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{prenom}">Prénom de l'élève</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{classe}">Classe</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{ecole}">Nom de l'école</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{date}">Date</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{solde}" data-types="paiement" hidden>Montant dû</button>
+                </div>
                 <div class="form-text">
-                    Mots remplacés pour chaque famille : <code>{eleve}</code> <code>{prenom}</code> <code>{classe}</code> <code>{ecole}</code> <code>{date}</code> <code>{solde}</code>
-                    (<code>{solde}</code> pour la relance de scolarité seulement ; dans une annonce, <code>{eleve}</code> devient « votre enfant »).
+                    Chaque bouton ajoute, à l'endroit du curseur, une information que l'application remplace pour chaque famille : le nom de
+                    l'enfant, sa classe... Dans le message, elle apparaît entre accolades, par exemple « {prenom} » : c'est normal, elle est remplacée
+                    quand vous cliquez sur « Préparer les messages ». Le montant dû n'existe que pour la relance de scolarité. Dans une annonce, le nom
+                    de l'élève devient « votre enfant » (le même message part à tout le monde).
                 </div>
             </div>
         </div>
