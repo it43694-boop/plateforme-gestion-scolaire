@@ -34,6 +34,9 @@
                     </td>
                     {% endif %}
                     <td class="text-end">
+                        {% if peut_saisir_conduite and classe.note_la_conduite %}
+                        <a href="{% url 'pedagogie:saisir_conduite' classe.id %}" class="btn btn-sm btn-outline-secondary">Conduite</a>
+                        {% endif %}
                         {% if peut_voir_emploi_du_temps %}
                         <a href="{% url 'pedagogie:gerer_emploi_du_temps' classe.id %}" class="btn btn-sm btn-outline-secondary">Emploi du temps</a>
                         <a href="{% url 'scolarite:passage_de_classe' classe.id %}" class="btn btn-sm btn-outline-secondary">Passage de classe</a>

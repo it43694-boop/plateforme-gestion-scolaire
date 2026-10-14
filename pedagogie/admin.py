@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from comptes.admin import EtablissementAdminMixin
 from pedagogie.models import (
-    Absence, CreneauEmploiDuTemps, Note, NoteHistorique, PresencePersonnel, VerificationBulletin,
+    Absence, CreneauEmploiDuTemps, Note, NoteConduite, NoteHistorique, PresencePersonnel, VerificationBulletin,
 )
 
 
@@ -62,3 +62,11 @@ class VerificationBulletinAdmin(EtablissementAdminMixin, admin.ModelAdmin):
         return False
     def has_change_permission(self, request, obj=None):
         return False
+
+
+@admin.register(NoteConduite)
+class NoteConduiteAdmin(EtablissementAdminMixin, admin.ModelAdmin):
+    list_display = ["eleve", "classe", "trimestre", "valeur", "modifie_le"]
+    list_filter = ["trimestre", "classe"]
+    search_fields = ["eleve__nom", "eleve__prenom", "eleve__matricule"]
+    autocomplete_fields = ["eleve", "classe"]

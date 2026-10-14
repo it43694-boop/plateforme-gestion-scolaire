@@ -40,13 +40,13 @@ def historique_eleve(eleve) -> dict:
     """Ce que l'élève a laissé derrière lui : nombre d'éléments de chaque sorte (inscriptions comprises à part)."""
     from communication.models import Message
     from finances.models import Paiement
-    from pedagogie.models import Absence, Note, VerificationBulletin
+    from pedagogie.models import Absence, Note, NoteConduite, VerificationBulletin
     from scolarite.models import Abandon, AideScolarite, ResultatExamen, TransfertEleve, VerificationDocument
 
     return {
         "paiements": Paiement.objects.filter(eleve=eleve).count(),
         "aides": AideScolarite.objects.filter(inscription__eleve=eleve).count(),
-        "notes": Note.objects.filter(eleve=eleve).count(),
+        "notes": Note.objects.filter(eleve=eleve).count() + NoteConduite.objects.filter(eleve=eleve).count(),
         "absences": Absence.objects.filter(eleve=eleve).count(),
         "resultats_examens": ResultatExamen.objects.filter(inscription__eleve=eleve).count(),
         "documents": (

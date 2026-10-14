@@ -17,7 +17,12 @@ from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
 from comptes.models import Utilisateur
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
+from pedagogie.conduite import (
+    LIBELLE_CONDUITE, ROLES_SAISIE_CONDUITE, ajouter_la_conduite_aux_totaux, analyser_note, conduite_des_eleves,
+    coefficient_conduite, eleves_de_la_classe, enregistrer_conduite,
+)
 from pedagogie.forms import CreneauForm, SaisirAbsenceForm, SaisirNoteForm
+from pedagogie.models import NoteConduite, classe_note_la_conduite
 from pedagogie.models import (
     Absence, CreneauEmploiDuTemps, JourSemaine, Note, Trimestre, VerificationBulletin,
     appreciation_pour, saisir_note,
@@ -206,6 +211,12 @@ def _calculer_bulletin(eleve, inscription=None):
     for note in notes:
         notes_par_trimestre.setdefault(note.trimestre, []).append(note)
 
+    # Conduite (7ème à 12ème année seulement) : une ligne en plus dans chaque trimestre où l'élève a des notes de matières.
+    conduites, coefficient_de_la_conduite = {}, 0
+    if inscription and classe_note_la_conduite(inscription.classe):
+        coefficient_de_la_conduite = coefficient_conduite(inscription.classe.annee_scolaire.etablissement)
+        conduites = {t: v for (_, t), v in conduite_des_eleves(inscription.classe, [eleve.pk]).items()}
+
     moyennes_par_trimestre = []
     bulletins_trimestre = []
     total_pondere_general, poids_general = 0, 0
@@ -228,6 +239,16 @@ def _calculer_bulletin(eleve, inscription=None):
         ]
         total_pondere = sum(n.valeur * n.affectation.coefficient for n in notes_du_trimestre)
         poids = sum(n.affectation.coefficient for n in notes_du_trimestre)
+        conduite = conduites.get(trimestre_valeur)
+        if conduite is not None:
+            lignes.append({
+                "matiere": LIBELLE_CONDUITE, "note_classe": conduite, "note_composition": None,
+                "coefficient": coefficient_de_la_conduite, "moyenne": conduite,
+                "moyenne_coefficiee": round(conduite * coefficient_de_la_conduite, 2),
+                "appreciation": appreciation_pour(conduite), "est_conduite": True,
+            })
+            total_pondere += conduite * coefficient_de_la_conduite
+            poids += coefficient_de_la_conduite
         moyenne = round(total_pondere / poids, 2)
 
         moyenne_plus_forte = moyenne_plus_faible = rang_trimestre = effectif_trimestre = None
@@ -282,7 +303,9 @@ def _moyennes_generales_par_eleve(classe, eleves_ids, trimestre=None):
         ),
         poids=Sum("affectation__coefficient"),
     )
-    return {ligne["eleve_id"]: ligne["total_pondere"] / ligne["poids"] for ligne in lignes if ligne["poids"]}
+    totaux = {ligne["eleve_id"]: [ligne["total_pondere"], ligne["poids"]] for ligne in lignes if ligne["poids"]}
+    ajouter_la_conduite_aux_totaux(classe, totaux, trimestre)  # même règle que le bulletin : la conduite compte aussi dans le rang
+    return {eleve_id: total / poids for eleve_id, (total, poids) in totaux.items()}
 
 
 def _calculer_classement(inscription):
@@ -602,3 +625,81 @@ def exporter_emploi_du_temps_pdf(request, classe_id):
     if resultat.err:
         return HttpResponse("Erreur lors de la génération du PDF.", status=500)
     return reponse
+
+
+# ---------------------------------------------------------------------------
+# Conduite
+# ---------------------------------------------------------------------------
+
+def _texte_de_la_note(valeur):
+    """14.50 -> « 14,5 » : la forme que l'on tape."""
+    return f"{valeur:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+
+
+@module_requis(Module.ABSENCES)
+def saisir_conduite_vue(request, classe_id):
+    """
+    Saisie de la conduite de toute une classe pour un trimestre, en une fois (un tableau, une case par élève). Réservée à la
+    vie scolaire et à la direction (ROLES_SAISIE_CONDUITE, module « Absences » : discipline et assiduité), pour une classe de
+    leur périmètre, de la 7ème à la 12ème année. Tout est enregistré ou rien.
+    """
+    if request.user.role not in ROLES_SAISIE_CONDUITE:
+        raise PermissionDenied("Vous n'avez pas le droit de saisir la conduite.")
+    classe = get_object_or_404(classes_visibles_pour(request.user), id=classe_id)
+    if not classe_note_la_conduite(classe):
+        messages.warning(request, "La conduite se note de la 7ème à la 12ème année : pas dans cette classe.")
+        return redirect("scolarite:liste_classes")
+
+    lecture_seule = classe.annee_scolaire.est_archivee
+    trimestre = (request.POST if request.method == "POST" else request.GET).get("trimestre", "")
+    if trimestre not in dict(Trimestre.choices):
+        trimestre = Trimestre.T1.value
+    eleves = eleves_de_la_classe(classe)
+    erreurs, erreurs_generales, saisies = {}, [], {}
+
+    if request.method == "POST":
+        if lecture_seule:
+            raise PermissionDenied("Cette année scolaire est archivée.")
+        valeurs = {}
+        for eleve in eleves:
+            saisies[eleve.pk] = request.POST.get(f"note-{eleve.pk}", "")
+            try:
+                valeurs[eleve.pk] = analyser_note(saisies[eleve.pk])
+            except ValueError as erreur:
+                erreurs[eleve.pk] = str(erreur)
+        if not erreurs:
+            try:
+                enregistrees, effacees = enregistrer_conduite(classe=classe, trimestre=trimestre, valeurs=valeurs, par=request.user)
+            except ValidationError as erreur:
+                erreurs_generales = erreur.messages
+            else:
+                enregistrer_action(
+                    acteur=request.user, action="saisie_conduite", cible=str(classe),
+                    details={"trimestre": trimestre, "enregistrees": enregistrees, "effacees": effacees}, request=request,
+                )
+                message = f"Conduite enregistrée : {enregistrees} note(s)"
+                messages.success(request, message + (f", {effacees} effacée(s)." if effacees else "."))
+                return redirect(f"{reverse('pedagogie:saisir_conduite', args=[classe.id])}?trimestre={trimestre}")
+
+    existantes = {n.eleve_id: n.valeur for n in NoteConduite.objects.filter(classe=classe, trimestre=trimestre)}
+    lignes = []
+    for eleve in eleves:
+        if eleve.pk in saisies:
+            saisie = saisies[eleve.pk]
+            try:
+                valeur = analyser_note(saisie)
+            except ValueError:
+                valeur = None
+        else:
+            valeur = existantes.get(eleve.pk)
+            saisie = "" if valeur is None else _texte_de_la_note(valeur)
+        lignes.append({
+            "eleve": eleve, "saisie": saisie, "erreur": erreurs.get(eleve.pk),
+            "appreciation": appreciation_pour(valeur),
+        })
+    return render(request, "pedagogie/saisir_conduite.html", {
+        "classe": classe, "trimestre": trimestre, "trimestres": Trimestre.choices, "lignes": lignes,
+        "coefficient": coefficient_conduite(classe.annee_scolaire.etablissement), "lecture_seule": lecture_seule,
+        "erreurs_generales": erreurs_generales, "nombre_notes": len(existantes),
+        "moyenne_classe": round(sum(existantes.values()) / len(existantes), 2) if existantes else None,
+    })

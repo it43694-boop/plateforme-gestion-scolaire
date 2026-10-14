@@ -1588,3 +1588,7 @@ html.bascule-theme *, html.bascule-theme *::before, html.bascule-theme *::after 
 .mots-a-inserer { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.55rem; }
 .mots-a-inserer[hidden] { display: none; }
 .mots-a-inserer-titre { color: var(--ink-500); font-size: 0.8rem; margin-right: 0.15rem; }
+
+
+/* Conduite : la case de note d'un élève. */
+.champ-note-conduite { max-width: 7rem; margin-left: auto; text-align: right; }

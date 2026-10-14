@@ -3,6 +3,7 @@ import uuid
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 
 from comptes.roles import Role
@@ -328,6 +329,66 @@ class CreneauEmploiDuTemps(models.Model):
             ).exclude(pk=self.pk)
             if conflit_salle.exists():
                 raise ValidationError(f"La salle « {self.salle} » est déjà occupée à ce moment-là.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Conduite : une note sur 20 par trimestre, hors des matières, de la 7ème à la 12ème année
+# ---------------------------------------------------------------------------
+
+NIVEAUX_AVEC_CONDUITE = frozenset(f"annee_{numero}" for numero in range(7, 13))
+
+
+def classe_note_la_conduite(classe) -> bool:
+    """La conduite se note de la 7ème à la 12ème année : jamais en primaire, ni dans une classe dont le niveau n'est pas défini."""
+    return classe.niveau in NIVEAUX_AVEC_CONDUITE
+
+
+class NoteConduite(models.Model):
+    """
+    Note de conduite d'un élève pour un trimestre, saisie par la vie scolaire ou la direction. Ce n'est pas une matière : pas
+    d'affectation d'enseignant, pas de composition. Voir pedagogie.conduite pour la saisie et le calcul de la moyenne.
+    """
+
+    eleve = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.CASCADE, related_name="notes_conduite", limit_choices_to={"role": Role.ELEVE},
+    )
+    classe = models.ForeignKey(Classe, on_delete=models.PROTECT, related_name="notes_conduite")
+    trimestre = models.CharField(max_length=20, choices=Trimestre.choices)
+    valeur = models.DecimalField(
+        "note de conduite", max_digits=4, decimal_places=2, validators=[MinValueValidator(0), MaxValueValidator(20)],
+        help_text="Sur 20.",
+    )
+    enregistre_par = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.SET_NULL, null=True, blank=True, related_name="notes_conduite_saisies",
+    )
+    saisie_le = models.DateTimeField(auto_now_add=True)
+    modifie_le = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "note de conduite"
+        verbose_name_plural = "notes de conduite"
+        unique_together = ("eleve", "classe", "trimestre")
+        ordering = ["classe", "eleve__nom", "trimestre"]
+
+    def __str__(self):
+        return f"Conduite {self.valeur}/20 - {self.eleve} - {self.get_trimestre_display()}"
+
+    def clean(self):
+        super().clean()
+        if self.eleve_id and self.eleve.role != Role.ELEVE:
+            raise ValidationError("Seul un élève peut recevoir une note de conduite.")
+        if self.classe_id:
+            if not classe_note_la_conduite(self.classe):
+                raise ValidationError("La conduite ne se note qu'à partir de la 7ème année.")
+            if self.eleve_id:
+                if self.eleve.etablissement_id != self.classe.annee_scolaire.etablissement_id:
+                    raise ValidationError("L'élève et la classe doivent appartenir au même établissement.")
+                if not Inscription.objects.filter(eleve_id=self.eleve_id, classe_id=self.classe_id).exists():
+                    raise ValidationError("Cet élève n'est pas inscrit dans cette classe.")
 
     def save(self, *args, **kwargs):
         self.full_clean()

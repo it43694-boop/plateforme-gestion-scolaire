@@ -131,6 +131,12 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
         # Facultatif : un envoi qui ne contient pas ce champ (ancien formulaire) conserve la situation
         # actuelle de l'école au lieu d'être refusé (ModelForm : champ omis + valeur par défaut = inchangé).
         self.fields["situation_fonctionnement"].required = False
+        # Même principe pour le coefficient de la conduite : absent ou vide, il garde la valeur actuelle.
+        self.fields["coefficient_conduite"].required = False
+
+    def clean_coefficient_conduite(self):
+        valeur = self.cleaned_data.get("coefficient_conduite")
+        return self.instance.coefficient_conduite if valeur is None else valeur
 
     def clean_code_etablissement(self):
         return " ".join(self.cleaned_data.get("code_etablissement", "").split()).upper()
@@ -138,7 +144,7 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Etablissement
         fields = [
-            "nom", "devise", "logo", "code_devise", "pas_montant",
+            "nom", "devise", "logo", "code_devise", "pas_montant", "coefficient_conduite",
             "code_etablissement", "statut_juridique", "region", "cercle", "commune", "milieu",
             "rattachement_administratif", "numero_agrement",
             "situation_fonctionnement", "motif_fermeture", "date_situation",

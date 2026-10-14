@@ -13,6 +13,7 @@ urlpatterns = [
     path("bulletin/verifier/<uuid:jeton>/", views.verifier_bulletin, name="verifier_bulletin"),
 
     path("absences/classe/<int:classe_id>/saisir/", views.saisir_absence_vue, name="saisir_absence"),
+    path("conduite/classe/<int:classe_id>/", views.saisir_conduite_vue, name="saisir_conduite"),
     path("absences/historique/<str:matricule>/", views.historique_absences_eleve, name="historique_absences"),
 
     path(

@@ -94,6 +94,11 @@ class Etablissement(models.Model):
         help_text="Les frais de scolarité (inscription, tranches) doivent être saisis par multiple de ce montant. "
                    "5000 correspond à la plus petite coupure courante en FCFA ; ajustez pour une autre monnaie.",
     )
+    coefficient_conduite = models.PositiveSmallIntegerField(
+        "coefficient de la conduite", default=1,
+        help_text="Poids de la note de conduite (de la 7ème à la 12ème année) dans la moyenne du bulletin : 1 = compte comme une "
+                   "matière de coefficient 1 ; 0 = affichée sur le bulletin sans compter dans la moyenne.",
+    )
     logo = models.ImageField(
         upload_to=chemin_upload_logo, blank=True, null=True,
         validators=[valider_taille_image_2mo, valider_contenu_fichier],

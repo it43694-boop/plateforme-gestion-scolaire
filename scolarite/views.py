@@ -621,10 +621,18 @@ def supprimer_classe(request, classe_id):
 
 @module_requis(Module.CLASSES)
 def liste_classes(request):
-    classes = classes_visibles_pour(request.user).select_related("annee_scolaire").prefetch_related("affectations")
+    classes = list(classes_visibles_pour(request.user).select_related("annee_scolaire").prefetch_related("affectations"))
+    from pedagogie.conduite import ROLES_SAISIE_CONDUITE
+    from pedagogie.models import classe_note_la_conduite
     from permissions_matrix.models import PermissionMatrix
+
+    for classe in classes:
+        classe.note_la_conduite = classe_note_la_conduite(classe)  # de la 7ème à la 12ème année seulement
     return render(request, "scolarite/liste_classes.html", {
         "classes": classes,
+        "peut_saisir_conduite": request.user.role in ROLES_SAISIE_CONDUITE and PermissionMatrix.a_acces(
+            request.user.role, "absences", etablissement=request.user.etablissement,
+        ),
         "peut_voir_emploi_du_temps": PermissionMatrix.a_acces(request.user.role, "emploi_du_temps", etablissement=request.user.etablissement),
         "peut_voir_statistiques": PermissionMatrix.a_acces(request.user.role, "statistiques", etablissement=request.user.etablissement),
         "peut_saisir_resultats": request.user.role in ROLES_RESULTATS_EXAMEN,

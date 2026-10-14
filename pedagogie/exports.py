@@ -9,7 +9,9 @@ import datetime
 from decimal import Decimal
 
 from comptes.excel import ajouter_feuille_tableau, nouveau_classeur
-from pedagogie.models import Absence, Note, Trimestre
+from pedagogie.conduite import LIBELLE_CONDUITE, conduite_des_eleves, coefficient_conduite
+from pedagogie.conduite import moyenne_ponderee as moyenne_avec_conduite
+from pedagogie.models import Absence, Note, Trimestre, classe_note_la_conduite
 from scolarite.models import Inscription
 
 DEUX_DECIMALES = Decimal("0.01")
@@ -72,6 +74,15 @@ def releve_notes_classeur(classe, affectations, *, vue_complete):
         notes_par_eleve.setdefault(note.eleve_id, []).append(note)
     population = _population_du_classement(inscriptions)
 
+    # Conduite (7ème à 12ème année, vue complète seulement) : une colonne de plus, comptée dans les moyennes comme sur le bulletin.
+    avec_conduite = bool(vue_complete and classe_note_la_conduite(classe))
+    coefficient_de_la_conduite = coefficient_conduite(classe.annee_scolaire.etablissement) if avec_conduite else 0
+    conduites = conduite_des_eleves(classe, [eleve.pk for eleve in eleves]) if avec_conduite else {}
+
+    def moyenne_generale(eleve_pk, notes_eleve, trimestre=None):
+        conduites_eleve = {t: v for (e, t), v in conduites.items() if e == eleve_pk and (trimestre is None or t == trimestre)}
+        return moyenne_avec_conduite(notes_eleve, conduites_eleve, coefficient_de_la_conduite)
+
     infos = [
         ("Établissement", classe.annee_scolaire.etablissement.nom),
         ("Classe", classe.nom),
@@ -82,6 +93,8 @@ def releve_notes_classeur(classe, affectations, *, vue_complete):
     bareme = "Moyenne de la matière = (note de classe sur 20 + note de composition sur 40) / 3."
     if vue_complete:
         bareme += " Moyenne générale pondérée par les coefficients."
+        if avec_conduite:
+            bareme += f" La conduite (sur 20, coefficient {coefficient_de_la_conduite}) compte dans la moyenne générale."
     infos.append(("Barème", bareme))
     classeur = nouveau_classeur()
 
@@ -91,10 +104,12 @@ def releve_notes_classeur(classe, affectations, *, vue_complete):
             continue
         entetes = ["N°", "Matricule", "Nom", "Prénom"] + [libelle_matiere(a) for a in affectations]
         if vue_complete:
+            if avec_conduite:
+                entetes.append(f"{LIBELLE_CONDUITE} (coef {coefficient_de_la_conduite})")
             entetes += ["Moyenne générale", "Rang"]
         moyennes = {}
         for eleve in eleves:
-            moyenne = _moyenne_ponderee(notes_par_eleve_trimestre.get((eleve.pk, valeur_trimestre), []))
+            moyenne = moyenne_generale(eleve.pk, notes_par_eleve_trimestre.get((eleve.pk, valeur_trimestre), []), valeur_trimestre)
             if moyenne is not None and eleve.pk in population:
                 moyennes[eleve.pk] = moyenne
         moyennes_trimestre[valeur_trimestre] = moyennes
@@ -111,7 +126,9 @@ def releve_notes_classeur(classe, affectations, *, vue_complete):
                 if note:
                     sommes[position].append(note.valeur)
             if vue_complete:
-                moyenne = _moyenne_ponderee(notes_par_eleve_trimestre.get((eleve.pk, valeur_trimestre), []))
+                if avec_conduite:
+                    ligne.append(conduites.get((eleve.pk, valeur_trimestre)))
+                moyenne = moyenne_generale(eleve.pk, notes_par_eleve_trimestre.get((eleve.pk, valeur_trimestre), []), valeur_trimestre)
                 ligne += [_arrondie(moyenne), rangs.get(eleve.pk)]
                 if moyenne is not None:
                     generales.append(moyenne)
@@ -120,6 +137,9 @@ def releve_notes_classeur(classe, affectations, *, vue_complete):
             _arrondie(sum(valeurs) / len(valeurs)) if valeurs else None for valeurs in sommes
         ]
         if vue_complete:
+            if avec_conduite:
+                notes_de_conduite = [v for (_, t), v in conduites.items() if t == valeur_trimestre]
+                total.append(_arrondie(sum(notes_de_conduite) / len(notes_de_conduite)) if notes_de_conduite else None)
             total += [_arrondie(sum(generales) / len(generales)) if generales else None, ""]
         formats = {colonne: FORMAT_NOTE for colonne in range(5, len(entetes) + 1)}
         if vue_complete:
@@ -131,7 +151,7 @@ def releve_notes_classeur(classe, affectations, *, vue_complete):
 
     if vue_complete:
         annuelles = {
-            eleve.pk: _moyenne_ponderee(notes_par_eleve.get(eleve.pk, [])) for eleve in eleves
+            eleve.pk: moyenne_generale(eleve.pk, notes_par_eleve.get(eleve.pk, [])) for eleve in eleves
             if eleve.pk in population and notes_par_eleve.get(eleve.pk)
         }
         rangs_annuels = _rangs(annuelles)
@@ -142,8 +162,10 @@ def releve_notes_classeur(classe, affectations, *, vue_complete):
         for numero, eleve in enumerate(eleves, start=1):
             ligne = [numero, eleve.matricule, eleve.nom, eleve.prenom]
             for valeur_trimestre, _ in Trimestre.choices:
-                ligne.append(_arrondie(_moyenne_ponderee(notes_par_eleve_trimestre.get((eleve.pk, valeur_trimestre), []))))
-            annuelle = _moyenne_ponderee(notes_par_eleve.get(eleve.pk, []))
+                ligne.append(_arrondie(moyenne_generale(
+                    eleve.pk, notes_par_eleve_trimestre.get((eleve.pk, valeur_trimestre), []), valeur_trimestre,
+                )))
+            annuelle = moyenne_generale(eleve.pk, notes_par_eleve.get(eleve.pk, []))
             ligne += [_arrondie(annuelle), rangs_annuels.get(eleve.pk)]
             lignes.append(ligne)
         feuille = ajouter_feuille_tableau(
@@ -164,6 +186,13 @@ def releve_notes_classeur(classe, affectations, *, vue_complete):
             [n.eleve.matricule, n.eleve.nom, n.eleve.prenom, n.affectation.matiere or "Titulaire",
              n.affectation.coefficient, n.get_trimestre_display(), n.note_classe, n.note_composition, n.valeur]
             for n in detail
+        ] + [
+            # La conduite : une ligne par élève et par trimestre, après les matières (vue complète seulement).
+            [eleve.matricule, eleve.nom, eleve.prenom, LIBELLE_CONDUITE, coefficient_de_la_conduite,
+             dict(Trimestre.choices)[trimestre], valeur, None, valeur]
+            for eleve in sorted(eleves, key=lambda e: (e.nom, e.prenom))
+            for trimestre, _ in Trimestre.choices
+            for valeur in [conduites.get((eleve.pk, trimestre))] if valeur is not None
         ],
         formats={7: FORMAT_NOTE, 8: FORMAT_NOTE, 9: FORMAT_NOTE},
     )

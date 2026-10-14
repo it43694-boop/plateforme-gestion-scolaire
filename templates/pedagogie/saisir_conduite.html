@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block titre %}Conduite - {{ classe.nom }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Conduite - {{ classe.nom }}</h1>
+        <p>
+            {{ classe.get_niveau_display }} · {{ classe.annee_scolaire.libelle }} · note sur 20,
+            {% if coefficient %}coefficient {{ coefficient }} dans la moyenne{% else %}non comptée dans la moyenne (coefficient 0){% endif %}
+        </p>
+    </div>
+    <a href="{% url 'scolarite:liste_classes' %}" class="btn btn-outline-secondary btn-sm">Retour aux classes</a>
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-3">
+    {% for valeur, libelle in trimestres %}
+    <a href="?trimestre={{ valeur }}" class="btn btn-sm {% if valeur == trimestre %}btn-primary{% else %}btn-outline-secondary{% endif %}">{{ libelle }}</a>
+    {% endfor %}
+</div>
+
+{% if lecture_seule %}
+<div class="alert alert-warning">Cette année scolaire est archivée : les notes de conduite restent consultables mais ne se modifient plus.</div>
+{% endif %}
+{% if erreurs_generales %}
+<div class="alert alert-danger">{% for erreur in erreurs_generales %}<div>{{ erreur }}</div>{% endfor %}</div>
+{% endif %}
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="trimestre" value="{{ trimestre }}">
+    <div class="card">
+        <div class="card-body">
+            <p class="texte-note">
+                Une note sur 20 par élève, avec une virgule ou un point (14 ou 14,5). Laissez une case vide si l'élève n'a pas de note ;
+                vider une case efface la note de ce trimestre. Tout est enregistré en une fois.
+            </p>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr><th>Élève</th><th class="text-end">Conduite /20</th><th>Appréciation</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for ligne in lignes %}
+                        <tr>
+                            <td>
+                                <label for="note-{{ ligne.eleve.pk }}">{{ ligne.eleve.nom }} {{ ligne.eleve.prenom }}</label>
+                                {% if ligne.erreur %}<div class="text-danger small">{{ ligne.erreur }}</div>{% endif %}
+                            </td>
+                            <td class="text-end">
+                                <input type="text" inputmode="decimal" autocomplete="off" id="note-{{ ligne.eleve.pk }}"
+                                       name="note-{{ ligne.eleve.pk }}" value="{{ ligne.saisie }}"
+                                       class="form-control champ-note-conduite"{% if lecture_seule %} disabled{% endif %}>
+                            </td>
+                            <td>{{ ligne.appreciation }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3"><div class="etat-vide"><p>Aucun élève inscrit dans cette classe.</p></div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                    {% if lignes %}
+                    <tfoot>
+                        <tr>
+                            <td><strong>Moyenne de la classe</strong> ({{ nombre_notes }} note{{ nombre_notes|pluralize }} sur {{ lignes|length }})</td>
+                            <td class="text-end montant-val"><strong>{{ moyenne_classe|default:"—" }}</strong></td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+            {% if lignes and not lecture_seule %}
+            <button type="submit" class="btn btn-primary">Enregistrer la conduite du trimestre</button>
+            {% endif %}
+        </div>
+    </div>
+</form>
+{% endblock %}

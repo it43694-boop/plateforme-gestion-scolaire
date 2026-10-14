@@ -2208,6 +2208,28 @@ chargements ZIP et Excel bornés (taille, nombre de fichiers, extensions, signat
 - « Mot de passe oublié » : limité par adresse IP, pas par compte ; un envoi massif vers des comptes existants pourrait épuiser le quota d'emails du jour.
 - Le cache Redis sérialise avec pickle (réglage par défaut de django-redis) : le Redis doit rester privé (c'est le cas sur Render).
 
+## État du projet : Phase 62 — Note de conduite (7ème à 12ème année)
+
+La conduite n'est pas une matière (pas de professeur, pas de composition) mais elle entre dans la moyenne. Elle est donc gérée à part, avec une règle unique
+(`pedagogie/conduite.py`) utilisée partout où une moyenne est calculée.
+- **Quelles classes** : de la **7ème à la 12ème année** seulement (`pedagogie.models.classe_note_la_conduite`). Pas le primaire (1ère à 6ème année), ni le préscolaire,
+  ni les classes sans niveau, ni les filières professionnelles. Pour une autre classe, la page de saisie renvoie vers la liste avec une explication.
+- **Modèle** `NoteConduite` : élève, classe, trimestre, valeur de 0 à 20 (deux décimales), une seule note par élève, classe et trimestre. La validation vérifie que
+  l'élève est bien inscrit dans cette classe, de la même école, et que la classe est concernée.
+- **Coefficient** : réglage de l'école `Etablissement.coefficient_conduite` (1 par défaut ; 0 = la note s'affiche mais ne compte pas), modifiable dans les réglages de
+  l'école de l'espace développeur.
+- **Règle de calcul** : la conduite d'un trimestre ne compte que si l'élève a au moins une note de matière ce trimestre (pas de moyenne faite de la seule conduite).
+  Elle s'ajoute au total pondéré avec son coefficient. Intégrée au **bulletin** (ligne « Conduite », écran et PDF), au **rang** et aux repères de la classe, au **relevé Excel**
+  de la classe (colonne « Conduite (coef N) », moyenne et rang, lignes de détail ; vue complète seulement, pas la vue d'un enseignant), aux **alertes** de l'assistant
+  (élèves à risque) et au compte des « notes » de l'historique d'un élève (anonymisation).
+- **Saisie** (`pedagogie:saisir_conduite`, bouton « Conduite » dans la liste des classes) : une grille par classe et par trimestre, une case par élève (virgule ou point,
+  case vide = pas de note ; vider une case efface la note). Tout est enregistré en une fois ou rien (une erreur n'enregistre rien et garde ce qui a été tapé). Année archivée :
+  lecture seule. Journal d'audit `saisie_conduite` avec les seuls nombres (jamais de noms).
+- **Qui peut saisir** (`ROLES_SAISIE_CONDUITE` + module Absences de la matrice) : les rôles à accès total, les directeurs d'études (D2 : 7ème à 9ème année ; DL, censeur
+  et surveillant général : lycée) et le super-administrateur. Pas les enseignants, parents, élèves, secrétaire, comptable, RP ni D1. Un autre établissement : 404.
+- Tests : `pedagogie/test_conduite.py` (50 tests, données fictives) ; vérification dans un vrai navigateur (liste des classes, saisie, erreur, bulletin, relevé Excel, primaire).
+- **Primaire** : les notes de matière sont les mêmes pour toutes les classes (note de classe /20 + composition /40). Aucune règle propre au primaire n'est codée.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

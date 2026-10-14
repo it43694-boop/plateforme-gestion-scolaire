@@ -79,6 +79,7 @@ def _eleves_a_risque_academique(utilisateur):
 
     from django.db.models import DecimalField, ExpressionWrapper, F, Sum
 
+    from pedagogie.conduite import ajouter_la_conduite_aux_totaux
     from pedagogie.models import Note
 
     inscriptions = list(_inscriptions_visibles_pour_alertes(utilisateur))
@@ -105,12 +106,12 @@ def _eleves_a_risque_academique(utilisateur):
                 poids=Sum("affectation__coefficient"),
             )
         )
-        for ligne in lignes:
-            if not ligne["poids"]:
-                continue
-            moyenne = ligne["total_pondere"] / ligne["poids"]
+        totaux = {ligne["eleve_id"]: [ligne["total_pondere"], ligne["poids"]] for ligne in lignes if ligne["poids"]}
+        ajouter_la_conduite_aux_totaux(inscriptions_classe[0].classe, totaux)  # même moyenne que le bulletin
+        for eleve_id, (total, poids) in totaux.items():
+            moyenne = total / poids
             if moyenne < SEUIL_MOYENNE_RISQUE:
-                inscription = inscription_par_eleve[ligne["eleve_id"]]
+                inscription = inscription_par_eleve[eleve_id]
                 a_risque.append({"eleve": inscription.eleve, "classe": inscription.classe, "moyenne": round(moyenne, 2)})
     return a_risque
 
