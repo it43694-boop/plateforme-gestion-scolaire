@@ -235,7 +235,11 @@ class LienDImagePdfTests(SimpleTestCase):
             for piege in ("../secret.txt", "../../etc/passwd", "sous/../../secret.txt", "..\\secret.txt"):
                 resultat = _lien_pdf(settings.MEDIA_URL + piege, None)
                 with self.subTest(piege=piege):
-                    self.assertEqual(resultat, settings.MEDIA_URL + piege)  # rendu tel quel : introuvable, jamais lu
+                    # Rendu tel quel (introuvable, jamais lu) ou, quand le système ne voit pas là une sortie du dossier (sous Linux,
+                    # « ..\secret.txt » n'est qu'un nom de fichier), un chemin qui reste DANS le dossier des médias.
+                    rendu_tel_quel = resultat == settings.MEDIA_URL + piege
+                    reste_dedans = os.path.realpath(resultat).startswith(os.path.realpath(dossier) + os.sep)
+                    self.assertTrue(rendu_tel_quel or reste_dedans, resultat)
 
     def test_un_lien_statique_sort_pas_non_plus(self):
         from django.conf import settings
