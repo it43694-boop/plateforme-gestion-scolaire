@@ -2230,6 +2230,41 @@ La conduite n'est pas une matière (pas de professeur, pas de composition) mais 
 - Tests : `pedagogie/test_conduite.py` (50 tests, données fictives) ; vérification dans un vrai navigateur (liste des classes, saisie, erreur, bulletin, relevé Excel, primaire).
 - **Primaire** : les notes de matière sont les mêmes pour toutes les classes (note de classe /20 + composition /40). Aucune règle propre au primaire n'est codée.
 
+## État du projet : Phase 63 — Factures d'abonnement : email, rappels, WhatsApp et alertes
+
+Avant, émettre une facture d'abonnement ne faisait que l'enregistrer : le propriétaire de la plateforme téléchargeait le PDF et l'envoyait lui-même. Maintenant
+l'application peut l'envoyer (`etablissement/envoi_factures.py`). Toujours réservé au propriétaire ; l'école ne voit pas ses factures dans l'application.
+- **Envoi** : case « Envoyer la facture par email à l'école » (cochée par défaut) sur l'écran d'émission, et bouton « Envoyer par email » / « Renvoyer par email » sur chaque
+  facture émise de la liste. Le PDF part en pièce jointe, avec le numéro, la période, le montant, l'échéance et les instructions de paiement
+  (`ABONNEMENT_INSTRUCTIONS_PAIEMENT`) ; l'expéditeur est `DEFAULT_FROM_EMAIL`, les réponses vont à `EDITEUR_EMAIL`. Un double clic n'envoie qu'un message (60 secondes).
+  La facture est émise quoi qu'il arrive à l'email : un échec ou l'absence d'adresse donne un avertissement, et on réessaie depuis la liste. Seule une facture émise part
+  (jamais une facture payée ou annulée).
+- **Destinataires** : le nouveau champ `Etablissement.email_facturation` (réglages de l'école, modifiable par le propriétaire) ; à défaut, les comptes actifs de CETTE école
+  de rôle fondateur ou administrateur général ; à défaut, son développeur. Plusieurs destinataires : en copie cachée. Jamais une adresse d'une autre école.
+- **Rappels automatiques** : une facture émise, déjà envoyée par email et dont l'échéance est dépassée reçoit un rappel dès le lendemain de l'échéance, puis un par semaine,
+  trois au plus ; jamais une facture payée ou annulée, ni une facture que la plateforme n'a pas envoyée par email (un rappel ne doit pas être le premier contact). Ils partent avec
+  l'entretien quotidien (Phase 57 : première visite de la journée, ou `python manage.py entretien`, avec `--simulation` pour compter sans envoyer), car le plan gratuit de Render n'a pas de tâches
+  planifiées. Un passage envoie dix rappels au plus et s'arrête au premier échec d'envoi (réessayé le lendemain : le compteur ne bouge qu'après un envoi réussi), pour ne jamais
+  retenir longtemps la page d'un utilisateur ; une panne des rappels ne gêne pas les purges de l'entretien.
+- **Suivi** : champs `envoyee_le`, `nombre_rappels` et `dernier_rappel_le` de la facture, affichés dans la liste. Journal d'audit `envoi_facture_abonnement` et `rappel_facture_abonnement` avec le
+  nom de l'école et le NOMBRE de destinataires, jamais leurs adresses.
+- **Bouton WhatsApp** sur chaque facture émise (non payée) de la liste : lien wa.me avec le message déjà écrit (la facture à payer avant telle date, ou un rappel avec le nombre de jours
+  de retard ; montant, instructions de paiement, numéro de la facture). Rien n'est envoyé par le serveur : le propriétaire ouvre WhatsApp et clique lui-même sur Envoyer (WhatsApp ne permet pas de
+  joindre le PDF par ce lien : le bouton « PDF » reste à côté). Numéro : le nouveau champ `Etablissement.telephone_facturation` (« numéro WhatsApp pour les factures », vérifié à la saisie : 8 chiffres au
+  Mali ou format international) ; à défaut le numéro d'un compte actif de cette école (direction, puis développeur) ; sans numéro, le bouton « + N° WhatsApp » mène aux réglages de l'école.
+  Les numéros de toute la page sont cherchés en une requête (`telephones_de_facturation`).
+- **Alertes** (`etablissement.abonnements.alertes_factures`) : en haut de la page d'arrivée du propriétaire (liste des établissements), de la vue d'ensemble des abonnements et de la liste des
+  factures : une alerte rouge « N factures d'abonnement en retard de paiement » (montant à encaisser, jours de retard de la plus ancienne, écoles concernées) et une alerte orange « N factures
+  d'abonnement à payer » (prochaine échéance), chacune avec un lien vers la liste filtrée (nouveau filtre « À payer (dans les délais) »). Le jour même de l'échéance n'est pas un retard. Le propriétaire
+  n'a pas de tableau de bord (il est renvoyé vers la liste des établissements) : c'est là que l'alerte se voit ; une école ne la voit jamais.
+- Corrigé au passage : la « Date d'émission » du formulaire s'affichait vide dans le navigateur (format de date) ; le PDF est produit par une fonction commune (`pdf_de_la_facture`) pour la page et pour
+  l'email ; les boutons de la liste des factures se rangent sur plusieurs lignes au lieu de se déformer.
+- Tests : `espace_plateforme/test_envoi_factures.py` et `test_whatsapp_alertes_factures.py` (numéros, liens et messages WhatsApp, alertes, destinataires, contenu et pièce jointe, journal sans adresse, échecs, bouton, double clic, rôles, calendrier des rappels, entretien, commande) ;
+  vérification dans un vrai navigateur (courrier affiché dans le journal du serveur de démonstration).
+- **À régler sur Render** pour des factures complètes : `EDITEUR_NOM`, `EDITEUR_STATUT`, `EDITEUR_ADRESSE`, `EDITEUR_EMAIL`, `EDITEUR_TELEPHONE`, `EDITEUR_IMMATRICULATION` (RCCM, NIF) et
+  `ABONNEMENT_INSTRUCTIONS_PAIEMENT` (numéro Orange Money, compte bancaire...). Vides, le PDF et l'email n'ont ni identité de l'éditeur ni moyen de payer.
+- Limite connue : le quota d'emails du fournisseur SMTP (Brevo, 300 par jour en offre gratuite) est partagé avec les autres messages de la plateforme.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

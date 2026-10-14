@@ -18,7 +18,10 @@ from espace_plateforme.forms import (
     ROLES_DIRECTION, CreerCompteDirectionForm, CreerEtablissementForm, EmettreFactureForm, ModifierPlanEtablissementForm,
     ReglementFactureForm,
 )
-from etablissement.abonnements import annuler_facture, emettre_facture, enregistrer_reglement, synthese_abonnements
+from etablissement.abonnements import (
+    alertes_factures, annuler_facture, emettre_facture, enregistrer_reglement, synthese_abonnements,
+)
+from etablissement.envoi_factures import ajouter_les_liens_whatsapp, envoyer_facture, pdf_de_la_facture
 from etablissement.models import Etablissement, FactureAbonnement, PlanEtablissement
 from permissions_matrix.models import PermissionMatrix
 
@@ -138,7 +141,7 @@ def liste_etablissements(request):
         code_normalise = " ".join(etablissement.code_etablissement.split()).upper()
         etablissement.code_en_double = code_normalise in codes_en_double
     return render(request, "espace_plateforme/liste_etablissements.html", {
-        "etablissements": etablissements, "plan_choices": PlanEtablissement.choices,
+        "etablissements": etablissements, "plan_choices": PlanEtablissement.choices, "alertes": alertes_factures(),
     })
 
 
@@ -274,11 +277,14 @@ def basculer_actif(request, etablissement_id):
 # Abonnements et factures (propriétaire de la plateforme)
 # ---------------------------------------------------------------------------
 
+DELAI_ANTI_DOUBLE_ENVOI_SECONDES = 60  # un double clic sur « Envoyer » ne doit pas faire partir deux emails
+
+
 @est_proprietaire_plateforme
 def abonnements(request):
     """Situation d'abonnement de chaque école et totaux (encaissé cette année, à encaisser, en retard)."""
     lignes, totaux = synthese_abonnements()
-    return render(request, "espace_plateforme/abonnements.html", {"lignes": lignes, "totaux": totaux})
+    return render(request, "espace_plateforme/abonnements.html", {"lignes": lignes, "totaux": totaux, "alertes": alertes_factures()})
 
 
 def _factures_filtrees(request):
@@ -286,6 +292,8 @@ def _factures_filtrees(request):
     statut = request.GET.get("statut", "")
     if statut == "en_retard":
         factures = factures.filter(statut=FactureAbonnement.Statut.EMISE, date_echeance__lt=timezone.localdate())
+    elif statut == "a_payer":
+        factures = factures.filter(statut=FactureAbonnement.Statut.EMISE, date_echeance__gte=timezone.localdate())
     elif statut in FactureAbonnement.Statut.values:
         factures = factures.filter(statut=statut)
     ecole = request.GET.get("etablissement", "")
@@ -304,10 +312,12 @@ def liste_factures(request):
 
     filtres = urlencode({cle: valeur for cle, valeur in (("statut", statut), ("etablissement", ecole)) if valeur})
     return render(request, "espace_plateforme/factures.html", {
-        "page_obj": page_obj, "factures": page_obj.object_list, "statut": statut, "ecole": ecole,
+        "page_obj": page_obj, "factures": ajouter_les_liens_whatsapp(page_obj.object_list), "statut": statut, "ecole": ecole,
+        "alertes": alertes_factures(),
         "filtres": filtres + "&" if filtres else "",
         "etablissements": Etablissement.objects.order_by("nom"),
-        "statuts": [("emise", "Émises"), ("en_retard", "En retard"), ("payee", "Payées"), ("annulee", "Annulées")],
+        "statuts": [("emise", "Émises"), ("a_payer", "À payer (dans les délais)"), ("en_retard", "En retard"), ("payee", "Payées"),
+                    ("annulee", "Annulées")],
     })
 
 
@@ -336,8 +346,39 @@ def emettre_facture_vue(request):
                 details={"etablissement": facture.etablissement.nom, "montant": facture.montant}, request=request,
             )
             messages.success(request, f"Facture {facture.numero} émise pour « {facture.etablissement.nom} ».")
+            if donnees["envoyer_par_email"]:
+                # La facture est émise quoi qu'il arrive à l'email : un échec d'envoi se rattrape depuis la liste.
+                _annoncer_l_envoi(request, envoyer_facture(facture, acteur=request.user, request=request))
             return redirect("espace_plateforme:liste_factures")
     return render(request, "espace_plateforme/emettre_facture.html", {"formulaire": formulaire})
+
+
+EXPLICATIONS_ENVOI_IMPOSSIBLE = {
+    "aucune_adresse": "Aucun email n'est connu pour cette école : renseignez son « email pour les factures » en modifiant l'école "
+                      "(ou créez un compte de direction), puis cliquez sur « Envoyer par email » dans la liste.",
+    "echec": "L'email n'a pas pu partir (serveur d'envoi injoignable ou refus) : la facture reste émise, réessayez avec "
+             "« Envoyer par email » dans la liste.",
+    "pdf": "Le PDF de la facture n'a pas pu être créé : rien n'a été envoyé.",
+    "statut": "Seule une facture émise (ni payée ni annulée) peut être envoyée.",
+}
+
+
+def _annoncer_l_envoi(request, resultat):
+    if resultat.envoyee:
+        messages.success(request, "Facture envoyée par email à " + ", ".join(resultat.destinataires) + ".")
+    else:
+        messages.warning(request, EXPLICATIONS_ENVOI_IMPOSSIBLE[resultat.raison])
+
+
+@est_proprietaire_plateforme
+@require_http_methods(["POST"])
+def envoyer_facture_vue(request, facture_id):
+    facture = get_object_or_404(FactureAbonnement.objects.select_related("etablissement"), id=facture_id)
+    if facture.envoyee_le and (timezone.now() - facture.envoyee_le).total_seconds() < DELAI_ANTI_DOUBLE_ENVOI_SECONDES:
+        messages.info(request, f"La facture {facture.numero} vient d'être envoyée : patientez un instant avant de la renvoyer.")
+    else:
+        _annoncer_l_envoi(request, envoyer_facture(facture, acteur=request.user, request=request))
+    return redirect("espace_plateforme:liste_factures")
 
 
 @est_proprietaire_plateforme
@@ -393,23 +434,13 @@ def annuler_facture_vue(request, facture_id):
 @est_proprietaire_plateforme
 def facture_pdf(request, facture_id):
     from django.http import HttpResponse
-    from django.template.loader import render_to_string
-    from xhtml2pdf import pisa
 
     facture = get_object_or_404(FactureAbonnement.objects.select_related("etablissement"), id=facture_id)
-    html = render_to_string("espace_plateforme/facture_pdf.html", {
-        "facture": facture, "editeur": {
-            "nom": settings.EDITEUR_NOM, "statut": settings.EDITEUR_STATUT, "adresse": settings.EDITEUR_ADRESSE,
-            "email": settings.EDITEUR_EMAIL, "telephone": settings.EDITEUR_TELEPHONE,
-            "immatriculation": settings.EDITEUR_IMMATRICULATION,
-        },
-        "instructions_paiement": settings.ABONNEMENT_INSTRUCTIONS_PAIEMENT,
-        "nom_commercial": settings.NOM_COMMERCIAL,
-    }, request=request)
-    reponse = HttpResponse(content_type="application/pdf")
-    reponse["Content-Disposition"] = f'attachment; filename="facture_{facture.numero}.pdf"'
-    if pisa.CreatePDF(html, dest=reponse, encoding="utf-8").err:
+    pdf = pdf_de_la_facture(facture, request)
+    if pdf is None:
         return HttpResponse("Erreur lors de la génération de la facture.", status=500)
+    reponse = HttpResponse(pdf, content_type="application/pdf")
+    reponse["Content-Disposition"] = f'attachment; filename="facture_{facture.numero}.pdf"'
     return reponse
 
 

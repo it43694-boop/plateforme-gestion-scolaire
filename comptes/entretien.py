@@ -13,6 +13,9 @@ Deux façons de le lancer, sans fournisseur de tâches planifiées (le plan grat
 - automatiquement, au plus UNE fois par jour, à la première visite d'un utilisateur connecté
   (comptes.middleware.EntretienQuotidienMiddleware) ;
 - à la main ou par une tâche planifiée : `python manage.py entretien` (`--simulation` pour voir sans effacer).
+
+Il envoie aussi les rappels des factures d'abonnement en retard (etablissement.envoi_factures), à part : leur échec ne
+gêne pas les purges et inversement.
 """
 import logging
 from datetime import timedelta
@@ -89,8 +92,15 @@ def entretien_si_du() -> dict | None:
         return None
     if not cache.add(CLE_CACHE_ENTRETIEN, "1", DUREE_ENTRE_DEUX_ENTRETIENS):
         return None
+    bilan = None
     try:
-        return entretien_quotidien()
+        bilan = entretien_quotidien()
     except Exception:  # un entretien raté ne doit jamais casser la page de l'utilisateur
         logger.exception("Entretien quotidien échoué")
-        return None
+    try:
+        from etablissement.envoi_factures import relancer_factures_en_retard
+
+        relancer_factures_en_retard()
+    except Exception:
+        logger.exception("Rappels des factures d'abonnement échoués")
+    return bilan

@@ -97,13 +97,39 @@ def envoyer_email(*, sujet, contenu, expediteur, destinataires):
         try:
             envoyes += construire_message(sujet, contenu, expediteur, lot).send()
         except (smtplib.SMTPException, TimeoutError, OSError) as erreur:
-            diagnostic = diagnostic_smtp()
-            # Dans Sentry (contexte « smtp ») et dans les logs de l'hébergeur : sans ces
-            # lignes, un envoi qui échoue ne laisse aucune trace exploitable.
-            logger.error(
-                "Échec d'envoi d'email (%s) : %s | configuration : %s", type(erreur).__name__, erreur, diagnostic,
-            )
-            sentry_sdk.set_context("smtp", diagnostic)
-            sentry_sdk.capture_exception()
+            _signaler_echec_d_envoi(erreur)
             break
     return envoyes
+
+
+def _signaler_echec_d_envoi(erreur):
+    """
+    Dans Sentry (contexte « smtp ») et dans les logs de l'hébergeur : sans ces lignes, un envoi qui échoue ne laisse
+    aucune trace exploitable.
+    """
+    diagnostic = diagnostic_smtp()
+    logger.error("Échec d'envoi d'email (%s) : %s | configuration : %s", type(erreur).__name__, erreur, diagnostic)
+    sentry_sdk.set_context("smtp", diagnostic)
+    sentry_sdk.capture_exception()
+
+
+def envoyer_email_avec_pieces_jointes(*, sujet, contenu, expediteur, destinataires, pieces_jointes, repondre_a=None) -> bool:
+    """
+    Envoie TOUT DE SUITE un email avec des pièces jointes `[(nom_de_fichier, octets, type_mime)]` ; True si le serveur
+    l'a accepté. Jamais mis en file (EmailOutbox ne garde pas de pièces jointes) et sans jamais lever d'erreur d'envoi :
+    l'appelant décide quoi faire d'un échec (la facture émise reste émise, par exemple). Plusieurs destinataires :
+    en copie cachée, comme envoyer_email.
+    """
+    destinataires = list(destinataires)
+    if not destinataires:
+        return False
+    message = construire_message(sujet, contenu, expediteur, destinataires)
+    if repondre_a:
+        message.reply_to = [repondre_a]
+    for nom, octets, type_mime in pieces_jointes:
+        message.attach(nom, octets, type_mime)
+    try:
+        return bool(message.send())
+    except (smtplib.SMTPException, TimeoutError, OSError) as erreur:
+        _signaler_echec_d_envoi(erreur)
+        return False

@@ -106,6 +106,16 @@ class Etablissement(models.Model):
                    "Si aucun logo n'est fourni, l'initiale du nom est utilisée à la place. "
                    "Taille maximale : 2 Mo.",
     )
+    email_facturation = models.EmailField(
+        "email pour les factures d'abonnement", blank=True,
+        help_text="Adresse à laquelle la plateforme envoie les factures d'abonnement de l'école et leurs rappels. Laissée vide, "
+                   "elles vont aux comptes de direction de l'école (fondateur, administrateur général) ou, à défaut, à son développeur.",
+    )
+    telephone_facturation = models.CharField(
+        "numéro WhatsApp pour les factures", max_length=20, blank=True,
+        help_text="Numéro auquel le bouton WhatsApp de la liste des factures d'abonnement écrit (8 chiffres au Mali, ou format "
+                   "international). Laissé vide, le numéro d'un compte de direction de l'école est utilisé s'il en a un.",
+    )
     actif = models.BooleanField(
         "établissement actif", default=True,
         help_text="Désactiver bloque la connexion de tous les comptes de cet établissement, "
@@ -266,6 +276,12 @@ class FactureAbonnement(models.Model):
     mode_reglement = models.CharField(max_length=20, choices=ModeReglement.choices, blank=True)
     reference_reglement = models.CharField("référence du règlement", max_length=100, blank=True)
     motif_annulation = models.CharField(max_length=255, blank=True)
+    envoyee_le = models.DateTimeField(
+        "envoyée par email le", null=True, blank=True,
+        help_text="Dernier envoi de la facture à l'école (hors rappels). Vide : jamais envoyée par la plateforme.",
+    )
+    nombre_rappels = models.PositiveSmallIntegerField("rappels envoyés", default=0)
+    dernier_rappel_le = models.DateField("dernier rappel le", null=True, blank=True)
     cree_par = models.ForeignKey(
         "comptes.Utilisateur", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
     )

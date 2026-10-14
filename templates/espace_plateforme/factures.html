@@ -13,6 +13,8 @@
     </div>
 </div>
 
+{% include "espace_plateforme/_alertes_factures.html" %}
+
 <form method="get" class="d-flex flex-wrap gap-2 mb-3">
     <select name="statut" class="form-select mw-320" data-auto-submit>
         <option value="">Tous les statuts</option>
@@ -23,6 +25,12 @@
         {% for e in etablissements %}<option value="{{ e.id }}" {% if ecole == e.id|stringformat:"s" %}selected{% endif %}>{{ e.nom }}</option>{% endfor %}
     </select>
 </form>
+
+<p class="small text-muted">
+    « Envoyer par email » envoie le PDF à l'école (adresse de facturation de l'école, sinon ses comptes de direction). Une facture
+    envoyée par email et non payée à l'échéance reçoit un rappel le lendemain, puis un par semaine, trois au plus ; jamais une facture
+    payée ou annulée.
+</p>
 
 <div class="card">
     <div class="card-body">
@@ -56,15 +64,31 @@
                         {% else %}
                         <span class="badge bg-warning text-dark">À payer</span>
                         {% endif %}
+                        {% if facture.envoyee_le %}
+                        <div class="small text-muted">Envoyée par email le {{ facture.envoyee_le|date:"d/m/Y" }}{% if facture.nombre_rappels %} - {{ facture.nombre_rappels }} rappel{{ facture.nombre_rappels|pluralize }}{% endif %}</div>
+                        {% endif %}
                     </td>
                     <td class="text-end">
-                        <a href="{% url 'espace_plateforme:facture_pdf' facture.id %}" class="btn btn-sm btn-outline-secondary" data-telechargement>PDF</a>
+                        <div class="d-flex flex-wrap justify-content-end gap-1">
+                            <a href="{% url 'espace_plateforme:facture_pdf' facture.id %}" class="btn btn-sm btn-outline-secondary text-nowrap" data-telechargement>PDF</a>
+                            {% if facture.statut == "emise" %}
+                            <form method="post" action="{% url 'espace_plateforme:envoyer_facture' facture.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-outline-primary text-nowrap">{% if facture.envoyee_le %}Renvoyer par email{% else %}Envoyer par email{% endif %}</button>
+                            </form>
+                            {% if facture.lien_whatsapp %}
+                            <a href="{{ facture.lien_whatsapp }}" class="btn btn-sm btn-outline-success text-nowrap" target="_blank" rel="noopener">WhatsApp</a>
+                            {% else %}
+                            <a href="{% url 'espace_plateforme:modifier_etablissement' facture.etablissement_id %}" class="btn btn-sm btn-outline-secondary text-nowrap" title="Aucun numéro connu pour cette école : ajoutez-le dans ses réglages">+ N° WhatsApp</a>
+                            {% endif %}
+                            <a href="{% url 'espace_plateforme:payer_facture' facture.id %}" class="btn btn-sm btn-success text-nowrap">Enregistrer le règlement</a>
+                            {% endif %}
+                        </div>
                         {% if facture.statut == "emise" %}
-                        <a href="{% url 'espace_plateforme:payer_facture' facture.id %}" class="btn btn-sm btn-success">Enregistrer le règlement</a>
-                        <form method="post" action="{% url 'espace_plateforme:annuler_facture' facture.id %}" class="d-inline-flex gap-1">
+                        <form method="post" action="{% url 'espace_plateforme:annuler_facture' facture.id %}" class="d-flex justify-content-end gap-1 mt-1">
                             {% csrf_token %}
-                            <input type="text" name="motif" class="form-control form-control-sm" placeholder="Motif d'annulation" required maxlength="255">
-                            <button class="btn btn-sm btn-outline-danger">Annuler</button>
+                            <input type="text" name="motif" class="form-control form-control-sm w-auto" placeholder="Motif d'annulation" required maxlength="255" size="14">
+                            <button class="btn btn-sm btn-outline-danger text-nowrap">Annuler</button>
                         </form>
                         {% endif %}
                     </td>

@@ -138,13 +138,21 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
         valeur = self.cleaned_data.get("coefficient_conduite")
         return self.instance.coefficient_conduite if valeur is None else valeur
 
+    def clean_telephone_facturation(self):
+        from comptes.utils import numero_international
+
+        valeur = (self.cleaned_data.get("telephone_facturation") or "").strip()
+        if valeur and not numero_international(valeur)[0]:
+            raise forms.ValidationError("Numéro invalide : 8 chiffres (Mali) ou un numéro international, par exemple +223 70 00 00 00.")
+        return valeur
+
     def clean_code_etablissement(self):
         return " ".join(self.cleaned_data.get("code_etablissement", "").split()).upper()
 
     class Meta:
         model = Etablissement
         fields = [
-            "nom", "devise", "logo", "code_devise", "pas_montant", "coefficient_conduite",
+            "nom", "devise", "logo", "code_devise", "pas_montant", "coefficient_conduite", "email_facturation", "telephone_facturation",
             "code_etablissement", "statut_juridique", "region", "cercle", "commune", "milieu",
             "rattachement_administratif", "numero_agrement",
             "situation_fonctionnement", "motif_fermeture", "date_situation",

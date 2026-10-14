@@ -11,6 +11,7 @@
         <a href="{% url 'espace_plateforme:emettre_facture' %}" class="btn btn-primary btn-sm">Émettre une facture</a>
     </div>
 </div>
+{% include "espace_plateforme/_alertes_factures.html" %}
 
 <div class="row g-3 mb-3">
     <div class="col-6 col-md-3"><div class="card mini-stat"><div class="mini-stat-label">Encaissé en {{ totaux.annee }}</div><div class="mini-stat-valeur">{{ totaux.encaisse_annee }}</div></div></div>

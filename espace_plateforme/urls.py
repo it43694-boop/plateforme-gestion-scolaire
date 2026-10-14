@@ -26,4 +26,5 @@ urlpatterns = [
     path("abonnements/factures/<int:facture_id>/payer/", views.payer_facture, name="payer_facture"),
     path("abonnements/factures/<int:facture_id>/annuler/", views.annuler_facture_vue, name="annuler_facture"),
     path("abonnements/factures/<int:facture_id>/pdf/", views.facture_pdf, name="facture_pdf"),
+    path("abonnements/factures/<int:facture_id>/envoyer/", views.envoyer_facture_vue, name="envoyer_facture"),
 ]

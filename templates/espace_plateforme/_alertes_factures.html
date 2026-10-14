@@ -1,0 +1,11 @@
+{% for alerte in alertes %}
+<div class="alert {% if alerte.gravite == 'danger' %}alert-danger{% else %}alert-warning{% endif %} d-flex flex-wrap justify-content-between align-items-center gap-2" role="alert">
+    <div>
+        <strong>{{ alerte.titre }}</strong><br>{{ alerte.description }}
+        <div class="small mt-1">
+            {% for facture in alerte.factures|slice:":6" %}{{ facture.etablissement.nom }} ({{ facture.numero }}){% if not forloop.last %}, {% endif %}{% endfor %}{% if alerte.factures|length > 6 %} et {{ alerte.factures|length|add:"-6" }} autre{{ alerte.factures|length|add:"-6"|pluralize }}{% endif %}
+        </div>
+    </div>
+    <a href="{% url 'espace_plateforme:liste_factures' %}?statut={{ alerte.statut }}" class="btn btn-sm btn-outline-secondary text-nowrap">Voir les factures</a>
+</div>
+{% endfor %}

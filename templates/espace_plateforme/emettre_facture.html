@@ -14,8 +14,15 @@
             {% for erreur in formulaire.non_field_errors %}<div class="alert alert-danger">{{ erreur }}</div>{% endfor %}
             {% for champ in formulaire %}
                 <div class="mb-3">
+                    {% if champ.field.widget.input_type == "checkbox" %}
+                    <div class="form-check">
+                        {{ champ }}
+                        <label class="form-check-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                    </div>
+                    {% else %}
                     <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
                     {{ champ }}
+                    {% endif %}
                     {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
                     {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
                 </div>

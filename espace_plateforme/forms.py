@@ -53,7 +53,7 @@ class EmettreFactureForm(BootstrapFormMixin, forms.Form):
     periode_fin = forms.DateField(label="Fin de la période", widget=forms.DateInput(attrs={"type": "date"}))
     montant = forms.IntegerField(label="Montant (FCFA)", min_value=1, max_value=2_000_000_000)
     date_emission = forms.DateField(
-        label="Date d'émission", widget=forms.DateInput(attrs={"type": "date"}), initial=timezone.localdate,
+        label="Date d'émission", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"), initial=timezone.localdate,
     )
     date_echeance = forms.DateField(
         label="À payer avant le", required=False, widget=forms.DateInput(attrs={"type": "date"}),
@@ -62,6 +62,11 @@ class EmettreFactureForm(BootstrapFormMixin, forms.Form):
     libelle = forms.CharField(
         label="Libellé", max_length=200, required=False,
         help_text="Laissez vide : « Abonnement <formule> - du ... au ... ».",
+    )
+    envoyer_par_email = forms.BooleanField(
+        label="Envoyer la facture par email à l'école", required=False, initial=True,
+        help_text="Le PDF part en pièce jointe à l'adresse de facturation de l'école ou, à défaut, à ses comptes de direction. "
+                  "Si la facture n'est pas payée à l'échéance, des rappels partent ensuite tout seuls (voir la liste des factures).",
     )
 
 

@@ -102,6 +102,45 @@ def annuler_facture(*, facture, motif, acteur=None):
 
 
 # ---------------------------------------------------------------------------
+# Alertes du propriétaire : factures à payer et factures en retard
+# ---------------------------------------------------------------------------
+
+def _montant(valeur) -> str:
+    return f"{valeur:,}".replace(",", " ")
+
+
+def alertes_factures(aujourdhui=None) -> list[dict]:
+    """
+    Les alertes affichées en haut des pages du propriétaire (liste des établissements, abonnements, factures) : d'abord les
+    factures émises dont l'échéance est dépassée, puis celles qui restent à payer dans les délais. Le propriétaire n'a pas de
+    tableau de bord (il est renvoyé vers la liste des établissements) : c'est là qu'elles se voient. Les écoles concernées sont
+    dans `factures`.
+    """
+    aujourdhui = aujourdhui or timezone.localdate()
+    emises = list(
+        FactureAbonnement.objects.filter(statut=STATUT.EMISE).select_related("etablissement").order_by("date_echeance", "id")
+    )
+    en_retard = [f for f in emises if f.date_echeance < aujourdhui]
+    a_payer = [f for f in emises if f.date_echeance >= aujourdhui]
+    alertes = []
+    if en_retard:
+        jours = (aujourdhui - en_retard[0].date_echeance).days
+        alertes.append({
+            "type": "abonnement", "gravite": "danger", "statut": "en_retard", "details": [], "factures": en_retard,
+            "titre": f"{len(en_retard)} facture{'s' if len(en_retard) > 1 else ''} d'abonnement en retard de paiement",
+            "description": f"{_montant(sum(f.montant for f in en_retard))} FCFA à encaisser ; la plus ancienne a {jours} jour{'s' if jours > 1 else ''} de retard.",
+        })
+    if a_payer:
+        prochaine = a_payer[0].date_echeance
+        alertes.append({
+            "type": "abonnement", "gravite": "attention", "statut": "a_payer", "details": [], "factures": a_payer,
+            "titre": f"{len(a_payer)} facture{'s' if len(a_payer) > 1 else ''} d'abonnement à payer",
+            "description": f"{_montant(sum(f.montant for f in a_payer))} FCFA à encaisser ; prochaine échéance le {prochaine:%d/%m/%Y}.",
+        })
+    return alertes
+
+
+# ---------------------------------------------------------------------------
 # Situation d'un abonnement
 # ---------------------------------------------------------------------------
 
