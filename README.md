@@ -2310,6 +2310,17 @@ Des écoles du Mali enseignent uniquement en arabe : l'application peut s'affich
   retour sûr, CSRF, 2FA et mot de passe provisoire, école par défaut sans effet sur les autres écoles, `lang`/`dir`, PDF et JSON intacts, **aucune phrase française** restante sur les écrans essentiels de la direction, de l'enseignant, du parent, de l'élève et du public, **menu entièrement traduit pour chacun des rôles**).
 - Restes (étapes suivantes) : **PDF** (bulletins, reçus, attestations, factures : il faut une police arabe statique pour xhtml2pdf et le raccord des lettres), **courriels et messages WhatsApp aux familles**, pages légales longues, écrans rares (import, tests de niveau, infrastructures…) à compléter avec `audit_traduction` ; les termes marqués « à valider » attendent la relecture.
 
+## État du projet : Phase 66 — Bouton « Installer l'application »
+
+L'application était déjà installable (manifeste, service worker, icônes : `config/views.py`, `static/js/sw.js`), mais seulement par le menu du navigateur, que peu de gens trouvent. Un bouton visible l'ouvre maintenant.
+- **Où** : barre du haut de l'application (à côté du bouton de langue ; sur téléphone, l'icône seule avec une zone tactile de 40 px), page de connexion et accueil public (`templates/partials/bouton_installer.html`, une seule fois par page).
+- **Quand il apparaît** (`static/js/app.js`, bloc « phase 66 ») : le bouton est caché au départ. Chrome, Edge et Samsung Internet (Android et ordinateur) envoient `beforeinstallprompt` quand l'installation est possible : l'évènement est gardé et le clic ouvre la fenêtre d'installation du navigateur, puis le bouton disparaît.
+  Sur iPhone et iPad (Safari n'envoie pas cet évènement), le bouton est montré et ouvre une aide en trois gestes (Partager, « Sur l'écran d'accueil », Ajouter). Il n'apparaît **jamais** quand l'application est déjà ouverte en mode installé (`display-mode: standalone`, `navigator.standalone`), ni sur un navigateur qui ne sait pas installer (Firefox ordinateur…) ; il disparaît à l'évènement `appinstalled`.
+- **Manifeste** : `id` fixe (`/`) et `lang` / `dir` qui suivent la langue choisie (français ou arabe, de droite à gauche).
+- Arabe : le bouton et l'aide sont dans le catalogue de traduction (`تثبيت التطبيق`, `إضافة إلى الشاشة الرئيسية`).
+- Tests : `comptes/test_installation.py` (bouton caché au départ et présent une fois sur chaque type de page, aide, arabe, script, manifeste, service worker) ; comportement vérifié dans un vrai navigateur (Chrome avec évènement simulé, iPhone, application déjà installée, arabe, mode sombre, téléphone : aucun débordement, aucune erreur de console).
+- Limite : la fenêtre d'installation elle-même est celle du navigateur (texte, icône et nom viennent du manifeste) ; l'application ne peut pas la modifier. Une fois refusée, Chrome ne la reproposera que plus tard.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

@@ -1811,3 +1811,32 @@ details[open] > .nav-section-titre .nav-chevron { transform: rotate(0deg); }
 .auth-langue .bouton-langue:hover, .page-langue .bouton-langue:hover, .vitrine-nav .bouton-langue:hover,
 .annuaire-langue .bouton-langue:hover, .legal-entete .bouton-langue:hover { background: rgba(255, 255, 255, 0.1); color: #fff; border-color: var(--gold-400); }
 @media (max-width: 900px), (pointer: coarse) { .bouton-langue { min-height: 40px; } }
+
+
+/* Bouton « Installer l'application » : visible seulement quand le navigateur permet l'installation (voir app.js) */
+.bouton-installer {
+  display: inline-flex; align-items: center; gap: 0.45rem; min-height: 34px; padding: 0.3rem 0.85rem; border-radius: 999px;
+  border: 1px solid var(--gold-500); background: transparent; color: var(--ink-700); font: inherit; font-size: 0.86rem;
+  font-weight: 600; cursor: pointer; transition: background 0.12s ease, color 0.12s ease;
+}
+.bouton-installer[hidden] { display: none; }
+.bouton-installer .icone-svg { width: 16px; height: 16px; }
+.bouton-installer:hover { background: var(--paper-050); color: var(--texte-principal); }
+.bouton-installer:focus-visible { outline: 2px solid var(--gold-500); outline-offset: 2px; }
+.auth-langue { display: flex; align-items: center; gap: 0.5rem; }
+.auth-langue .bouton-installer, .vitrine-nav .bouton-installer { color: #E7EAF2; border-color: var(--gold-400); }
+.auth-langue .bouton-installer:hover, .vitrine-nav .bouton-installer:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+@media (max-width: 900px), (pointer: coarse) { .bouton-installer { min-height: 40px; } }
+@media (max-width: 720px) {
+  .topbar .bouton-installer { padding: 0.3rem; min-width: 40px; justify-content: center; }
+  .topbar .bouton-installer-texte { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+.installer-aide {
+  max-width: min(26rem, calc(100vw - 2rem)); padding: 1.4rem 1.5rem; border: 1px solid var(--line-200); border-radius: var(--rayon-panneau);
+  background: var(--paper-000); color: var(--texte-principal); box-shadow: var(--ombre-flottante);
+}
+.installer-aide::backdrop { background: rgba(8, 14, 28, 0.55); }
+.installer-aide h2 { font-size: 1.15rem; margin: 0 0 0.8rem; }
+.installer-aide ol { margin: 0 0 1.2rem; padding-inline-start: 1.25rem; line-height: 1.55; }
+.installer-aide li + li { margin-top: 0.45rem; }
+.installer-aide form { margin: 0; text-align: end; }

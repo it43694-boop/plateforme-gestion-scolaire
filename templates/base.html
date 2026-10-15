@@ -78,6 +78,7 @@
             </form>
             {% endif %}
             <div class="topbar-utilisateur">
+                {% include "partials/bouton_installer.html" %}
                 {% include "partials/bouton_langue.html" %}
                 <a class="topbar-cloche" href="{% url 'comptes:liste_notifications' %}"
                    aria-label="Notifications{% if notifications_non_lues %} : {{ notifications_non_lues }} non lue{{ notifications_non_lues|pluralize }}{% endif %}">

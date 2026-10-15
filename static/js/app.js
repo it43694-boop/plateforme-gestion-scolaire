@@ -806,3 +806,50 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 });
+
+
+/* ========================================================================
+   Bouton « Installer l'application » (phase 66).
+   Le navigateur décide si l'installation est possible : Chrome, Edge, Samsung Internet (Android et ordinateur) envoient
+   « beforeinstallprompt », qu'on garde pour l'ouvrir au clic ; Safari sur iPhone et iPad n'a pas cet évènement, on montre
+   alors une aide en trois gestes. Le bouton reste caché dans les autres cas et dès que l'application est déjà installée.
+   ======================================================================== */
+(function () {
+    var boutons = document.querySelectorAll("[data-installer]");
+    if (!boutons.length) { return; }
+    var dejaInstallee = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+        window.navigator.standalone === true;
+    if (dejaInstallee) { return; }
+
+    var invite = null;
+    function afficher(oui) {
+        boutons.forEach(function (bouton) { bouton.hidden = !oui; });
+    }
+    var surApple = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (surApple) { afficher(true); }
+
+    window.addEventListener("beforeinstallprompt", function (evenement) {
+        evenement.preventDefault();
+        invite = evenement;
+        afficher(true);
+    });
+    window.addEventListener("appinstalled", function () {
+        invite = null;
+        afficher(false);
+    });
+    boutons.forEach(function (bouton) {
+        bouton.addEventListener("click", function () {
+            if (invite) {
+                var proposition = invite;
+                invite = null;
+                afficher(false);
+                proposition.prompt();
+                return;
+            }
+            var aide = document.getElementById("installer-aide");
+            if (!aide) { return; }
+            if (aide.showModal) { aide.showModal(); } else { aide.setAttribute("open", ""); }
+        });
+    });
+})();
