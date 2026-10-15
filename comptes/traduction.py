@@ -38,6 +38,26 @@ BALISES_SANS_FIN = {"input", "img", "br", "hr", "meta", "link", "area", "base", 
 VALEUR_BOUTON = re.compile(r'(?P<debut>(?<![\w-])value\s*=\s*")(?P<valeur>[^"]*)(?P<fin>")', re.I)
 TYPE_BOUTON = re.compile(r'(?<![\w-])type\s*=\s*"(?:submit|button|reset)"', re.I)
 
+# Sens de lecture : dans une page de droite à gauche, un texte latin (nom, classe « 10ème CM1 (2026-2027) », référence, numéro avec « + »)
+# est réordonné par le navigateur s'il n'est pas isolé. Les données ne se traduisent pas, mais on les enferme dans un isolat de direction
+# automatique : <bdi> dans le texte, ou les caractères Unicode FSI / PDI là où une balise est interdite (liste déroulante, titre, SVG, attribut).
+ISOLAT_DEBUT, ISOLAT_FIN = "\u2068", "\u2069"
+A_ISOLER = re.compile(r"[A-Za-z\u00C0-\u024F]|(?<!\w)\+\s*\d")
+PONCTUATION_DE_BORD = " \t\r\n-–—·:,;.!?،؛\"'«»"
+ENTOURAGE = re.compile(rf"([{re.escape(PONCTUATION_DE_BORD)}]*)(.*?)([{re.escape(PONCTUATION_DE_BORD)}]*)", re.S)
+BALISES_DE_TEXTE_BRUT = {"option", "title"}
+
+
+def _isoler(texte: str) -> str:
+    return f"{ISOLAT_DEBUT}{texte}{ISOLAT_FIN}" if A_ISOLER.search(texte) else texte
+
+
+def _en_balises(texte_echappe: str, brut: bool) -> str:
+    """Les isolats d'un texte déjà échappé deviennent <bdi>...</bdi>, sauf là où seul du texte est permis (brut)."""
+    if brut:
+        return texte_echappe
+    return texte_echappe.replace(ISOLAT_DEBUT, "<bdi>").replace(ISOLAT_FIN, "</bdi>")
+
 
 def normaliser(texte: str) -> str:
     """Espaces et sauts de ligne ramenés à une seule espace, apostrophe droite : la clé d'un texte du catalogue."""
@@ -71,11 +91,14 @@ class Catalogue:
     def __len__(self):
         return len(self.exact) + len(self.motifs)
 
-    def traduire(self, texte):
-        """La traduction d'un texte, ou None s'il n'y en a pas (le texte reste alors tel quel)."""
-        return self._traduire(normaliser(texte), 0)
+    def traduire(self, texte, isoler=False):
+        """La traduction d'un texte, ou None s'il n'y en a pas (le texte reste alors tel quel).
 
-    def _traduire(self, cle, profondeur):
+        isoler=True entoure d'un isolat de direction les valeurs non traduites (noms, classes...) qui se trouvent dans la phrase traduite.
+        """
+        return self._traduire(normaliser(texte), 0, isoler)
+
+    def _traduire(self, cle, profondeur, isoler=False):
         if not cle:
             return None
         if cle in self.exact:
@@ -84,7 +107,7 @@ class Catalogue:
             correspondance = motif.fullmatch(cle)
             if correspondance:
                 valeurs = {
-                    nom: self._traduire(normaliser(valeur), profondeur + 1) or valeur
+                    nom: self._traduire(normaliser(valeur), profondeur + 1, isoler) or (_isoler(valeur) if isoler else valeur)
                     for nom, valeur in correspondance.groupdict().items()
                 }
                 return TROU.sub(lambda trou: valeurs.get(f"g{trou.group(1)}", trou.group(0)), traduction)
@@ -93,9 +116,11 @@ class Catalogue:
         for separateur in SEPARATEURS:
             if separateur in cle:
                 parties = cle.split(separateur)
-                traduites = [self._traduire(partie, profondeur + 1) for partie in parties]
+                traduites = [self._traduire(partie, profondeur + 1, isoler) for partie in parties]
                 if any(traduite is not None for traduite in traduites):
-                    return separateur.join(partie if traduite is None else traduite for partie, traduite in zip(parties, traduites))
+                    return separateur.join(
+                        (_isoler(partie) if isoler else partie) if traduite is None else traduite for partie, traduite in zip(parties, traduites)
+                    )
         return None
 
 
@@ -131,13 +156,20 @@ def _traduire_attributs(balise: str, catalogue: Catalogue) -> str:
     return balise
 
 
-def _traduire_texte(texte: str, catalogue: Catalogue) -> str:
+def _traduire_texte(texte: str, catalogue: Catalogue, brut: bool = False) -> str:
     correspondance = re.fullmatch(r"(\s*)(.*?)(\s*)", texte, re.S)
     gauche, noyau, droite = correspondance.groups()
     if not noyau:
         return texte
-    traduction = catalogue.traduire(html.unescape(noyau))
-    return texte if traduction is None else f"{gauche}{html.escape(traduction, quote=False)}{droite}"
+    original = html.unescape(noyau)
+    traduction = catalogue.traduire(original, isoler=True)
+    if traduction is not None:
+        return f"{gauche}{_en_balises(html.escape(traduction, quote=False), brut)}{droite}"
+    debut, milieu, fin = ENTOURAGE.fullmatch(original).groups()  # ponctuation de bord : elle reste hors de l'isolat
+    if not A_ISOLER.search(milieu):
+        return texte
+    isole = f"{html.escape(debut, quote=False)}{_en_balises(_isoler(html.escape(milieu, quote=False)), brut)}{html.escape(fin, quote=False)}"
+    return f"{gauche}{isole}{droite}"
 
 
 def traduire_html(contenu: str, catalogue: Catalogue) -> str:
@@ -147,6 +179,8 @@ def traduire_html(contenu: str, catalogue: Catalogue) -> str:
     morceaux = JETONS.split(contenu)
     sortie = []
     protege = None  # [nom de la balise protégée, profondeur] : tout ce qu'elle contient reste tel quel (translate="no")
+    precedente = ""  # nom de la balise ouvrante qui précède le texte
+    dans_svg = 0
     for indice, morceau in enumerate(morceaux):
         if protege is not None:
             sortie.append(morceau)
@@ -158,8 +192,14 @@ def traduire_html(contenu: str, catalogue: Catalogue) -> str:
                         protege = None
             continue
         if indice % 2 == 0:
-            sortie.append(_traduire_texte(morceau, catalogue))
+            sortie.append(_traduire_texte(morceau, catalogue, brut=dans_svg > 0 or precedente in BALISES_DE_TEXTE_BRUT))
             continue
+        balise_courante = NOM_DE_BALISE.match(morceau)
+        if balise_courante:
+            nom_courant, fermante = balise_courante.group(2).lower(), bool(balise_courante.group(1))
+            precedente = "" if fermante else nom_courant
+            if nom_courant == "svg":
+                dans_svg = max(0, dans_svg - 1) if fermante else dans_svg + (0 if morceau.rstrip().endswith("/>") else 1)
         if not morceau.startswith(("<!--", "</")) and PROTEGE.search(morceau.partition(">")[0]):
             balise = NOM_DE_BALISE.match(morceau)
             sortie.append(morceau)

@@ -16,7 +16,7 @@ from django.test import SimpleTestCase, TestCase
 
 from comptes.templatetags.traductions import TEXTES_JS
 from comptes.traduction import (
-    DOSSIER_CATALOGUES, TROU, Catalogue, catalogue_pour, chaines_non_traduites, normaliser, textes_de_la_page, traduire_html,
+    DOSSIER_CATALOGUES, ISOLAT_DEBUT, ISOLAT_FIN, TROU, Catalogue, catalogue_pour, chaines_non_traduites, normaliser, textes_de_la_page, traduire_html,
 )
 
 
@@ -270,3 +270,84 @@ class CatalogueArabeTests(SimpleTestCase):
         self.assertEqual(self.catalogue.traduire("Bonjour, Mamadou"), "مرحبًا، Mamadou")
         self.assertEqual(self.catalogue.traduire("35 000 FCFA"), "35 000 فرنك CFA")
         self.assertEqual(self.catalogue.traduire("mai : 0 FCFA"), "مايو : 0 فرنك CFA")
+
+
+class IsolationDesDonneesTests(SimpleTestCase):
+    """
+    De droite à gauche, un texte latin mélangeant lettres, chiffres et parenthèses (« 10ème CM1 (2026-2027) ») est réordonné par le
+    navigateur (« ème CM1 (2026-2027) 10 »). Les données ne se traduisent pas : on les isole pour qu'elles gardent leur ordre.
+    """
+
+    def setUp(self):
+        self.c = Catalogue([
+            ("Élèves", "التلاميذ"), ("Fondateur", "المؤسس"), ("Bonjour, {0}", "مرحبًا، {0}"),
+            ("Élèves · {0}", "التلاميذ · {0}"),
+        ])
+
+    def html(self, page):
+        return traduire_html(page, self.c)
+
+    def brut(self, page):
+        """La page avec les isolats Unicode rendus visibles, pour comparer simplement."""
+        return self.html(page).replace(ISOLAT_DEBUT, "[").replace(ISOLAT_FIN, "]")
+
+    def test_une_donnee_latine_est_isolee_dans_une_balise_bdi(self):
+        self.assertEqual(self.html("<td>10ème CM1 (2026-2027)</td>"), "<td><bdi>10ème CM1 (2026-2027)</bdi></td>")
+        self.assertEqual(self.html("<td>Awa EXEMPLE</td>"), "<td><bdi>Awa EXEMPLE</bdi></td>")
+        self.assertEqual(self.html("<td>EL-2026/ab</td>"), "<td><bdi>EL-2026/ab</bdi></td>")
+
+    def test_un_numero_avec_plus_est_isole_mais_pas_les_nombres_ordinaires(self):
+        self.assertEqual(self.html("<td>+223 70 00 00 00</td>"), "<td><bdi>+223 70 00 00 00</bdi></td>")
+        for nombre in ("27", "1 460 000", "26001-1", "15/10/2026", "2026-2-1", "12,5"):
+            with self.subTest(nombre=nombre):
+                self.assertEqual(self.html(f"<td>{nombre}</td>"), f"<td>{nombre}</td>")  # un nombre se lit déjà de gauche à droite
+
+    def test_l_arabe_et_les_textes_traduits_ne_sont_pas_enveloppes(self):
+        self.assertEqual(self.html("<td>Élèves</td>"), "<td>التلاميذ</td>")
+        self.assertEqual(self.html("<td>أحمد بن علي</td>"), "<td>أحمد بن علي</td>")
+
+    def test_la_ponctuation_de_bord_reste_hors_de_l_isolat(self):
+        self.assertEqual(self.html("<span>Fondateur</span> - Mamadou Keïta"), "<span>المؤسس</span> - <bdi>Mamadou Keïta</bdi>")
+        self.assertEqual(self.html("<p>Réf. : AB-12 .</p>"), "<p><bdi>Réf. : AB-12</bdi> .</p>")
+
+    def test_une_valeur_dans_une_phrase_traduite_est_isolee(self):
+        self.assertEqual(self.html("<h1>Bonjour, Mamadou</h1>"), "<h1>مرحبًا، <bdi>Mamadou</bdi></h1>")
+        self.assertEqual(self.html("<p>Bonjour, 10ème CM1 (2026-2027)</p>"), "<p>مرحبًا، <bdi>10ème CM1 (2026-2027)</bdi></p>")
+        self.assertEqual(self.html("<p>Bonjour, 27</p>"), "<p>مرحبًا، 27</p>")  # un nombre n'a pas besoin d'isolat
+        self.assertEqual(self.html("<p>Élèves · 6ème A</p>"), "<p>التلاميذ · <bdi>6ème A</bdi></p>")
+
+    def test_un_morceau_inconnu_d_un_texte_decoupe_est_isole(self):
+        self.assertEqual(self.html("<p>Fondateur · Jeudi 15 octobre</p>"), "<p>المؤسس · <bdi>Jeudi 15 octobre</bdi></p>")
+
+    def test_la_ou_une_balise_est_interdite_les_isolats_sont_des_caracteres(self):
+        self.assertEqual(self.brut("<select><option>6ème A</option></select>"), "<select><option>[6ème A]</option></select>")
+        self.assertEqual(self.brut("<title>Élèves · Nexora</title>"), "<title>التلاميذ · [Nexora]</title>")
+        self.assertEqual(self.brut("<svg><text>CM1</text></svg>"), "<svg><text>[CM1]</text></svg>")
+        self.assertNotIn("<bdi>", self.html("<svg><text>CM1</text></svg><option>6ème A</option>"))
+
+    def test_apres_le_svg_ou_l_option_les_balises_reviennent(self):
+        self.assertEqual(
+            self.html("<svg><text>CM1</text></svg><td>6ème A</td><option>6ème A</option><td>6ème B</td>").count("<bdi>"), 2,
+        )
+
+    def test_un_svg_ferme_sur_lui_meme_ne_bloque_pas_les_balises_qui_suivent(self):
+        self.assertEqual(self.html('<svg width="1"/><td>Awa EXEMPLE</td>'), '<svg width="1"/><td><bdi>Awa EXEMPLE</bdi></td>')
+
+    def test_le_texte_protege_script_style_textarea_et_commentaire_reste_intact(self):
+        page = '<script>var a = "Awa EXEMPLE";</script><style>.a::after{content:"CM1"}</style><textarea>Awa EXEMPLE</textarea><!-- Awa EXEMPLE -->'
+        self.assertEqual(self.html(page), page)
+        protege = '<span translate="no">Awa EXEMPLE</span>'
+        self.assertEqual(self.html(protege), protege)
+
+    def test_les_caracteres_speciaux_sont_echappes_dans_l_isolat(self):
+        self.assertEqual(self.html("<td>Aminata &amp; Fils &lt;CM1&gt;</td>"), "<td><bdi>Aminata &amp; Fils &lt;CM1&gt;</bdi></td>")
+
+    def test_la_phrase_traduite_a_part_n_a_pas_de_caractere_invisible(self):
+        """Sans isoler=True (audit, tests, copie dans le tableur), la traduction reste du texte pur."""
+        self.assertEqual(self.c.traduire("Bonjour, Mamadou"), "مرحبًا، Mamadou")
+        self.assertEqual(self.c.traduire("Bonjour, Mamadou", isoler=True), f"مرحبًا، {ISOLAT_DEBUT}Mamadou{ISOLAT_FIN}")
+
+    def test_la_page_d_origine_en_francais_n_est_jamais_modifiee(self):
+        from comptes.traduction import Catalogue as Vide
+        page = "<td>10ème CM1 (2026-2027)</td>"
+        self.assertEqual(traduire_html(page, Vide([])), page)
