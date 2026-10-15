@@ -4,15 +4,17 @@ from django.contrib.auth import authenticate, login, logout, update_session_auth
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.views import PasswordResetConfirmView
+from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
+from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_encode
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
 from comptes.audit import enregistrer_action
+from comptes.langues import DUREE_COOKIE_LANGUE, NOM_COOKIE_LANGUE, langue_valide
 from comptes.mail import envoyer_email
 from comptes.decorators import role_requis
 from comptes.forms import (
@@ -21,6 +23,32 @@ from comptes.forms import (
 )
 from comptes.models import CodeVerificationEmail, Notification, Utilisateur, notifications_visibles_pour
 from comptes.roles import ROLES_DIRECTION_GENERALE, ROLES_VALIDATION_COMPTES, Role, StatutCompte
+
+
+# ---------------------------------------------------------------------------
+# Langue d'affichage (bouton « العربية » / « Français »)
+# ---------------------------------------------------------------------------
+
+@require_http_methods(["POST"])
+def changer_langue(request):
+    """
+    Change la langue d'affichage : mémorisée sur le compte (si connecté) et dans un cookie (visiteur ou pas). Ouverte aux
+    visiteurs (page de connexion) et à tout compte, même pendant une activation 2FA ou un changement de mot de passe obligatoire.
+    Le retour (`next`) n'est suivi que s'il reste sur ce site.
+    """
+    langue = request.POST.get("langue", "")
+    if not langue_valide(langue):
+        return HttpResponseBadRequest("Langue inconnue.")
+    retour = request.POST.get("next", "")
+    if not url_has_allowed_host_and_scheme(retour, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        retour = reverse("comptes:redirection_tableau_de_bord") if request.user.is_authenticated else reverse("vitrine:accueil")
+    if request.user.is_authenticated:
+        Utilisateur.objects.filter(pk=request.user.pk).update(langue=langue)
+    reponse = redirect(retour)
+    reponse.set_cookie(
+        NOM_COOKIE_LANGUE, langue, max_age=DUREE_COOKIE_LANGUE, samesite="Lax", secure=request.is_secure(), httponly=True,
+    )
+    return reponse
 
 
 # ---------------------------------------------------------------------------

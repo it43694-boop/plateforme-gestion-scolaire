@@ -1,12 +1,11 @@
 <!DOCTYPE html>
 {% load static %}
-<html lang="fr">
+<html lang="{{ LANGUAGE_CODE|default:'fr' }}" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accès refusé</title>
-    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
-    <link href="{% static 'css/toumai.css' %}" rel="stylesheet">
+    {% include "partials/feuilles_de_style.html" %}
 </head>
 <body>
 <div class="auth-scene">

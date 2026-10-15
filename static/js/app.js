@@ -1,3 +1,14 @@
+// Textes que ce script écrit lui-même : traduits par le serveur (voir comptes/templatetags/traductions.py), en français sinon.
+function t(texte) {
+    try {
+        var bloc = document.getElementById("textes-js");
+        var textes = bloc ? JSON.parse(bloc.textContent) : {};
+        return Object.prototype.hasOwnProperty.call(textes, texte) ? textes[texte] : texte;
+    } catch (erreur) {
+        return texte;
+    }
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("[data-imprimer]").forEach(function (bouton) {
         bouton.addEventListener("click", function () { window.print(); });
@@ -10,7 +21,7 @@ document.addEventListener("DOMContentLoaded", function () {
             var source = document.querySelector(bouton.getAttribute("data-copier"));
             if (!source) return;
             var fini = function () {
-                bouton.textContent = "Copié";
+                bouton.textContent = t("Copié");
                 setTimeout(function () { bouton.textContent = libelle; }, 2500);
             };
             var repli = function () { source.select(); document.execCommand("copy"); fini(); };
@@ -116,7 +127,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         if (!donnees.resultats.length) {
                             var vide = document.createElement("div");
                             vide.className = "recherche-resultat-vide";
-                            vide.textContent = "Aucun résultat.";
+                            vide.textContent = t("Aucun résultat.");
                             conteneurResultats.appendChild(vide);
                             conteneurResultats.style.display = "block";
                             return;
@@ -195,7 +206,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 .then(function (r) { return r.json(); })
                 .then(function (donnees) {
                     if (donnees.solde === null) { conteneur.style.display = "none"; return; }
-                    conteneur.textContent = "Solde de congés payés actuel : " + donnees.solde + " jour(s).";
+                    conteneur.textContent = t("Solde de congés payés actuel :") + " " + donnees.solde + " " + t("jour(s).");
                     conteneur.style.display = "block";
                 });
         });
@@ -271,7 +282,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (sessionExpiree) {
             conteneur.className = "alert alert-danger";
             conteneur.appendChild(document.createTextNode(
-                "Votre session a expiré : reconnectez-vous pour synchroniser " + enAttente + " saisie(s) en attente."
+                t("Votre session a expiré : reconnectez-vous pour synchroniser") + " " + enAttente + " " + t("saisie(s) en attente.")
             ));
             conteneur.style.display = "block";
             return;
@@ -287,12 +298,12 @@ document.addEventListener("DOMContentLoaded", function () {
         if (enAttente > 0) {
             conteneur.className = "alert alert-warning";
             conteneur.appendChild(document.createTextNode(
-                enAttente + " saisie(s) en attente de synchronisation (hors-ligne). "
+                enAttente + " " + t("saisie(s) en attente de synchronisation (hors-ligne).") + " "
             ));
             var bouton = document.createElement("button");
             bouton.type = "button";
             bouton.className = "btn btn-sm btn-outline-secondary";
-            bouton.textContent = "Synchroniser maintenant";
+            bouton.textContent = t("Synchroniser maintenant");
             bouton.addEventListener("click", function () { synchroniserFileHorsLigne(conteneur); });
             conteneur.appendChild(bouton);
             conteneur.style.display = "block";
@@ -428,7 +439,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
                     if (erreur && erreur.message === "erreur_serveur") {
                         conteneurEtat.className = "alert alert-danger";
-                        conteneurEtat.textContent = "Une erreur est survenue, la saisie n'a pas été enregistrée.";
+                        conteneurEtat.textContent = t("Une erreur est survenue, la saisie n'a pas été enregistrée.");
                         conteneurEtat.style.display = "block";
                         return;
                     }
@@ -519,7 +530,7 @@ document.addEventListener("DOMContentLoaded", function () {
             return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
         };
         var rafraichirLibelle = function () {
-            boutonTheme.textContent = estSombreActuellement() ? "Mode clair" : "Mode sombre";
+            boutonTheme.textContent = estSombreActuellement() ? t("Mode clair") : t("Mode sombre");
         };
         rafraichirLibelle();
         boutonTheme.addEventListener("click", function () {
@@ -759,14 +770,14 @@ document.addEventListener("DOMContentLoaded", function () {
         var bouton = document.createElement("button");
         bouton.type = "button";
         bouton.className = "bouton-oeil";
-        bouton.setAttribute("aria-label", "Afficher le mot de passe");
+        bouton.setAttribute("aria-label", t("Afficher le mot de passe"));
         bouton.setAttribute("aria-pressed", "false");
         bouton.innerHTML = OEIL;
         bouton.addEventListener("click", function () {
             var visible = champ.type === "password";
             champ.type = visible ? "text" : "password";
             bouton.setAttribute("aria-pressed", visible ? "true" : "false");
-            bouton.setAttribute("aria-label", visible ? "Masquer le mot de passe" : "Afficher le mot de passe");
+            bouton.setAttribute("aria-label", visible ? t("Masquer le mot de passe") : t("Afficher le mot de passe"));
             bouton.innerHTML = visible ? OEIL_BARRE : OEIL;
             champ.focus();
         });

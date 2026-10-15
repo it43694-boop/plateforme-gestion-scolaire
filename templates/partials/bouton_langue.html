@@ -1,0 +1,9 @@
+{% load icones %}{% if LANGUAGE_CODE == "ar" %}{% with autre="fr" nom="Français" %}
+<form method="post" action="{% url 'comptes:changer_langue' %}" class="bouton-langue-formulaire">{% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}"><input type="hidden" name="langue" value="{{ autre }}">
+    <button type="submit" class="bouton-langue" lang="{{ autre }}">{% icone "plateforme" 16 %}<span translate="no">{{ nom }}</span></button>
+</form>{% endwith %}{% else %}{% with autre="ar" nom="العربية" %}
+<form method="post" action="{% url 'comptes:changer_langue' %}" class="bouton-langue-formulaire">{% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}"><input type="hidden" name="langue" value="{{ autre }}">
+    <button type="submit" class="bouton-langue" lang="{{ autre }}">{% icone "plateforme" 16 %}<span translate="no">{{ nom }}</span></button>
+</form>{% endwith %}{% endif %}

@@ -94,6 +94,9 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # La langue dépend du compte connecté : après l'authentification ; la traduction, juste après elle.
+    "comptes.langue.LangueMiddleware",
+    "comptes.langue.TraductionMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Verrouillage de compte après tentatives de connexion échouées
@@ -125,6 +128,7 @@ TEMPLATES = [
             "context_processors": [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
+                "django.template.context_processors.i18n",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "comptes.context_processors.etablissement_actif",
@@ -198,6 +202,8 @@ MESSAGE_TAGS = {message_constants.ERROR: "danger"}
 # Internationalisation
 # ---------------------------------------------------------------------------
 LANGUAGE_CODE = "fr-fr"
+# Français (par défaut) et arabe (de droite à gauche) : voir comptes.langue et comptes.traduction.
+LANGUAGES = [("fr", "Français"), ("ar", "العربية")]
 TIME_ZONE = "Africa/Bamako"
 USE_I18N = True
 USE_TZ = True

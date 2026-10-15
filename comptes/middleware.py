@@ -51,7 +51,7 @@ class ForcerActivation2FAMiddleware:
     l'activation, jamais rester coincée sans issue.
     """
 
-    CHEMINS_EXEMPTES = {"/comptes/2fa/activer/", "/comptes/deconnexion/", "/healthz"}
+    CHEMINS_EXEMPTES = {"/comptes/2fa/activer/", "/comptes/deconnexion/", "/comptes/langue/", "/healthz"}
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -184,7 +184,7 @@ class ChangementMotDePasseObligatoireMiddleware:
     """
 
     CHEMINS_AUTORISES = (
-        "/comptes/changer-mot-de-passe/", "/comptes/deconnexion/", "/static/", "/healthz", "/sw.js",
+        "/comptes/changer-mot-de-passe/", "/comptes/deconnexion/", "/comptes/langue/", "/static/", "/healthz", "/sw.js",
         "/manifest.webmanifest", "/mentions-legales/", "/conditions-d-utilisation/", "/confidentialite/",
     )
 

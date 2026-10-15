@@ -17,3 +17,6 @@ sauvegarde_*/
 sauvegardes/
 backups/
 *.dump
+
+# Tableau de relecture des traductions (produit par exporter_traductions)
+traductions_*.xlsx

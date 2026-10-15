@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 {% load static icones %}
-<html lang="fr">
+<html lang="{{ LANGUAGE_CODE|default:'fr' }}" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,8 +24,7 @@
             } catch (e) {}
         })();
     </script>
-    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
-    <link href="{% static 'css/toumai.css' %}" rel="stylesheet">
+    {% include "partials/feuilles_de_style.html" %}
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -79,6 +78,7 @@
             </form>
             {% endif %}
             <div class="topbar-utilisateur">
+                {% include "partials/bouton_langue.html" %}
                 <a class="topbar-cloche" href="{% url 'comptes:liste_notifications' %}"
                    aria-label="Notifications{% if notifications_non_lues %} : {{ notifications_non_lues }} non lue{{ notifications_non_lues|pluralize }}{% endif %}">
                     {% icone "cloche" 19 %}{% if notifications_non_lues %}<span class="nav-pastille topbar-pastille" aria-hidden="true">{% if notifications_non_lues > 99 %}99+{% else %}{{ notifications_non_lues }}{% endif %}</span>{% endif %}
@@ -142,6 +142,7 @@
         {% endif %}
     </div>
 </div>
+{% load traductions %}{% textes_js %}
 <script src="{% static 'js/app.js' %}" defer></script>
 </body>
 </html>

@@ -1,0 +1,109 @@
+/* =========================================================================
+   Arabe : sens de lecture de droite à gauche (chargée après toumai.css, seulement quand la page est en arabe)
+
+   Bootstrap est servi dans sa variante RTL (bootstrap.rtl.min.css : marges, alignements et utilitaires déjà inversés). Ce fichier
+   reprend les règles de toumai.css qui nomment « gauche » ou « droite » et choisit la police arabe (Cairo, sous-ensemble arabe
+   hébergé ici ; les lettres latines et les chiffres restent en Public Sans). Rien ici ne s'applique au français.
+   ========================================================================= */
+
+@font-face {
+  font-family: 'Cairo';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/cairo-variable-arabic.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
+:root[dir="rtl"] {
+  --police-affichage: 'Cairo', 'Fraunces', Georgia, serif;
+  --police-texte: 'Cairo', 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, sans-serif;
+}
+:root[dir="rtl"], :root[dir="rtl"] body { font-size: 16px; line-height: 1.7; }
+/* Les lettres arabes se relient : aucun espacement entre les lettres, jamais. */
+[dir="rtl"] * { letter-spacing: normal !important; }
+[dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] h4 { font-weight: 700; line-height: 1.4; }
+
+/* --- Positions et marges ------------------------------------------------------------------------------------------- */
+[dir="rtl"] .bouton-en-cours { padding-left: revert; padding-right: 2.1rem !important; }
+[dir="rtl"] .bouton-en-cours::before { left: auto; right: 0.85rem; }
+[dir="rtl"] .lien-saut { left: auto; right: 0; border-radius: 0 0 0 var(--rayon-controle); }
+[dir="rtl"] .topbar-utilisateur { margin-left: 0; margin-right: auto; }
+[dir="rtl"] .toasts-conteneur { right: auto; left: 1.2rem; }
+@media (max-width: 520px) {
+  [dir="rtl"] .toasts-conteneur { left: 1rem; right: 1rem; }
+}
+
+/* Le menu latéral passe à droite (le flux de la page est déjà inversé) ; sur téléphone il glisse depuis la droite */
+[dir="rtl"] .sidebar { border-right: none; border-left: 1px solid var(--bord-sidebar, transparent); }
+@media (max-width: 900px) {
+  [dir="rtl"] .sidebar { right: 0; left: auto; transform: translateX(100%); }
+  [dir="rtl"] .sidebar.ouvert { transform: translateX(0); box-shadow: -20px 0 40px rgba(0, 0, 0, 0.25); }
+}
+
+[dir="rtl"] .emploi-creneau, [dir="rtl"] .alertes-tableau-bord { border-left: none; }
+[dir="rtl"] .emploi-creneau { border-right: 3px solid var(--gold-500); }
+[dir="rtl"] .alertes-tableau-bord { border-right: 3px solid var(--gold-400); }
+[dir="rtl"] .recherche-resultat-item, [dir="rtl"] .annuaire-item, [dir="rtl"] .menu-compte-entree, [dir="rtl"] .message-bulle { text-align: right; }
+[dir="rtl"] .solde-affichage, [dir="rtl"] .message-ligne.propre { text-align: left; }
+[dir="rtl"] .vitrine-nav-liens a { margin-right: 0; margin-left: 1.8rem; }
+[dir="rtl"] .vitrine-nav-liens a:last-child { margin-left: 0; }
+[dir="rtl"] .guide-role-etapes, [dir="rtl"] .liste-instructions, [dir="rtl"] .legal-page ul, [dir="rtl"] .plan-detail {
+  padding-left: 0; padding-right: 1.25rem;
+}
+[dir="rtl"] label > .form-check-input { margin-right: 0; margin-left: 0.5rem; }
+[dir="rtl"] .stat-unite { margin-left: 0; margin-right: 0.15em; }
+[dir="rtl"] .badge.bg-success::before, [dir="rtl"] .badge.bg-warning::before, [dir="rtl"] .badge.bg-danger::before { margin-right: 0; margin-left: 0.4em; }
+[dir="rtl"] .mots-a-inserer-titre { margin-right: 0; margin-left: 0.15rem; }
+[dir="rtl"] .champ-note-conduite { margin-left: 0; margin-right: auto; text-align: left; }
+
+/* Les éléments qui grandissent « depuis le début » partent de la droite */
+[dir="rtl"] .barre-chargement, [dir="rtl"] .page-header h1::after, [dir="rtl"] .toast-message::after { transform-origin: right; }
+
+/* Liens du menu : trait doré à droite, glissement vers l'intérieur, apparition depuis la droite */
+[dir="rtl"] .nav-lien::before { left: auto; right: -0.85rem; border-radius: 3px 0 0 3px; }
+[dir="rtl"] .nav-lien:hover { padding-left: 0.6rem; padding-right: 0.85rem; }
+@keyframes nav-entree-rtl { from { opacity: 0; transform: translateX(10px); } }
+[dir="rtl"] .nav-section { animation-name: nav-entree-rtl; }
+[dir="rtl"] .nav-section-titre .nav-chevron { margin-left: 0; margin-right: auto; transform: rotate(90deg); }
+[dir="rtl"] details[open] > .nav-section-titre .nav-chevron { transform: rotate(0deg); }
+[dir="rtl"] .nav-pastille { margin-left: 0; margin-right: auto; }
+[dir="rtl"] .topbar-pastille { right: auto; left: -2px; }
+
+/* Reflet du bouton principal : il balaie de la droite vers la gauche */
+[dir="rtl"] .btn-primary::after { left: auto; right: -60%; }
+@media (hover: hover) {
+  [dir="rtl"] .btn-primary:hover::after { transform: skewX(-18deg) translateX(-420%); }
+}
+
+/* Menu du compte : ouvert vers la gauche de l'avatar, trait doré à droite de l'entrée survolée */
+[dir="rtl"] .menu-compte-panneau { right: auto; left: 0; transform-origin: top left; }
+[dir="rtl"] .menu-compte-panneau::before { right: auto; left: 18px; }
+[dir="rtl"] .menu-compte-entree:hover, [dir="rtl"] .menu-compte-entree:focus-visible {
+  box-shadow: inset -2px 0 0 var(--gold-500); padding-left: 0.7rem; padding-right: 0.9rem;
+}
+
+/* Mot de passe : l'œil passe à gauche du champ */
+[dir="rtl"] .champ-mot-de-passe input { padding-right: 0.75rem; padding-left: 2.9rem; }
+[dir="rtl"] .bouton-oeil { right: auto; left: 0.3rem; }
+
+/* Défilement du bandeau d'accueil : de gauche à droite (le contenu part du bord droit) */
+@keyframes vitrine-defile-rtl { from { transform: translateX(0); } to { transform: translateX(50%); } }
+[dir="rtl"] .vitrine-ticker-piste { animation-name: vitrine-defile-rtl; }
+
+/* Cartes des tableaux sur téléphone : libellé à droite, valeur à gauche */
+@media (max-width: 720px) {
+  [dir="rtl"] .table-cartes tbody td { text-align: left; }
+  [dir="rtl"] .table-cartes tbody td::before { text-align: right; }
+}
+
+/* Graphiques : les barres grandissent depuis la droite ; chiffres et pourcentages côté « fin » (la gauche) */
+[dir="rtl"] .barre-svg { transform: scaleX(-1); }
+[dir="rtl"] .legende-pourcentage, [dir="rtl"] .barre-valeur { text-align: left; }
+[dir="rtl"] .sous-menu .nav-lien-stats.actif { box-shadow: inset -3px 0 0 var(--gold-500); }
+
+/* Bouton de langue : sur la page de connexion et l'accueil il se place en haut, du côté « fin » de la page */
+[dir="rtl"] .auth-langue { right: auto; left: 1rem; }
+
+/* Une unité de montant (« فرنك CFA ») ne se coupe pas en deux lignes */
+[dir="rtl"] .stat-unite { white-space: nowrap; }

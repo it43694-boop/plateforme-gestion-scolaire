@@ -133,6 +133,10 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
         self.fields["situation_fonctionnement"].required = False
         # Même principe pour le coefficient de la conduite : absent ou vide, il garde la valeur actuelle.
         self.fields["coefficient_conduite"].required = False
+        self.fields["langue_par_defaut"].required = False
+
+    def clean_langue_par_defaut(self):
+        return self.cleaned_data.get("langue_par_defaut") or self.instance.langue_par_defaut or "fr"
 
     def clean_coefficient_conduite(self):
         valeur = self.cleaned_data.get("coefficient_conduite")
@@ -152,7 +156,7 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Etablissement
         fields = [
-            "nom", "devise", "logo", "code_devise", "pas_montant", "coefficient_conduite", "email_facturation", "telephone_facturation",
+            "nom", "devise", "logo", "code_devise", "pas_montant", "coefficient_conduite", "email_facturation", "telephone_facturation", "langue_par_defaut",
             "code_etablissement", "statut_juridique", "region", "cercle", "commune", "milieu",
             "rattachement_administratif", "numero_agrement",
             "situation_fonctionnement", "motif_fermeture", "date_situation",

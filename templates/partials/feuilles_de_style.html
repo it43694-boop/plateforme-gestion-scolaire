@@ -1,0 +1,3 @@
+{% load static %}{% if LANGUAGE_BIDI %}<link href="{% static 'css/bootstrap.rtl.min.css' %}" rel="stylesheet">{% else %}<link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">{% endif %}
+    <link href="{% static 'css/toumai.css' %}" rel="stylesheet">
+    {% if LANGUAGE_BIDI %}<link href="{% static 'css/toumai-rtl.css' %}" rel="stylesheet">{% endif %}

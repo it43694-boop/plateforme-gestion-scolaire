@@ -11,6 +11,7 @@ urlpatterns = [
     path("renvoyer-code/", views.renvoyer_code, name="renvoyer_code"),
 
     path("connexion/", views.connexion, name="connexion"),
+    path("langue/", views.changer_langue, name="changer_langue"),
     path("connexion/2fa/", views.verifier_2fa, name="verifier_2fa"),
     path("deconnexion/", views.deconnexion, name="deconnexion"),
     path("acces-delegue/quitter/", views.quitter_acces_delegue, name="quitter_acces_delegue"),

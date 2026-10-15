@@ -1790,3 +1790,24 @@ details[open] > .nav-section-titre .nav-chevron { transform: rotate(0deg); }
   .sous-menu .nav-lien-stats { min-height: 44px; }
   .alerte-details a.badge { padding: 0.65em 0.9em; }
 }
+
+
+/* Bouton de langue : « العربية » depuis le français, « Français » depuis l'arabe */
+.bouton-langue-formulaire { display: inline-flex; margin: 0; }
+.bouton-langue {
+  display: inline-flex; align-items: center; gap: 0.45rem; min-height: 34px; padding: 0.3rem 0.85rem; border-radius: 999px;
+  border: 1px solid var(--line-300); background: transparent; color: var(--ink-700); font: inherit; font-size: 0.86rem;
+  font-weight: 600; cursor: pointer; transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.bouton-langue .icone-svg { width: 16px; height: 16px; }
+.bouton-langue:hover { background: var(--paper-050); color: var(--texte-principal); border-color: var(--gold-500); }
+.bouton-langue:focus-visible { outline: 2px solid var(--gold-500); outline-offset: 2px; }
+.auth-langue, .page-langue { position: absolute; top: 1rem; right: 1rem; z-index: 5; }
+.page-langue { position: fixed; }
+.vitrine-nav-actions { display: flex; align-items: center; gap: 0.9rem; }
+.annuaire-langue { margin-top: auto; padding-top: 1rem; }
+.auth-langue .bouton-langue, .page-langue .bouton-langue, .vitrine-nav .bouton-langue, .annuaire-langue .bouton-langue,
+.legal-entete .bouton-langue { color: #E7EAF2; border-color: rgba(255, 255, 255, 0.3); }
+.auth-langue .bouton-langue:hover, .page-langue .bouton-langue:hover, .vitrine-nav .bouton-langue:hover,
+.annuaire-langue .bouton-langue:hover, .legal-entete .bouton-langue:hover { background: rgba(255, 255, 255, 0.1); color: #fff; border-color: var(--gold-400); }
+@media (max-width: 900px), (pointer: coarse) { .bouton-langue { min-height: 40px; } }

@@ -10,6 +10,7 @@ from django.core.validators import MaxValueValidator
 from django.db import models
 from django.utils import timezone
 
+from comptes.langues import LANGUES
 from comptes.roles import Role, StatutCompte
 
 
@@ -184,6 +185,10 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
         "téléphone", max_length=20, unique=True, null=True, blank=True,
     )
     profession = models.CharField("profession", max_length=150, blank=True)
+    langue = models.CharField(
+        "langue d'affichage", max_length=2, blank=True, choices=LANGUES,
+        help_text="Choisie avec le bouton de langue ; vide : la langue par défaut de l'école.",
+    )
     statut_personnel = models.CharField(
         "situation administrative", max_length=30, choices=StatutPersonnel.choices, blank=True,
     )

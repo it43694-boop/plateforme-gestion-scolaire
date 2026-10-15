@@ -5,6 +5,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 
+from comptes.langues import LANGUES
 from comptes.uploads import chemin_upload_unique
 from comptes.validators import valider_contenu_fichier, valider_taille_image_2mo
 
@@ -115,6 +116,11 @@ class Etablissement(models.Model):
         "numéro WhatsApp pour les factures", max_length=20, blank=True,
         help_text="Numéro auquel le bouton WhatsApp de la liste des factures d'abonnement écrit (8 chiffres au Mali, ou format "
                    "international). Laissé vide, le numéro d'un compte de direction de l'école est utilisé s'il en a un.",
+    )
+    langue_par_defaut = models.CharField(
+        "langue par défaut", max_length=2, choices=LANGUES, default="fr",
+        help_text="Langue dans laquelle s'ouvrent les pages de l'école pour qui n'a pas choisi la sienne (bouton de langue). "
+                   "Une école entièrement arabe choisit « العربية ».",
     )
     actif = models.BooleanField(
         "établissement actif", default=True,
