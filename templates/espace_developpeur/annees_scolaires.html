@@ -30,8 +30,8 @@
             <div class="card-body">
                 <p class="titre-section">Années existantes</p>
                 {% if annees %}
-                <table class="table">
-                    <thead><tr><th>Libellé</th><th>Période</th><th>Statut</th><th></th></tr></thead>
+                <table class="table table-cartes">
+                    <thead><tr><th>Libellé</th><th>Période</th><th>Statut</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
                     <tbody>
                         {% for annee in annees %}
                         <tr>

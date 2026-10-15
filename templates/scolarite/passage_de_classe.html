@@ -61,7 +61,7 @@
                     <tr>
                         <td>{{ inscription.eleve.nom_complet }} <span class="text-muted">({{ inscription.eleve.matricule }})</span></td>
                         <td>
-                            <select name="decision_{{ inscription.id }}" class="form-select form-select-sm mw-200">
+                            <select name="decision_{{ inscription.id }}" class="form-select form-select-sm mw-200" aria-label="Décision pour {{ inscription.eleve.nom_complet }}">
                                 <option value="admis" selected>Admis</option>
                                 <option value="redouble">Redouble</option>
                                 <option value="transfere">Transféré / parti</option>

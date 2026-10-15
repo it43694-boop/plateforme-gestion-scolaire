@@ -20,8 +20,8 @@
 <div class="card">
     <div class="card-body">
         {% if salaires %}
-        <table class="table">
-            <thead><tr><th>Employé</th><th>Période</th><th class="text-end">Montant</th><th>Statut</th><th>Référence</th><th></th></tr></thead>
+        <table class="table table-cartes">
+            <thead><tr><th>Employé</th><th>Période</th><th class="text-end">Montant</th><th>Statut</th><th>Référence</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
             <tbody>
                 {% for salaire in salaires %}
                 <tr>

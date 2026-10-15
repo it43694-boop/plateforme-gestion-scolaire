@@ -1,0 +1,10 @@
+<div class="graphique graphique-colonnes" role="group" aria-label="{{ titre }}">
+    {% for colonne in figure.colonnes %}
+    <div class="colonne{% if colonne.courant %} colonne-courante{% endif %}" title="{{ colonne.libelle }} : {{ colonne.complet }}">
+        <span class="colonne-libelle">{{ colonne.libelle }}</span>
+        <span class="colonne-valeur"><span class="visually-hidden">{{ colonne.complet }}</span><span aria-hidden="true">{{ colonne.texte }}</span></span>
+        <svg class="colonne-svg" viewBox="0 0 10 100" preserveAspectRatio="none" aria-hidden="true" focusable="false"><rect class="colonne-fond" x="0" y="0" width="10" height="100"/><rect class="colonne-rect" x="0" y="{{ colonne.y }}" width="10" height="{{ colonne.hauteur }}"/></svg>
+    </div>
+    {% endfor %}
+</div>
+{% if figure.vide %}<p class="graphique-vide">Rien d'encaissé sur cette période.</p>{% endif %}

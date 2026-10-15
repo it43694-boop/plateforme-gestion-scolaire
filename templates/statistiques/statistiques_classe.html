@@ -1,5 +1,5 @@
 {% extends "statistiques/base_statistiques.html" %}
-{% load icones %}
+{% load icones graphiques %}
 {% block contenu_stats %}
 <div class="page-header">
     <div class="page-header-titre">
@@ -10,7 +10,7 @@
 <div class="card mb-3">
     <div class="card-body">
         <table class="table">
-            <thead><tr><th></th><th class="text-end">Garçons</th><th class="text-end">Filles</th><th class="text-end">Total</th></tr></thead>
+            <thead><tr><th><span class="visually-hidden">Catégorie</span></th><th class="text-end">Garçons</th><th class="text-end">Filles</th><th class="text-end">Total</th></tr></thead>
             <tbody>
                 <tr>
                     <td>Effectif</td>
@@ -20,6 +20,13 @@
                 </tr>
             </tbody>
         </table>
+    </div>
+</div>
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="carte-graphique-titre">Garçons et filles</h2>
+        <p class="carte-graphique-sous-titre">Élèves inscrits dans cette classe</p>
+        {% graphique_anneau repartition_sexe_graphique "Répartition des garçons et des filles" %}
     </div>
 </div>
 <div class="row g-3">

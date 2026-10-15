@@ -12,7 +12,7 @@
     <link href="{% static 'css/toumai.css' %}" rel="stylesheet">
 </head>
 <body class="corps-page-centree">
-<div class="aucun-etablissement-cadre">
+<main class="aucun-etablissement-cadre">
     <img src="{% static 'img/logo-nexora.png' %}" alt="" class="aucun-etablissement-logo">
     <h1 class="aucun-etablissement-titre">{{ nom_commercial }}</h1>
     <p class="aucun-etablissement-texte">
@@ -21,6 +21,6 @@
     <a href="{% url 'comptes:connexion' %}" class="btn-hero-secondaire d-inline-block">
         Se connecter avec un compte propriétaire de la plateforme
     </a>
-</div>
+</main>
 </body>
 </html>

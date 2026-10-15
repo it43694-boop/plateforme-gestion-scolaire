@@ -15,9 +15,9 @@
 <div class="card">
     <div class="card-body">
         {% if candidats %}
-        <table class="table">
+        <table class="table table-cartes">
             <thead>
-                <tr><th>Candidat</th><th>Classe visée</th><th>Date du test</th><th class="text-end">Note</th><th>Décision</th><th></th></tr>
+                <tr><th>Candidat</th><th>Classe visée</th><th>Date du test</th><th class="text-end">Note</th><th>Décision</th><th><span class="visually-hidden">Actions</span></th></tr>
             </thead>
             <tbody>
                 {% for candidat in candidats %}

@@ -372,7 +372,7 @@ def redirection_tableau_de_bord(request):
     page confirme le rôle et les modules autorisés (utile pour vérifier la
     matrice de permissions).
     """
-    from django.db.models import Sum
+    from django.db.models import Count, Sum
     from permissions_matrix.models import PermissionMatrix
     from permissions_matrix.modules import Module
     from comptes.models import Notification
@@ -383,7 +383,6 @@ def redirection_tableau_de_bord(request):
         return redirect("espace_plateforme:liste_etablissements")
 
     valeurs_autorisees = PermissionMatrix.modules_autorises(request.user.role, etablissement=request.user.etablissement)
-    modules = [m.label for m in Module if m.value in valeurs_autorisees]
     if request.user.role == Role.PARENT:
         return redirect("comptes:portail_parent")
 
@@ -398,14 +397,15 @@ def redirection_tableau_de_bord(request):
             ).count(),
             "icone": "eleves", "couleur": "bleu",
         })
-        actions_rapides.append({"label": "Voir les élèves", "url": "scolarite:liste_eleves"})
+        from scolarite.views import ROLES_INSCRIPTION_ELEVE_INTERDITE
+        if request.user.role not in ROLES_INSCRIPTION_ELEVE_INTERDITE:
+            actions_rapides.append({"label": "Inscrire un élève", "url": "scolarite:inscrire_eleve"})
     if Module.CLASSES.value in valeurs_autorisees:
         indicateurs.append({
             "label": "Classes actives",
             "valeur": classes.filter(annee_scolaire__est_active=True).count(),
             "icone": "pedagogie", "couleur": "or",
         })
-        actions_rapides.append({"label": "Gérer les classes", "url": "scolarite:liste_classes"})
     if Module.FINANCES.value in valeurs_autorisees:
         from django.contrib.humanize.templatetags.humanize import intcomma
         from finances.models import Paiement
@@ -417,7 +417,7 @@ def redirection_tableau_de_bord(request):
             "label": "Encaissements", "valeur": f"{intcomma(total)} {devise}",
             "icone": "finances", "couleur": "vert",
         })
-        actions_rapides.append({"label": "Suivre les paiements", "url": "finances:suivi_paiements"})
+        actions_rapides.append({"label": "Enregistrer un paiement", "url": "finances:enregistrer_paiement"})
     if Module.ABSENCES.value in valeurs_autorisees:
         from pedagogie.models import Absence
         indicateurs.append({
@@ -425,17 +425,47 @@ def redirection_tableau_de_bord(request):
             "valeur": Absence.objects.filter(classe__in=classes).count(),
             "icone": "alerte", "couleur": "rouge",
         })
-    if Module.SUIVI_DES_COURS.value in valeurs_autorisees:
-        actions_rapides.append({"label": "Suivi des cours", "url": "pedagogie:suivi_des_cours"})
     if Module.COMMUNICATION.value in valeurs_autorisees:
-        actions_rapides.append({"label": "Publier une annonce", "url": "communication:publier_annonce"})
+        from communication.views import ROLES_PUBLICATION_ANNONCE_INTERDITE
+        if request.user.role not in ROLES_PUBLICATION_ANNONCE_INTERDITE:
+            actions_rapides.append({"label": "Publier une annonce", "url": "communication:publier_annonce"})
+    if request.user.role in {r.value for r in ROLES_VALIDATION_COMPTES}:
+        a_valider = Utilisateur.objects.filter(
+            statut=StatutCompte.EN_ATTENTE_VALIDATION, etablissement=request.user.etablissement,
+        ).count()
+        if a_valider:
+            indicateurs.append({
+                "label": "Comptes à valider", "valeur": a_valider, "icone": "alerte", "couleur": "or",
+                "url": "comptes:comptes_en_attente",
+            })
+
+    # Graphiques : mêmes droits que les chiffres au-dessus (encaissements si le module Finances est ouvert, effectifs des
+    # classes que ce rôle voit, cloisonnement par cycle compris).
+    graphiques = {}
+    if Module.FINANCES.value in valeurs_autorisees and request.user.etablissement_id:
+        from comptes.graphiques import encaissements_par_mois
+        graphiques["encaissements"] = encaissements_par_mois(request.user.etablissement)
+        graphiques["devise"] = getattr(request.user.etablissement, "code_devise", "FCFA")
+    if Module.ELEVES.value in valeurs_autorisees:
+        actives = list(classes.filter(annee_scolaire__est_active=True))
+        effectifs = dict(
+            Inscription.objects.filter(classe__in=actives, statut=Inscription.Statut.EN_COURS)
+            .values_list("classe_id").annotate(n=Count("id"))
+        )
+        lignes = [(classe.id, classe.nom, effectifs.get(classe.id, 0)) for classe in actives]
+        graphiques["effectifs_limites"] = len(lignes) > 10
+        if len(lignes) > 10:  # les dix plus grandes classes, présentées dans l'ordre habituel des classes
+            plus_grandes = {i for i, _, _ in sorted(lignes, key=lambda ligne: -ligne[2])[:10]}
+            lignes = [ligne for ligne in lignes if ligne[0] in plus_grandes]
+        graphiques["effectifs"] = [(nom, n) for _, nom, n in lignes]
 
     from assistant.alertes import construire_alertes
     alertes = construire_alertes(request.user)
     synthese_alertes = _synthese_alertes_en_cache(request.user, alertes) if alertes else ""
 
     return render(request, "comptes/tableau_de_bord.html", {
-        "modules": modules, "indicateurs": indicateurs, "actions_rapides": actions_rapides,
+        "indicateurs": indicateurs, "actions_rapides": actions_rapides, "graphiques": graphiques,
+        "aucun_module": not valeurs_autorisees,
         "alertes": alertes, "synthese_alertes": synthese_alertes,
         "notifications": notifications_visibles_pour(request.user).filter(lue_le__isnull=True)[:5],
     })

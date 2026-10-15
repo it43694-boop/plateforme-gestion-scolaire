@@ -49,16 +49,17 @@
         <nav>
             <div class="nav-section">
                 <a class="nav-lien {% if request.resolver_match.view_name == 'comptes:redirection_tableau_de_bord' %}actif{% endif %}"
-                   href="{% url 'comptes:redirection_tableau_de_bord' %}">{% icone "accueil" %} Tableau de bord</a>
+                   href="{% url 'comptes:redirection_tableau_de_bord' %}">{% icone "accueil" 17 %} <span class="nav-lien-texte">Tableau de bord</span></a>
             </div>
             {% for section in sections_navigation %}
-            <div class="nav-section">
-                <div class="nav-section-titre">{% icone section.icone %} {{ section.titre }}</div>
+            <details class="nav-section" data-nav-section="{{ section.titre|slugify }}" open>
+                <summary class="nav-section-titre">{% icone section.icone %} <span>{{ section.titre }}</span>
+                    <span class="nav-chevron">{% icone "chevron" 14 %}</span></summary>
                 {% for lien in section.liens %}
                 <a class="nav-lien {% if request.resolver_match.view_name == lien.url %}actif{% endif %}"
-                   href="{% url lien.url %}">{{ lien.label }}</a>
+                   href="{% url lien.url %}">{% icone lien.icone 17 %} <span class="nav-lien-texte">{{ lien.label }}</span>{% if lien.compteur %}<span class="nav-pastille" aria-label="{{ lien.compteur }} non lue{{ lien.compteur|pluralize }}">{% if lien.compteur > 99 %}99+{% else %}{{ lien.compteur }}{% endif %}</span>{% endif %}</a>
                 {% endfor %}
-            </div>
+            </details>
             {% endfor %}
         </nav>
 
@@ -69,7 +70,7 @@
 
     <div class="app-main">
         <header class="topbar">
-            <button class="bouton-menu-mobile" aria-label="Menu">☰</button>
+            <button class="bouton-menu-mobile" aria-label="Menu" aria-controls="sidebar" aria-expanded="false">{% icone "menu" 20 %}</button>
             {% if user.is_authenticated %}
             {% if peut_rechercher_eleves %}
             <form method="get" action="{% url 'scolarite:recherche_globale' %}" class="topbar-recherche" role="search">
@@ -78,6 +79,10 @@
             </form>
             {% endif %}
             <div class="topbar-utilisateur">
+                <a class="topbar-cloche" href="{% url 'comptes:liste_notifications' %}"
+                   aria-label="Notifications{% if notifications_non_lues %} : {{ notifications_non_lues }} non lue{{ notifications_non_lues|pluralize }}{% endif %}">
+                    {% icone "cloche" 19 %}{% if notifications_non_lues %}<span class="nav-pastille topbar-pastille" aria-hidden="true">{% if notifications_non_lues > 99 %}99+{% else %}{{ notifications_non_lues }}{% endif %}</span>{% endif %}
+                </a>
                 <span class="topbar-identite"><span class="role">{{ user.get_role_display }}</span> - {{ user.nom_complet }}</span>
                 <details class="menu-compte" data-menu-compte>
                     <summary class="menu-compte-declencheur" aria-label="Mon compte">

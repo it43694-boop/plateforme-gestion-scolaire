@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load icones %}
+{% load icones graphiques %}
 {% block titre %}Tableau de bord{% endblock %}
 {% block contenu %}
 <div class="page-header">
@@ -29,6 +29,14 @@
 </div></div>
 {% endif %}
 
+{% if actions_rapides %}
+<div class="raccourcis mb-4">
+    {% for action in actions_rapides %}
+    <a href="{% url action.url %}" class="btn btn-outline-primary btn-sm">{{ action.label }}</a>
+    {% endfor %}
+</div>
+{% endif %}
+
 <div class="row g-3 mb-4">
     {% for indicateur in indicateurs %}
     <div class="col-12 col-sm-6 col-xl-3">
@@ -38,20 +46,33 @@
                 <div class="stat-carte-valeur" data-compteur>{{ indicateur.valeur }}</div>
                 <div class="stat-carte-label">{{ indicateur.label }}</div>
             </div>
+            {% if indicateur.url %}<a href="{% url indicateur.url %}" class="stretched-link" aria-label="{{ indicateur.label }} : {{ indicateur.valeur }}"></a>{% endif %}
         </div></div>
     </div>
     {% endfor %}
 </div>
 
-{% if actions_rapides %}
-<div class="card mb-4"><div class="card-body">
-    <h2 class="h5">Actions rapides</h2>
-    <div class="d-flex flex-wrap gap-2">
-        {% for action in actions_rapides %}
-        <a href="{% url action.url %}" class="btn btn-outline-primary">{{ action.label }}</a>
-        {% endfor %}
+{% if graphiques.encaissements or graphiques.effectifs %}
+<div class="row g-3 mb-4">
+    {% if graphiques.encaissements %}
+    <div class="col-12 {% if graphiques.effectifs %}col-xl-7{% endif %}">
+        <div class="card h-100"><div class="card-body">
+            <h2 class="carte-graphique-titre">Encaissements des 6 derniers mois</h2>
+            <p class="carte-graphique-sous-titre">En {{ graphiques.devise }} (k = milliers, M = millions) · le mois en cours est en or</p>
+            {% graphique_colonnes graphiques.encaissements "Encaissements par mois" graphiques.devise %}
+        </div></div>
     </div>
-</div></div>
+    {% endif %}
+    {% if graphiques.effectifs %}
+    <div class="col-12 {% if graphiques.encaissements %}col-xl-5{% endif %}">
+        <div class="card h-100"><div class="card-body">
+            <h2 class="carte-graphique-titre">Effectifs par classe</h2>
+            <p class="carte-graphique-sous-titre">{% if graphiques.effectifs_limites %}Les 10 plus grandes classes{% else %}Élèves inscrits aujourd'hui{% endif %}</p>
+            {% graphique_barres graphiques.effectifs "Effectifs par classe" %}
+        </div></div>
+    </div>
+    {% endif %}
+</div>
 {% endif %}
 
 {% if notifications %}
@@ -66,22 +87,15 @@
 </div></div>
 {% endif %}
 
+{% if aucun_module %}
 <div class="card">
     <div class="card-body">
-        <p class="titre-section">Modules auxquels vous avez accès</p>
-        {% if modules %}
-        <div class="d-flex flex-wrap gap-2">
-            {% for module in modules %}
-            <span class="badge bg-secondary">{{ module }}</span>
-            {% endfor %}
-        </div>
-        {% else %}
         <div class="etat-vide">
             <p>Aucun module ne vous est encore attribué. Contactez le développeur.</p>
         </div>
-        {% endif %}
     </div>
 </div>
+{% endif %}
 
 {% if user.role == "developpeur" and user.etablissement_id %}
 <div class="card mt-3">

@@ -40,6 +40,48 @@ def etablissement_actif(request):
     return {"etablissement": None}
 
 
+# Icône de chaque lien du menu latéral, par nom d'adresse ; un lien inconnu reçoit un simple point.
+ICONES_DES_LIENS = {
+    "comptes:liste_notifications": "cloche",
+    "scolarite:liste_eleves": "eleves",
+    "scolarite:inscrire_eleve": "ajout-utilisateur",
+    "scolarite:liste_classes": "classes",
+    "scolarite:liste_matieres": "livre",
+    "tests_niveau:liste_candidats": "test",
+    "pedagogie:mes_classes": "classes",
+    "pedagogie:suivi_des_cours": "suivi",
+    "finances:suivi_paiements": "tendance",
+    "finances:liste_paiements": "carte",
+    "finances:registre_caisse": "caisse",
+    "comptabilite:accueil": "journal",
+    "finances:liste_salaires": "mallette",
+    "bibliotheque:liste_documents": "favori",
+    "communication:liste_annonces": "annonce",
+    "communication:liste_conversations": "message",
+    "communication:messages_a_envoyer": "envoi",
+    "statistiques:vue_ensemble": "graphique",
+    "assistant:poser_question": "eclair",
+    "comptes:comptes_en_attente": "utilisateur-valide",
+    "espace_developpeur:parametres_etablissement": "accueil",
+    "espace_developpeur:annees_scolaires": "calendrier",
+    "espace_developpeur:liste_comptes": "eleves",
+    "espace_developpeur:matrice_permissions": "cadenas",
+    "espace_developpeur:journal_audit": "oeil",
+    "espace_plateforme:liste_etablissements": "accueil",
+    "espace_plateforme:abonnements": "carte",
+}
+
+
+def habiller_les_liens(sections, notifications_non_lues=0):
+    """Ajoute à chaque lien son icône et, pour les notifications, le nombre de non lues (pastille du menu)."""
+    for section in sections:
+        for lien in section["liens"]:
+            lien["icone"] = ICONES_DES_LIENS.get(lien["url"], "point")
+            if lien["url"] == "comptes:liste_notifications":
+                lien["compteur"] = notifications_non_lues
+    return sections
+
+
 def navigation(request):
     """
     Construit la navigation latérale à partir des modules réellement
@@ -59,16 +101,15 @@ def navigation(request):
         from comptes.models import notifications_visibles_pour
         non_lues = notifications_visibles_pour(request.user).filter(lue_le__isnull=True).count()
         return {
-            "sections_navigation": [
+            "sections_navigation": habiller_les_liens([
                 {"titre": "Compte", "icone": "compte", "liens": [{
-                    "label": f"Notifications ({non_lues})" if non_lues else "Notifications",
-                    "url": "comptes:liste_notifications",
+                    "label": "Notifications", "url": "comptes:liste_notifications",
                 }]},
                 {"titre": "Plateforme", "icone": "plateforme", "liens": [
                     {"label": "Établissements", "url": "espace_plateforme:liste_etablissements"},
                     {"label": "Abonnements", "url": "espace_plateforme:abonnements"},
                 ]},
-            ],
+            ], non_lues),
             "notifications_non_lues": non_lues, "peut_rechercher_eleves": False, "app_version": settings.APP_VERSION,
         }
 
@@ -135,10 +176,7 @@ def navigation(request):
     sections.insert(0, {
         "titre": "Compte",
         "icone": "compte",
-        "liens": [{
-            "label": f"Notifications ({notifications_non_lues})" if notifications_non_lues else "Notifications",
-            "url": "comptes:liste_notifications",
-        }],
+        "liens": [{"label": "Notifications", "url": "comptes:liste_notifications"}],
     })
     if role in {r.value for r in ROLES_VALIDATION_COMPTES}:
         administration.append({"label": "Comptes en attente", "url": "comptes:comptes_en_attente"})
@@ -162,7 +200,8 @@ def navigation(request):
         })
 
     return {
-        "sections_navigation": sections, "notifications_non_lues": notifications_non_lues,
+        "sections_navigation": habiller_les_liens(sections, notifications_non_lues),
+        "notifications_non_lues": notifications_non_lues,
         "peut_rechercher_eleves": "eleves" in modules_autorises,
         "app_version": settings.APP_VERSION,
     }

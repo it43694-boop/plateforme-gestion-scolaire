@@ -17,9 +17,9 @@
 <div class="card">
     <div class="card-body">
         {% if paiements %}
-        <table class="table">
+        <table class="table table-cartes">
             <thead>
-                <tr><th>Référence</th><th>Élève</th><th>Tranche</th><th class="text-end">Montant</th><th>Mode</th><th>Date</th><th></th></tr>
+                <tr><th>Référence</th><th>Élève</th><th>Tranche</th><th class="text-end">Montant</th><th>Mode</th><th>Date</th><th><span class="visually-hidden">Actions</span></th></tr>
             </thead>
             <tbody>
                 {% for paiement in paiements %}

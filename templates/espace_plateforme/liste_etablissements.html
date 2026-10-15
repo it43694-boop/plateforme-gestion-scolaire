@@ -15,8 +15,8 @@
 <div class="card">
     <div class="card-body">
         {% if etablissements %}
-        <table class="table">
-            <thead><tr><th>Nom</th><th>Comptes</th><th>Statut</th><th>Formule</th><th>Professionnel</th><th>Préscolaire</th><th>Visible dans l'annuaire</th><th></th></tr></thead>
+        <table class="table table-cartes">
+            <thead><tr><th>Nom</th><th>Comptes</th><th>Statut</th><th>Formule</th><th>Professionnel</th><th>Préscolaire</th><th>Visible dans l'annuaire</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
             <tbody>
                 {% for etablissement in etablissements %}
                 <tr>
@@ -40,7 +40,7 @@
                     <td>
                         <form method="post" action="{% url 'espace_plateforme:modifier_plan' etablissement.id %}" class="d-inline">
                             {% csrf_token %}
-                            <select name="plan" class="form-select form-select-sm" data-auto-submit>
+                            <select name="plan" class="form-select form-select-sm" aria-label="Formule de {{ etablissement.nom }}" data-auto-submit>
                                 {% for valeur, libelle in plan_choices %}
                                 <option value="{{ valeur }}" {% if valeur == etablissement.plan %}selected{% endif %}>{{ libelle }}</option>
                                 {% endfor %}
@@ -58,7 +58,7 @@
                             <input type="hidden" name="plan" value="{{ etablissement.plan }}">
                             <input type="hidden" name="inclut_prescolaire" value="{{ etablissement.inclut_prescolaire|yesno:"True," }}">
                             <div class="form-check form-switch">
-                                <input type="checkbox" class="form-check-input" name="inclut_professionnel" value="True"
+                                <input type="checkbox" class="form-check-input" name="inclut_professionnel" value="True" aria-label="Enseignement professionnel : {{ etablissement.nom }}"
                                        {% if etablissement.inclut_professionnel %}checked{% endif %} data-auto-submit>
                             </div>
                         </form>
@@ -73,7 +73,7 @@
                             <input type="hidden" name="plan" value="{{ etablissement.plan }}">
                             <input type="hidden" name="inclut_professionnel" value="{{ etablissement.inclut_professionnel|yesno:"True," }}">
                             <div class="form-check form-switch">
-                                <input type="checkbox" class="form-check-input" name="inclut_prescolaire" value="True"
+                                <input type="checkbox" class="form-check-input" name="inclut_prescolaire" value="True" aria-label="Préscolaire : {{ etablissement.nom }}"
                                        {% if etablissement.inclut_prescolaire %}checked{% endif %} data-auto-submit>
                             </div>
                         </form>

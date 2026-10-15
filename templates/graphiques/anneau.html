@@ -1,0 +1,19 @@
+<figure class="graphique graphique-anneau" aria-label="{{ titre }}">
+    <svg class="anneau" viewBox="0 0 42 42" role="img" aria-label="{{ titre }} : {{ figure.resume }}" focusable="false">
+        <circle class="anneau-fond" cx="21" cy="21" r="{{ figure.rayon }}" fill="none" stroke-width="5"/>
+        {% for segment in figure.segments %}{% if segment.dessine %}<circle class="anneau-arc g-{{ segment.teinte }}" cx="21" cy="21" r="{{ figure.rayon }}" fill="none" stroke-width="5" stroke-dasharray="{{ segment.longueur }} {{ segment.reste }}" stroke-dashoffset="{{ segment.decalage }}"/>{% endif %}{% endfor %}
+        {% if figure.total_au_centre %}<text class="anneau-total" x="21" y="23.4" text-anchor="middle" font-size="8" font-weight="600">{{ figure.total }}</text>{% endif %}
+    </svg>
+    <figcaption>
+        {% if figure.vide %}<p class="graphique-vide">Pas encore de donnée.</p>{% else %}
+        <ul class="legende">
+            {% for segment in figure.segments %}
+            <li><span class="legende-pastille g-{{ segment.teinte }}" aria-hidden="true"></span>
+                <span class="legende-libelle">{{ segment.libelle }}</span>
+                <span class="legende-valeur">{{ segment.valeur }}</span>
+                <span class="legende-pourcentage">{{ segment.pourcentage }} %</span></li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </figcaption>
+</figure>

@@ -1,5 +1,5 @@
 {% extends "statistiques/base_statistiques.html" %}
-{% load icones %}
+{% load icones graphiques %}
 {% block contenu_stats %}
 <div class="page-header">
     <div class="page-header-titre">
@@ -38,4 +38,29 @@
     Les taux de réussite/échec ne sont calculés qu'une fois les décisions de fin d'année
     (admis/redouble) saisies pour les élèves concernés.
 </p>
+<div class="row g-3 mt-1">
+    <div class="col-12 col-lg-6">
+        <div class="card h-100"><div class="card-body">
+            <h2 class="carte-graphique-titre">Garçons et filles</h2>
+            <p class="carte-graphique-sous-titre">Élèves inscrits, toutes classes</p>
+            {% graphique_anneau repartition_sexe_graphique "Répartition des garçons et des filles" %}
+        </div></div>
+    </div>
+    <div class="col-12 col-lg-6">
+        <div class="card h-100"><div class="card-body">
+            <h2 class="carte-graphique-titre">Effectifs par classe</h2>
+            <p class="carte-graphique-sous-titre">Élèves inscrits aujourd'hui</p>
+            {% graphique_barres par_classe "Effectifs par classe" %}
+        </div></div>
+    </div>
+    {% if decisions.admis or decisions.redouble %}
+    <div class="col-12">
+        <div class="card"><div class="card-body">
+            <h2 class="carte-graphique-titre">Décisions de fin d'année</h2>
+            <p class="carte-graphique-sous-titre">Admis et redoublants</p>
+            {% graphique_anneau decisions_graphique "Décisions de fin d'année" %}
+        </div></div>
+    </div>
+    {% endif %}
+</div>
 {% endblock %}

@@ -2265,6 +2265,31 @@ l'application peut l'envoyer (`etablissement/envoi_factures.py`). Toujours rése
   `ABONNEMENT_INSTRUCTIONS_PAIEMENT` (numéro Orange Money, compte bancaire...). Vides, le PDF et l'email n'ont ni identité de l'éditeur ni moyen de payer.
 - Limite connue : le quota d'emails du fournisseur SMTP (Brevo, 300 par jour en offre gratuite) est partagé avec les autres messages de la plateforme.
 
+## État du projet : Phase 64 — Finition de l'interface (menu, téléphone, accessibilité, graphiques)
+
+Audit de l'interface dans un vrai navigateur (19 pages du menu, ordinateur et téléphone, modes clair et sombre ; mesures de débordement, de tailles de texte, de zones tactiles et contrôle d'accessibilité axe-core), puis corrections.
+- **Menu latéral** : une icône devant chaque lien (`comptes.context_processors.ICONES_DES_LIENS`, un test échoue si un nouveau lien n'en a pas) ; sections repliables (`<details>`, ouvertes par défaut, le choix est mémorisé dans le navigateur
+  par `static/js/app.js`, la section de la page affichée reste ouverte) ; la marque et le pied restent fixes et seul le menu défile, avec une ombre en haut et en bas qui signale qu'il y a une suite ; pastille dorée du nombre de notifications non lues
+  (« 99+ » au-delà) à la place de « Notifications (3) » ; filet de séparation en mode sombre ; animation d'apparition qui ne laisse plus d'état figé (les outils d'audit lisaient mal le fond marine).
+- **Barre du haut** : cloche de notifications avec la même pastille (utile sur téléphone, où le menu est caché) ; icône SVG pour le bouton du menu mobile, avec son état annoncé (`aria-expanded`).
+- **Barre latérale réellement fixe** : `overflow-x: hidden` sur la page en faisait un conteneur de défilement et empêchait `position: sticky` de tenir la barre en haut sur les longues pages ; remplacé par `overflow-x: clip` (repli `hidden` pour les très anciens navigateurs).
+- **Téléphone** : les listes (élèves, classes, matières, paiements, caisse, salaires, personnel, factures, établissements, bulletin, messages aux familles, recherche, suivi des cours...) s'affichent en **cartes** « libellé : valeur » sous 720 px
+  (tableaux marqués `table-cartes`, les libellés viennent des en-têtes de colonne, ajoutés par `app.js` ; sur ordinateur rien ne change). Les tableaux de chiffres (comptabilité, statistiques, grilles de saisie) restent des tableaux et défilent sur le côté.
+  Zones à toucher : liens du menu 44 px, boutons 40 px, champs 44 px, liens isolés 40 px. Le nombre de classes avait disparu de l'en-tête de la page Classes depuis la Phase 62 (`classes.count` sur une liste) : corrigé.
+- **Lisibilité** : aucun texte sous 12 px (la base fait 15 px : 0,8 rem) ; couleurs discrètes remontées au seuil AA (4,5:1) : gris discret `--ink-300` et or foncé `--gold-600` en mode clair, gris du mode sombre ; bulles de confirmation en bas à droite (elles cachaient les boutons de l'en-tête de page).
+- **Mot de passe** : bouton « œil » pour afficher ou masquer (tous les champs mot de passe, ajouté par `app.js`, `data-sans-oeil` pour l'exclure).
+- **Accessibilité** : filtres et interrupteurs sans nom (`aria-label`), en-têtes de colonne vides remplacés par « Actions » (masqué à l'écran), zone « contenu principal » sur l'accueil public, la connexion et la page d'attente, ordre des titres du dossier élève. Résultat de l'audit axe-core sur les 19 pages : **aucune violation**.
+- Tests : `comptes/test_interface.py` (icônes de tous les rôles, pastille et cloche, sections, zones principales, filtres, cartes, aucun en-tête vide dans les gabarits, aucune taille sous 12 px, contrastes AA des couleurs) ; comportements JavaScript (œil, repli mémorisé, clavier, cartes, zones tactiles) vérifiés dans un vrai navigateur.
+- **Graphiques** (`comptes/graphiques.py`, balises `{% graphique_anneau %}`, `{% graphique_barres %}`, `{% graphique_colonnes %}`) : figures SVG dessinées côté serveur, sans bibliothèque ni style en ligne (la CSP les interdit), couleurs par classes CSS
+  (`g-bleu`, `g-or`, `g-vert`, `g-rouge`, `g-gris`) donc thèmes clair et sombre ; nombres d'attributs SVG formatés en texte avec un point (le gabarit écrirait une virgule) ; chaque figure a un libellé accessible et ses valeurs en clair.
+  Statistiques : anneau garçons / filles et barres des effectifs par classe (vue d'ensemble), anneau garçons / filles (page d'une classe), anneau admis / redoublants dès que des décisions sont saisies, barres de l'encaissé par échéance (finances) ;
+  sous-menu des statistiques regroupé (« Par classe », « Rapports ») avec la page courante marquée (`aria-current`).
+- **Tableau de bord** : encaissements des 6 derniers mois (colonnes ; mois en cours en or ; `encaissements_par_mois` : paiements supprimés et autres écoles jamais comptés) et effectifs par classe (barres ; les 10 plus grandes classes au-delà de 10), avec **les mêmes droits que les chiffres** (Finances pour les encaissements,
+  module Élèves pour les effectifs, classes visibles du rôle : directeur de cycle = son cycle). Raccourcis de tâches (« Inscrire un élève », « Enregistrer un paiement », « Publier une annonce », selon le rôle) à la place des doublons du menu ; carte « Comptes à valider »
+  (cliquable) pour les rôles qui valident les comptes ; la liste des modules a disparu (le message « Aucun module ne vous est encore attribué » reste quand il n'y en a aucun).
+- Tests : `comptes/test_graphiques.py` (formes, anneau, barres, colonnes, mois, passage d'année, droits par rôle, pas de style en ligne, pages de statistiques).
+- Restes : les tableaux de comptabilité et de statistiques détaillés (fiche annuelle) ne passent pas en cartes et n'ont pas de graphique ; les enseignants n'ont pas de graphique (leur matrice n'ouvre ni Finances ni Élèves).
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

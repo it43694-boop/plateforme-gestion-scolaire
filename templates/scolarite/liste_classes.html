@@ -7,7 +7,7 @@
         <div class="page-header-icone or">{% icone "pedagogie" 24 %}</div>
         <div>
             <h1>Classes</h1>
-            <p>{{ classes.count }} classe{{ classes.count|pluralize }} visible{{ classes.count|pluralize }} pour votre rôle.</p>
+            {% with nombre=classes|length %}<p>{{ nombre }} classe{{ nombre|pluralize }} visible{{ nombre|pluralize }} pour votre rôle.</p>{% endwith %}
         </div>
     </div>
     <a href="{% url 'scolarite:creer_classe' %}" class="btn btn-primary btn-sm">Créer une classe</a>
@@ -17,8 +17,8 @@
 <div class="card">
     <div class="card-body">
         {% if classes %}
-        <table class="table">
-            <thead><tr><th>Nom</th><th>Cycle</th><th>Année scolaire</th><th>Effectif</th>{% if peut_exporter_liste or peut_exporter_notes or peut_exporter_absences %}<th>Excel</th>{% endif %}<th></th></tr></thead>
+        <table class="table table-cartes">
+            <thead><tr><th>Nom</th><th>Cycle</th><th>Année scolaire</th><th>Effectif</th>{% if peut_exporter_liste or peut_exporter_notes or peut_exporter_absences %}<th>Excel</th>{% endif %}<th><span class="visually-hidden">Actions</span></th></tr></thead>
             <tbody>
                 {% for classe in classes %}
                 <tr>

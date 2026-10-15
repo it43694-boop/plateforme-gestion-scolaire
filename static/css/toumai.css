@@ -34,14 +34,14 @@
   --ink-800: #1B2C4D;
   --ink-700: #2C3E5C;
   --ink-500: #55607A;
-  --ink-300: #8993A8;
+  --ink-300: #606B85;
   /* Texte principal : alias distinct de --ink-900. --ink-900 sert AUSSI de
      fond pour les zones volontairement sombres (sidebar, hero, auth) qui ne
      doivent jamais s'éclaircir en mode sombre ; --texte-principal, lui, doit
      s'éclaircir. Les deux rôles partagent la même valeur en mode clair. */
   --texte-principal: var(--ink-900);
 
-  --gold-600: #9A7423;
+  --gold-600: #8A6620;
   --gold-500: #B98B2E;
   --gold-400: #D1A952;
   --gold-100: #F1E4C4;
@@ -128,7 +128,7 @@
     --ink-800: #D3D9E8;
     --ink-700: #B9C2DA;
     --ink-500: #93A0BF;
-    --ink-300: #5A6685;
+    --ink-300: #8794B3;
 
     --paper-050: #0C1524;
     --paper-000: #16233A;
@@ -160,7 +160,7 @@
   --ink-800: #D3D9E8;
   --ink-700: #B9C2DA;
   --ink-500: #93A0BF;
-  --ink-300: #5A6685;
+  --ink-300: #8794B3;
 
   --paper-050: #0C1524;
   --paper-000: #16233A;
@@ -198,6 +198,11 @@ html, body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+/* « hidden » fait du <body> un conteneur de défilement et empêche la barre latérale (position: sticky) de rester en haut
+   quand on défile une longue page ; « clip » coupe le débordement de la même façon sans cet effet. */
+@supports (overflow: clip) {
+  html, body { overflow-x: clip; }
 }
 
 h1, h2, h3, h4 {
@@ -346,7 +351,7 @@ body, .topbar, table, th, td {
 
 .marque-texte { line-height: 1.2; }
 .marque-nom { font-family: var(--police-affichage); font-weight: 600; font-size: 1rem; color: #fff; }
-.marque-sous-titre { font-size: 0.72rem; color: var(--gold-400); }
+.marque-sous-titre { font-size: 0.8rem; color: var(--gold-400); }
 
 .icone-svg { vertical-align: -3px; flex-shrink: 0; }
 
@@ -355,7 +360,7 @@ body, .topbar, table, th, td {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   color: #8B96B5;
   font-weight: 600;
   padding: 0 0.55rem;
@@ -385,7 +390,7 @@ body, .topbar, table, th, td {
   margin-top: auto;
   padding: 1rem 1.3rem 1.2rem;
   border-top: 1px solid rgba(255,255,255,0.08);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: #8B96B5;
 }
 
@@ -436,7 +441,7 @@ body, .topbar, table, th, td {
   width: 30px; height: 30px; border-radius: 50%;
   background: var(--ink-900); color: var(--gold-400);
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.78rem; font-weight: 600; font-family: var(--police-affichage);
+  font-size: 0.8rem; font-weight: 600; font-family: var(--police-affichage);
 }
 
 .app-content { padding: 1.75rem; max-width: 1180px; width: 100%; margin: 0 auto; }
@@ -447,7 +452,7 @@ body, .topbar, table, th, td {
 
 .toasts-conteneur {
   position: fixed;
-  top: 5.2rem;
+  bottom: 1.4rem;
   right: 1.2rem;
   z-index: 1080;
   display: flex;
@@ -457,11 +462,11 @@ body, .topbar, table, th, td {
   width: calc(100% - 2.4rem);
 }
 @keyframes toast-entree {
-  from { opacity: 0; transform: translateX(24px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 @keyframes toast-sortie {
-  to { opacity: 0; transform: translateX(24px); }
+  to { opacity: 0; transform: translateY(16px); }
 }
 .toast-message {
   display: flex;
@@ -567,13 +572,13 @@ body, .topbar, table, th, td {
   padding: 0.55rem 0.7rem;
   margin-bottom: 0.6rem;
 }
-.emploi-creneau-heure { font-size: 0.74rem; color: var(--ink-500); font-weight: 600; }
+.emploi-creneau-heure { font-size: 0.8rem; color: var(--ink-500); font-weight: 600; }
 .emploi-creneau-matiere { font-size: 0.9rem; font-weight: 600; color: var(--texte-principal); margin-top: 0.1rem; }
-.emploi-creneau-detail { font-size: 0.78rem; color: var(--ink-500); margin-top: 0.15rem; }
+.emploi-creneau-detail { font-size: 0.8rem; color: var(--ink-500); margin-top: 0.15rem; }
 .emploi-jour-vide { color: var(--ink-300); font-size: 0.82rem; text-align: center; padding: 1rem 0; }
 .emploi-creneau-suppr {
   background: none; border: none; padding: 0; margin-top: 0.3rem;
-  font-size: 0.72rem; color: var(--danger-600); cursor: pointer; text-decoration: underline;
+  font-size: 0.8rem; color: var(--danger-600); cursor: pointer; text-decoration: underline;
 }
 
 /* -------------------------------------------------------------------- */
@@ -655,7 +660,7 @@ body, .topbar, table, th, td {
 .table thead th {
   font-family: var(--police-texte);
   font-weight: 600;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--ink-500);
   border-bottom: 1px solid var(--line-300) !important;
   border-top: none !important;
@@ -689,7 +694,7 @@ body, .topbar, table, th, td {
 .badge {
   font-family: var(--police-texte);
   font-weight: 600;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   padding: 0.28em 0.65em;
   border-radius: var(--rayon-pastille);
 }
@@ -897,7 +902,7 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 .vitrine-etablissement-logo { width: 22px; height: 22px; border-radius: 5px; object-fit: contain; background: #fff; }
 .vitrine-etablissement-initiale {
   width: 22px; height: 22px; border-radius: 50%; border: 1px solid currentColor;
-  display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0;
 }
 .btn-hero-primaire {
   background: var(--gold-500); color: var(--ink-900); font-weight: 700;
@@ -1135,7 +1140,7 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 }
 .auth-titre { text-align: center; margin-bottom: 0.15rem; font-size: 1.5rem; }
 .auth-sous-titre { text-align: center; color: var(--ink-500); font-size: 0.86rem; margin-bottom: 1.6rem; min-height: 1px; }
-.auth-pied { text-align: center; margin-top: 3rem; color: rgba(255,255,255,0.55); font-size: 0.78rem; }
+.auth-pied { text-align: center; margin-top: 3rem; color: rgba(255,255,255,0.55); font-size: 0.8rem; }
 
 /* -------------------------------------------------------------------- */
 /* Utilitaires - remplacent les styles en ligne dans les gabarits, pour  */
@@ -1155,7 +1160,7 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 .mw-560 { max-width: 560px; }
 
 .mini-stat { padding: 1.1rem 1.2rem !important; }
-.mini-stat-label { font-size: 0.76rem; color: var(--ink-500); }
+.mini-stat-label { font-size: 0.8rem; color: var(--ink-500); }
 .mini-stat-valeur {
   font-family: var(--police-affichage); font-size: 1.4rem; font-weight: 600; color: var(--texte-principal);
 }
@@ -1169,7 +1174,7 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 .titre-section-espace { font-weight: 600; margin-top: 1.3rem; margin-bottom: 0.5rem; }
 .titre-resultat { font-size: 1.2rem; margin-bottom: 0.1rem; }
 
-.badge-mini { font-size: 0.65rem; }
+.badge-mini { font-size: 0.8rem; }
 .card-accent-or { border-color: var(--gold-400) !important; }
 .texte-discret { color: var(--ink-500); }
 .texte-secondaire { color: var(--ink-500); font-size: 0.85rem; }
@@ -1200,13 +1205,13 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 .solde-affichage .mini-stat-valeur.negatif { color: var(--danger-600); }
 .tableau-large { overflow-x: auto; }
 .tableau-centre { text-align: center; }
-.tableau-entete-etroite { white-space: nowrap; font-size: 0.72rem; }
+.tableau-entete-etroite { white-space: nowrap; font-size: 0.8rem; }
 .tableau-ligne-titre { font-weight: 600; }
 .logo-apercu-cadre { border: none; padding: 0; }
 .logo-apercu-image { width: 34px; height: 34px; object-fit: contain; border-radius: 50%; }
 .logo-apercu-cadre .marque-nom { color: var(--ink-900); }
 .logo-apercu-cadre .marque-sous-titre { color: var(--gold-600); }
-.filtre-annee-label { font-size: 0.78rem; }
+.filtre-annee-label { font-size: 0.8rem; }
 .filtre-annee-select { font-size: 0.85rem; padding: 0.4rem 0.6rem; }
 .nav-lien-stats { color: var(--ink-800); display: block; }
 .nav-lien-stats.actif { background: var(--gold-050); color: var(--gold-600); }
@@ -1231,10 +1236,10 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
   border-radius: var(--rayon-panneau); text-align: left; background: var(--paper-050);
 }
 .message-bulle.propre { background: var(--gold-050); }
-.message-heure { font-size: 0.72rem; color: var(--ink-500); }
+.message-heure { font-size: 0.8rem; color: var(--ink-500); }
 .corps-vitrine { background: var(--paper-050); }
 .corps-page-centree { background: var(--ink-900); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-.texte-encart { font-size: 0.72rem; color: var(--gold-600); font-weight: 600; margin-bottom: 0.4rem; }
+.texte-encart { font-size: 0.8rem; color: var(--gold-600); font-weight: 600; margin-bottom: 0.4rem; }
 
 /* Bandeau affiché quand le propriétaire de la plateforme est connecté au compte d'une école */
 .bandeau-acces-delegue {
@@ -1357,7 +1362,9 @@ label > .form-check-input { margin-right: 0.5rem; margin-top: 0.2em; cursor: poi
   .nav-lien.actif:hover::before { transform: scaleY(1); }
 }
 @keyframes nav-entree { from { opacity: 0; transform: translateX(-10px); } }
-.nav-section { animation: nav-entree 0.5s var(--ease-sortie) both; }
+/* « backwards » : l'état de départ ne vaut que pendant le délai ; une fois l'animation finie la section n'a plus aucun effet
+   d'animation (avec « both », les outils d'audit de contraste ne reconnaissaient plus le fond marine du menu). */
+.nav-section { animation: nav-entree 0.5s var(--ease-sortie) backwards; }
 .nav-section:nth-child(2) { animation-delay: 0.04s; }
 .nav-section:nth-child(3) { animation-delay: 0.08s; }
 .nav-section:nth-child(4) { animation-delay: 0.12s; }
@@ -1525,7 +1532,7 @@ html.bascule-theme *, html.bascule-theme *::before, html.bascule-theme *::after 
   border-bottom: 1px solid var(--line-200);
 }
 .menu-compte-entete strong { font-family: var(--police-affichage); font-size: 0.95rem; font-weight: 600; }
-.menu-compte-entete span { color: var(--ink-500); font-size: 0.78rem; }
+.menu-compte-entete span { color: var(--ink-500); font-size: 0.8rem; }
 
 .menu-compte-entree {
   display: flex; align-items: center; gap: 0.5rem;
@@ -1592,3 +1599,194 @@ html.bascule-theme *, html.bascule-theme *::before, html.bascule-theme *::after 
 
 /* Conduite : la case de note d'un élève. */
 .champ-note-conduite { max-width: 7rem; margin-left: auto; text-align: right; }
+
+
+/* ========================================================================
+   Finition de l'interface (phase 64) : menu latéral, cloche de notifications, tableaux et zones tactiles sur
+   téléphone, bouton « œil » des mots de passe.
+   ======================================================================== */
+
+/* --- Barre latérale : la marque et le pied restent fixes, seul le menu défile, avec un indice en haut et en bas ---- */
+.sidebar { overflow: hidden; height: 100vh; height: 100dvh; scrollbar-width: none; }
+.sidebar .marque, .sidebar .sidebar-pied { flex-shrink: 0; }
+.sidebar nav {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  background:
+    linear-gradient(#12203D 30%, rgba(18, 32, 61, 0)) 0 0 / 100% 34px no-repeat local,
+    linear-gradient(rgba(18, 32, 61, 0), #12203D 70%) 0 100% / 100% 34px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0)) 0 0 / 100% 12px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0)) 0 100% / 100% 12px no-repeat scroll;
+}
+/* En mode sombre la barre a la même couleur que le fond de page : un filet fin les sépare. */
+.sidebar { border-right: 1px solid var(--bord-sidebar, transparent); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bord-sidebar: rgba(255, 255, 255, 0.09); } }
+:root[data-theme="dark"] { --bord-sidebar: rgba(255, 255, 255, 0.09); }
+
+/* Sections repliables (<details>) : ouvertes par défaut, le choix est mémorisé par app.js */
+details.nav-section { padding: 0.8rem 0.85rem 0.2rem; }
+.nav-lien { padding-top: 0.42rem; padding-bottom: 0.42rem; }
+details.nav-section > summary { list-style: none; }
+details.nav-section > summary::-webkit-details-marker { display: none; }
+.nav-section-titre {
+  cursor: pointer; user-select: none; min-height: 28px; border-radius: var(--rayon-controle);
+  letter-spacing: 0.02em; transition: color 0.12s ease;
+}
+.nav-section-titre:hover { color: #fff; }
+.nav-section-titre:focus-visible, .nav-lien:focus-visible, .topbar-cloche:focus-visible, .bouton-menu-mobile:focus-visible {
+  outline: 2px solid var(--gold-400); outline-offset: 2px;
+}
+.nav-section-titre .nav-chevron { margin-left: auto; display: inline-flex; opacity: 0.75; transform: rotate(-90deg); transition: transform 0.2s ease; }
+details[open] > .nav-section-titre .nav-chevron { transform: rotate(0deg); }
+.nav-section-titre .nav-chevron .icone-svg { width: 14px; height: 14px; }
+
+/* Une icône devant chaque lien ; la pastille dorée compte les notifications non lues */
+.nav-lien { gap: 0.65rem; }
+.nav-lien .icone-svg { width: 17px; height: 17px; opacity: 0.8; transition: opacity 0.12s ease, color 0.12s ease; }
+.nav-lien:hover .icone-svg, .nav-lien.actif .icone-svg { opacity: 1; }
+.nav-lien.actif .icone-svg { color: var(--gold-400); }
+.nav-lien-texte { flex: 1 1 auto; min-width: 0; }
+.nav-pastille {
+  margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  background: var(--gold-400); color: var(--ink-900); font-size: 0.8rem; font-weight: 700; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* Cloche de notifications dans la barre du haut */
+.topbar-cloche {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 50%; color: var(--ink-500);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.topbar-cloche:hover { background: var(--paper-050); color: var(--texte-principal); }
+.topbar-cloche:focus-visible { outline-color: var(--gold-500); }
+.topbar-pastille { position: absolute; top: 1px; right: -2px; margin: 0; min-width: 18px; height: 18px; padding: 0 5px; }
+
+/* Bouton « œil » : afficher ou masquer un mot de passe (ajouté par app.js) */
+.champ-mot-de-passe { position: relative; }
+.champ-mot-de-passe input { padding-right: 2.9rem; }
+.bouton-oeil {
+  position: absolute; top: 50%; right: 0.3rem; transform: translateY(-50%); width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center; border: none; background: transparent;
+  color: var(--ink-500); border-radius: var(--rayon-controle); cursor: pointer;
+}
+.bouton-oeil:hover { color: var(--texte-principal); background: var(--paper-050); }
+.bouton-oeil:focus-visible { outline: 2px solid var(--gold-500); outline-offset: 1px; }
+
+/* --- Téléphone et écrans tactiles : zones à toucher plus grandes, menu plus aéré ---------------------------------- */
+@media (max-width: 900px), (pointer: coarse) {
+  .nav-lien { min-height: 44px; padding-top: 0.55rem; padding-bottom: 0.55rem; }
+  .nav-section-titre { min-height: 40px; }
+  .bouton-menu-mobile, .topbar-cloche { width: 44px; height: 44px; }
+  .btn { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; }
+  .btn-sm { min-height: 40px; }
+  .form-control, .form-select { min-height: 44px; }
+  .form-select-sm, .form-control-sm { min-height: 40px; }
+  .menu-compte-entree { min-height: 44px; }
+}
+
+/* Un tableau trop large peut défiler sur le côté au lieu d'être coupé (les ombres signalent qu'il y a une suite) */
+@media (max-width: 900px) {
+  .card-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* Le conteneur ajouté par app.js ne change rien à l'affichage d'un tableau sur ordinateur */
+.table-cartes .cellule-valeur { display: contents; }
+
+/* --- Tableaux de liste en cartes sur téléphone : chaque ligne devient une carte « libellé : valeur » ---------------- */
+@media (max-width: 720px) {
+  .card:has(.table-cartes) { background: transparent !important; border: none !important; box-shadow: none !important; }
+  .card:has(.table-cartes) > .card-body { padding: 0 !important; overflow: visible; }
+  .table-cartes thead {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0;
+  }
+  .table-cartes, .table-cartes tbody, .table-cartes tr, .table-cartes td { display: block; width: 100%; }
+  .table-cartes tbody tr {
+    background: var(--paper-000); border: 1px solid var(--line-200); border-radius: var(--rayon-panneau);
+    padding: 0.3rem 0.95rem; margin-bottom: 0.8rem; box-shadow: var(--ombre-panneau);
+  }
+  .table-cartes tbody td {
+    display: flex; justify-content: space-between; align-items: center; gap: 1rem; text-align: right;
+    padding: 0.55rem 0 !important; border-bottom: 1px solid var(--line-200) !important; word-break: break-word;
+  }
+  .table-cartes tbody td:last-child { border-bottom: none !important; }
+  .table-cartes tbody td::before {
+    content: attr(data-label); flex: 0 0 36%; text-align: left; font-size: 0.8rem; font-weight: 600; color: var(--ink-500);
+  }
+  .table-cartes tbody td[data-label=""]::before, .table-cartes tbody td[colspan]::before { display: none; }
+  .table-cartes tbody td.cellule-actions { justify-content: flex-end; }
+  .table-cartes .cellule-valeur { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.4rem 0.5rem; min-width: 0; }
+  .table-cartes tbody td[colspan] .cellule-valeur { display: block; }
+  .table-cartes tbody td.cellule-vide { display: none; }
+  .table-cartes tbody td[colspan] { display: block; text-align: center; }
+}
+
+/* Texte secondaire (.small de Bootstrap = 0,875 em du texte parent, parfois moins de 12 px) : jamais sous 12 px */
+.small, small { font-size: max(0.875em, 0.8rem); }
+
+/* Liens de texte isolés (pied de page légal, liens des cartes) : zone à toucher confortable sur écran tactile */
+@media (max-width: 900px), (pointer: coarse) {
+  .pied-legal a, .table-cartes td a:not(.btn) { display: inline-flex; align-items: center; min-height: 40px; padding: 0 0.35rem; }
+}
+
+
+/* ========================================================================
+   Graphiques (anneau, barres, colonnes) : figures SVG dessinées côté serveur, couleurs par classe (thème clair et sombre)
+   ======================================================================== */
+.g-bleu { --teinte: var(--bleu-600); }
+.g-or { --teinte: var(--gold-500); }
+.g-vert { --teinte: var(--success-600); }
+.g-rouge { --teinte: var(--danger-600); }
+.g-gris { --teinte: var(--ink-300); }
+.graphique { margin: 0; }
+.graphique-vide { color: var(--ink-500); font-size: 0.9rem; margin: 0.5rem 0 0; }
+
+.graphique-anneau { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+.anneau { width: 150px; height: 150px; flex-shrink: 0; transform: none; }
+.anneau-fond { stroke: var(--line-200); }
+.anneau-arc { stroke: var(--teinte); stroke-linecap: butt; }
+.anneau-total { font-family: var(--police-affichage); fill: var(--texte-principal); }
+.legende { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.55rem; min-width: 190px; }
+.legende li { display: grid; grid-template-columns: 12px 1fr auto auto; align-items: center; gap: 0.6rem; font-size: 0.9rem; }
+.legende-pastille { width: 12px; height: 12px; border-radius: 3px; background: var(--teinte); }
+.legende-valeur { font-weight: 600; font-variant-numeric: tabular-nums; }
+.legende-pourcentage { color: var(--ink-500); font-size: 0.85rem; min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
+
+.graphique-barres { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.7rem; }
+.barre-ligne { display: grid; grid-template-columns: minmax(70px, 28%) 1fr auto; align-items: center; gap: 0.75rem; font-size: 0.9rem; }
+.barre-libelle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barre-svg { width: 100%; height: 12px; border-radius: 999px; overflow: hidden; display: block; }
+.barre-fond { fill: var(--line-200); }
+.barre-valeur-rect { fill: var(--teinte); }
+.barre-valeur { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 2.2em; text-align: right; }
+
+.graphique-colonnes { display: flex; gap: 0.6rem; align-items: stretch; }
+.colonne { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: stretch; gap: 0.3rem; }
+.colonne-valeur { order: 1; text-align: center; font-size: 0.8rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--texte-principal); }
+.colonne-svg { order: 2; width: 100%; height: 150px; display: block; border-radius: 6px 6px 0 0; overflow: hidden; }
+.colonne-libelle { order: 3; text-align: center; font-size: 0.8rem; color: var(--ink-500); }
+.colonne-fond { fill: var(--paper-050); }
+.colonne-rect { fill: var(--bleu-600); }
+.colonne-courante .colonne-rect { fill: var(--gold-500); }
+.colonne-courante .colonne-libelle { color: var(--texte-principal); font-weight: 600; }
+
+/* Sous-menu des statistiques */
+.sous-menu { display: grid; gap: 2px; }
+.sous-menu-titre { font-size: 0.8rem; font-weight: 600; color: var(--ink-500); margin: 0.9rem 0 0.3rem; padding: 0 0.6rem; letter-spacing: 0.02em; }
+.sous-menu .nav-lien-stats {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.6rem; border-radius: var(--rayon-controle);
+  color: var(--ink-800); font-size: 0.9rem; transition: background 0.12s ease, color 0.12s ease;
+}
+.sous-menu .nav-lien-stats:hover { background: var(--paper-050); color: var(--texte-principal); }
+.sous-menu .nav-lien-stats.actif { background: var(--gold-050); color: var(--gold-600); font-weight: 600; box-shadow: inset 3px 0 0 var(--gold-500); }
+
+/* Tableau de bord : cartes de graphiques et raccourcis */
+.carte-graphique-titre { font-size: 1rem; margin: 0 0 0.15rem; }
+.carte-graphique-sous-titre { color: var(--ink-500); font-size: 0.85rem; margin: 0 0 1rem; }
+.raccourcis { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+
+/* Écrans tactiles : liens du sous-menu des statistiques et pastilles-liens des alertes à une taille confortable */
+@media (max-width: 900px), (pointer: coarse) {
+  .sous-menu .nav-lien-stats { min-height: 44px; }
+  .alerte-details a.badge { padding: 0.65em 0.9em; }
+}

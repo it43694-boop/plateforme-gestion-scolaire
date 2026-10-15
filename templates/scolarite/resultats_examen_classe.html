@@ -33,7 +33,7 @@
                         <td>{{ ligne.inscription.eleve.nom_complet }}</td>
                         <td>{{ ligne.inscription.eleve.matricule }}</td>
                         <td>
-                            <select name="resultat_{{ ligne.inscription.id }}" class="form-select form-select-sm">
+                            <select name="resultat_{{ ligne.inscription.id }}" class="form-select form-select-sm" aria-label="Résultat de {{ ligne.inscription.eleve.nom_complet }}">
                                 <option value="" {% if not ligne.resultat %}selected{% endif %}>— Non renseigné —</option>
                                 {% for valeur, libelle in choix %}
                                 <option value="{{ valeur }}" {% if ligne.resultat == valeur %}selected{% endif %}>{{ libelle }}</option>

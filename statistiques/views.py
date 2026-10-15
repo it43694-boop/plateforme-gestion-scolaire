@@ -50,6 +50,11 @@ def _repartition_par_sexe(inscriptions_qs):
     return {"M": valeurs["hommes"], "F": valeurs["femmes"]}
 
 
+def _parts_sexe(repartition):
+    """Les deux parts de l'anneau garçons / filles (bleu et or : distinguables même sans voir les couleurs, la légende nomme chaque part)."""
+    return [("Garçons", repartition["M"], "bleu"), ("Filles", repartition["F"], "or")]
+
+
 def _taux_reussite_echec(inscriptions_qs):
     valeurs = inscriptions_qs.aggregate(
         admis=Count("id", filter=Q(statut=Inscription.Statut.ADMIS)),
@@ -73,15 +78,26 @@ def vue_ensemble(request):
     classes = classes_visibles_pour(request.user).filter(annee_scolaire=annee) if annee else Classe.objects.none()
 
     inscriptions = Inscription.objects.filter(classe__in=classes)
+    en_cours = inscriptions.filter(statut=Inscription.Statut.EN_COURS)
+    effectifs = dict(en_cours.values_list("classe_id").annotate(n=Count("id")))
     contexte = {
         "annee": annee,
         "toutes_annees": toutes_annees,
         "classes": classes,
         "actif": "ensemble",
-        "effectif_total": inscriptions.filter(statut=Inscription.Statut.EN_COURS).count(),
-        "repartition_sexe": _repartition_par_sexe(inscriptions.filter(statut=Inscription.Statut.EN_COURS)),
+        "effectif_total": en_cours.count(),
+        "repartition_sexe": _repartition_par_sexe(en_cours),
+        "par_classe": [(classe.nom, effectifs.get(classe.id, 0)) for classe in classes],
+        "repartition_sexe_graphique": _parts_sexe(_repartition_par_sexe(en_cours)),
+        "decisions": inscriptions.aggregate(
+            admis=Count("id", filter=Q(statut=Inscription.Statut.ADMIS)),
+            redouble=Count("id", filter=Q(statut=Inscription.Statut.REDOUBLE)),
+        ),
         **_taux_reussite_echec(inscriptions),
     }
+    contexte["decisions_graphique"] = [
+        ("Admis", contexte["decisions"]["admis"], "vert"), ("Redoublants", contexte["decisions"]["redouble"], "rouge"),
+    ]
     return render(request, "statistiques/vue_ensemble.html", contexte)
 
 
@@ -96,6 +112,7 @@ def statistiques_classe(request, classe_id):
         "classes": classes_visibles_pour(request.user).filter(annee_scolaire=classe.annee_scolaire),
         "effectif": inscriptions.filter(statut=Inscription.Statut.EN_COURS).count(),
         "repartition_sexe": _repartition_par_sexe(inscriptions.filter(statut=Inscription.Statut.EN_COURS)),
+        "repartition_sexe_graphique": _parts_sexe(_repartition_par_sexe(inscriptions.filter(statut=Inscription.Statut.EN_COURS))),
         **_taux_reussite_echec(inscriptions),
     }
     return render(request, "statistiques/statistiques_classe.html", contexte)
@@ -119,6 +136,7 @@ def statistiques_finances(request):
     return render(request, "statistiques/statistiques_finances.html", {
         "annee": annee, "toutes_annees": AnneeScolaire.objects.filter(etablissement=request.user.etablissement), "classes": classes, "actif": "finances",
         "par_tranche": par_tranche, "total_general": sum(item["total"] for item in par_tranche),
+        "par_tranche_barres": [(item["libelle"], item["total"], "vert") for item in par_tranche],
     })
 
 @module_requis(Module.STATISTIQUES)

@@ -87,7 +87,7 @@
 {% if peut_voir_etat_civil %}
 <div class="card mb-3">
     <div class="card-body">
-        <h3 class="titre-section">Résultats aux examens</h3>
+        <h2 class="titre-section">Résultats aux examens</h2>
         {% if resultats_examens %}
         <table class="table mb-0">
             <thead><tr><th>Année scolaire</th><th>Examen</th><th>Classe</th><th>Résultat</th></tr></thead>
@@ -111,7 +111,7 @@
 
 <div class="card mb-3">
     <div class="card-body">
-        <h3 class="titre-section">Parents liés</h3>
+        <h2 class="titre-section">Parents liés</h2>
         {% if parents %}
         <ul class="mb-0">
             {% for parent in parents %}<li>{{ parent.nom_complet }} - {{ parent.email }}{% if parent.telephone %} - {{ parent.telephone }}{% endif %}</li>{% endfor %}
@@ -134,7 +134,7 @@
 
 <div class="card">
     <div class="card-body">
-        <h3 class="titre-section">Historique des classes</h3>
+        <h2 class="titre-section">Historique des classes</h2>
         <table class="table">
             <thead><tr><th>Année scolaire</th><th>Classe</th><th>Statut</th><th>Détails</th></tr></thead>
             <tbody>

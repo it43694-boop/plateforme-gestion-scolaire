@@ -12,8 +12,8 @@
 <div class="card">
     <div class="card-body">
         {% if contrats %}
-        <table class="table">
-            <thead><tr><th>Employé</th><th>Poste</th><th>Type</th><th>Début</th><th>Fin</th><th>Salaire de base</th><th>Statut</th><th></th></tr></thead>
+        <table class="table table-cartes">
+            <thead><tr><th>Employé</th><th>Poste</th><th>Type</th><th>Début</th><th>Fin</th><th>Salaire de base</th><th>Statut</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
             <tbody>
                 {% for contrat in contrats %}
                 <tr>

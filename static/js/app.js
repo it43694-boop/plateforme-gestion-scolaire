@@ -715,3 +715,83 @@ if ("serviceWorker" in navigator) {
         champ.setSelectionRange(debut + texte.length, debut + texte.length);
     });
 })();
+
+
+// Finition de l'interface : sections du menu repliables et mémorisées, bouton « œil » des mots de passe, libellés des
+// tableaux en cartes sur téléphone, état annoncé du menu mobile.
+document.addEventListener("DOMContentLoaded", function () {
+    var CLE_MENU = "nexora-menu-replie";
+    function lireReplies() {
+        try { return JSON.parse(localStorage.getItem(CLE_MENU) || "[]"); } catch (erreur) { return []; }
+    }
+    function ecrireReplies(liste) {
+        try { localStorage.setItem(CLE_MENU, JSON.stringify(liste)); } catch (erreur) { /* navigation privée : pas de mémoire */ }
+    }
+    var replies = lireReplies();
+    document.querySelectorAll("details.nav-section").forEach(function (section) {
+        var identifiant = section.getAttribute("data-nav-section");
+        // La section de la page affichée reste toujours ouverte, même si elle avait été repliée.
+        if (replies.indexOf(identifiant) !== -1 && !section.querySelector(".nav-lien.actif")) section.removeAttribute("open");
+        section.addEventListener("toggle", function () {
+            var liste = lireReplies().filter(function (autre) { return autre !== identifiant; });
+            if (!section.open) liste.push(identifiant);
+            ecrireReplies(liste);
+        });
+    });
+
+    var boutonMenu = document.querySelector(".bouton-menu-mobile");
+    var barre = document.getElementById("sidebar");
+    var rideauMenu = document.getElementById("sidebar-rideau");
+    function annoncerMenu() {
+        if (boutonMenu && barre) boutonMenu.setAttribute("aria-expanded", barre.classList.contains("ouvert") ? "true" : "false");
+    }
+    if (boutonMenu) boutonMenu.addEventListener("click", annoncerMenu);
+    if (rideauMenu) rideauMenu.addEventListener("click", annoncerMenu);
+
+    var OEIL = '<svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    var OEIL_BARRE = '<svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+    document.querySelectorAll('input[type="password"]').forEach(function (champ) {
+        if (champ.hasAttribute("data-sans-oeil") || champ.closest(".champ-mot-de-passe")) return;
+        var enveloppe = document.createElement("div");
+        enveloppe.className = "champ-mot-de-passe";
+        champ.parentNode.insertBefore(enveloppe, champ);
+        enveloppe.appendChild(champ);
+        var bouton = document.createElement("button");
+        bouton.type = "button";
+        bouton.className = "bouton-oeil";
+        bouton.setAttribute("aria-label", "Afficher le mot de passe");
+        bouton.setAttribute("aria-pressed", "false");
+        bouton.innerHTML = OEIL;
+        bouton.addEventListener("click", function () {
+            var visible = champ.type === "password";
+            champ.type = visible ? "text" : "password";
+            bouton.setAttribute("aria-pressed", visible ? "true" : "false");
+            bouton.setAttribute("aria-label", visible ? "Masquer le mot de passe" : "Afficher le mot de passe");
+            bouton.innerHTML = visible ? OEIL_BARRE : OEIL;
+            champ.focus();
+        });
+        enveloppe.appendChild(bouton);
+    });
+
+    // Tableaux de liste (class="table-cartes") : sur téléphone chaque ligne devient une carte ; le libellé de chaque
+    // valeur est celui de son en-tête de colonne. Une colonne « Actions » (ou sans titre) n'a pas de libellé.
+    document.querySelectorAll("table.table-cartes").forEach(function (tableau) {
+        var entetes = Array.prototype.map.call(tableau.querySelectorAll("thead tr:last-child th"), function (th) {
+            return th.textContent.trim();
+        });
+        tableau.querySelectorAll("tbody tr").forEach(function (ligne) {
+            Array.prototype.forEach.call(ligne.children, function (cellule, i) {
+                if (cellule.tagName !== "TD" || cellule.colSpan > 1) return;
+                var libelle = entetes[i] || "";
+                if (libelle === "Actions") libelle = "";
+                cellule.setAttribute("data-label", libelle);
+                if (!libelle) cellule.classList.add("cellule-actions");
+                if (!cellule.children.length && !cellule.textContent.trim()) { cellule.classList.add("cellule-vide"); return; }
+                var valeur = document.createElement("div");
+                valeur.className = "cellule-valeur";
+                while (cellule.firstChild) valeur.appendChild(cellule.firstChild);
+                cellule.appendChild(valeur);
+            });
+        });
+    });
+});

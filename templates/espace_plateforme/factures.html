@@ -16,11 +16,11 @@
 {% include "espace_plateforme/_alertes_factures.html" %}
 
 <form method="get" class="d-flex flex-wrap gap-2 mb-3">
-    <select name="statut" class="form-select mw-320" data-auto-submit>
+    <select name="statut" class="form-select mw-320" aria-label="Filtrer par statut" data-auto-submit>
         <option value="">Tous les statuts</option>
         {% for valeur, libelle in statuts %}<option value="{{ valeur }}" {% if statut == valeur %}selected{% endif %}>{{ libelle }}</option>{% endfor %}
     </select>
-    <select name="etablissement" class="form-select mw-320" data-auto-submit>
+    <select name="etablissement" class="form-select mw-320" aria-label="Filtrer par établissement" data-auto-submit>
         <option value="">Tous les établissements</option>
         {% for e in etablissements %}<option value="{{ e.id }}" {% if ecole == e.id|stringformat:"s" %}selected{% endif %}>{{ e.nom }}</option>{% endfor %}
     </select>
@@ -35,11 +35,11 @@
 <div class="card">
     <div class="card-body">
         {% if factures %}
-        <table class="table">
+        <table class="table table-cartes">
             <thead>
                 <tr>
                     <th>N°</th><th>École</th><th>Période</th><th class="text-end">Montant</th>
-                    <th>Émise le</th><th>À payer avant</th><th>Statut</th><th></th>
+                    <th>Émise le</th><th>À payer avant</th><th>Statut</th><th><span class="visually-hidden">Actions</span></th>
                 </tr>
             </thead>
             <tbody>
