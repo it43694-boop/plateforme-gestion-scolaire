@@ -1050,6 +1050,33 @@ class PortailParentTests(TestCase):
         self.assertEqual(reponse.status_code, 200)
         self.assertContains(reponse, "Portailenfant")
 
+    def test_portail_affiche_la_moyenne_avec_deux_decimales(self):
+        """La moyenne de l'enfant est une moyenne de moyennes : elle ne doit jamais s'afficher « 11,6666666666667 »."""
+        from decimal import Decimal
+
+        from pedagogie.models import Note, Trimestre
+        from scolarite.models import Affectation, Classe
+
+        classe = Classe.objects.get(nom="Classe portail")
+        enseignant = creer_utilisateur_actif("enseignant-portail@example.com", Role.ENSEIGNANT, etablissement=self.ecole)
+        affectation = Affectation.objects.create(enseignant=enseignant, classe=classe, matiere="Mathématiques")
+        for trimestre, note_classe, composition, valeur in (
+            (Trimestre.T1, "10", "20", "10"), (Trimestre.T2, "12", "24", "12"), (Trimestre.T3, "13", "26", "13"),
+        ):
+            Note.objects.create(
+                eleve=self.enfant, affectation=affectation, trimestre=trimestre,
+                note_classe=Decimal(note_classe), note_composition=Decimal(composition), valeur=Decimal(valeur),
+            )
+        self.client.force_login(self.parent)
+        reponse = self.client.get(reverse("comptes:portail_parent"))
+        self.assertContains(reponse, "<strong>11,67</strong>", html=False)
+        self.assertNotContains(reponse, "11,666")
+
+    def test_portail_sans_note_affiche_un_tiret_a_la_place_de_la_moyenne(self):
+        self.client.force_login(self.parent)
+        reponse = self.client.get(reverse("comptes:portail_parent"))
+        self.assertContains(reponse, "<strong>-</strong><br>Moyenne", html=False)
+
     def test_portail_ne_montre_pas_lenfant_dun_autre_parent(self):
         self.client.force_login(self.parent)
         reponse = self.client.get(reverse("comptes:portail_parent"))

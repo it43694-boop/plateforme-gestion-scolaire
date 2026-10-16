@@ -14,7 +14,7 @@
         <p class="text-muted mb-3">Matricule : {{ dossier.eleve.matricule }}{% if dossier.inscription %} · {{ dossier.inscription.classe }}{% endif %}</p>
         <div class="row g-2 small mb-3">
             <div class="col-4"><strong>{{ dossier.absences }}</strong><br>Absences</div>
-            <div class="col-4"><strong>{{ dossier.moyenne|default:"-" }}</strong><br>Moyenne</div>
+            <div class="col-4"><strong>{% if dossier.moyenne is not None %}{{ dossier.moyenne|floatformat:2 }}{% else %}-{% endif %}</strong><br>Moyenne</div>
             <div class="col-4"><strong>{{ dossier.solde|montant }} {{ etablissement.code_devise|default:"FCFA" }}</strong><br>Solde</div>
         </div>
         <div class="d-flex flex-wrap gap-2">
