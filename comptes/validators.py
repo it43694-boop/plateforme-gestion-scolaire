@@ -36,6 +36,15 @@ class ComplexiteMotDePasseValidator:
         )
 
 
+LETTRE_LATINE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ɏ]")
+
+
+def valider_ecriture_arabe(valeur):
+    """Un nom écrit en arabe ne contient aucune lettre latine (les chiffres et la ponctuation sont permis)."""
+    if valeur and LETTRE_LATINE.search(valeur):
+        raise ValidationError("Écrivez ce nom en lettres arabes, sans lettre latine.")
+
+
 def valider_taille_fichier_10mo(fichier):
     limite = 10 * 1024 * 1024
     if fichier.size > limite:

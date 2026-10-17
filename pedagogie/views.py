@@ -11,10 +11,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
-from xhtml2pdf import pisa
 
 from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
+from comptes.langue import donnees_pour_langue
+from comptes.pdf import creer_pdf
 from comptes.models import Utilisateur
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
 from pedagogie.conduite import (
@@ -162,7 +163,7 @@ def saisir_note_vue(request, affectation_id):
             )
         except ValidationError as erreur:
             if est_ajax:
-                return JsonResponse({"ok": False, "erreurs": {"matricule_eleve": erreur.messages}})
+                return JsonResponse({"ok": False, "erreurs": donnees_pour_langue(request, {"matricule_eleve": erreur.messages})})
             messages.error(request, "; ".join(erreur.messages))
         else:
             enregistrer_action(
@@ -171,18 +172,18 @@ def saisir_note_vue(request, affectation_id):
             )
             message = f"Note enregistrée pour {eleve.nom_complet}."
             if est_ajax:
-                return JsonResponse({
+                return JsonResponse(donnees_pour_langue(request, {
                     "ok": True, "message": message, "eleve": eleve.nom_complet,
                     "trimestre": note.get_trimestre_display(),
                     "note_classe": "-" if note.note_classe is None else f"{note.note_classe:.2f}",
                     "note_composition": "-" if note.note_composition is None else f"{note.note_composition:.2f}",
                     "valeur": f"{note.valeur:.2f}",
-                })
+                }))
             messages.success(request, message)
         return redirect("pedagogie:saisir_note", affectation_id=affectation.id)
 
     if est_ajax and request.method == "POST":
-        return JsonResponse({"ok": False, "erreurs": formulaire.errors})
+        return JsonResponse({"ok": False, "erreurs": donnees_pour_langue(request, formulaire.errors)})
 
     notes_existantes = Note.objects.filter(affectation=affectation).select_related("eleve")
     return render(request, "pedagogie/saisir_note.html", {
@@ -414,7 +415,7 @@ def exporter_bulletin_pdf(request, matricule):
 
     reponse = HttpResponse(content_type="application/pdf")
     reponse["Content-Disposition"] = f'attachment; filename="bulletin_{eleve.matricule}.pdf"'
-    resultat = pisa.CreatePDF(html, dest=reponse, encoding="utf-8", link_callback=_lien_pdf)
+    resultat = creer_pdf(html, reponse, request=request, link_callback=_lien_pdf)
     if resultat.err:
         return HttpResponse("Erreur lors de la génération du PDF.", status=500)
     return reponse
@@ -621,7 +622,7 @@ def exporter_emploi_du_temps_pdf(request, classe_id):
 
     reponse = HttpResponse(content_type="application/pdf")
     reponse["Content-Disposition"] = f'attachment; filename="emploi_du_temps_{classe.nom}.pdf"'
-    resultat = pisa.CreatePDF(html, dest=reponse, encoding="utf-8", link_callback=_lien_pdf)
+    resultat = creer_pdf(html, reponse, request=request, link_callback=_lien_pdf)
     if resultat.err:
         return HttpResponse("Erreur lors de la génération du PDF.", status=500)
     return reponse

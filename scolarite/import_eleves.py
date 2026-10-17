@@ -24,6 +24,8 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
 
+from comptes.arabisation import chiffres_ascii, nom_de_classe_arabe
+from comptes.transcription import transcrire
 from scolarite.forms import InscrireEleveForm
 from scolarite.inscription_eleve import creer_eleve_inscrit
 from scolarite.models import Inscription, classes_visibles_pour
@@ -53,8 +55,29 @@ COLONNES = [
     ("parent_nom_2", "Nom parent 2", False, ""),
     ("parent_prenom_2", "Prénom parent 2", False, ""),
     ("parent_telephone_2", "Téléphone parent 2", False, ""),
+    ("prenom_ar", "Prénom en arabe", False, "Facultatif : l'écriture arabe du prénom (en lettres arabes)."),
+    ("nom_ar", "Nom en arabe", False, "Facultatif : l'écriture arabe du nom de famille (en lettres arabes)."),
 ]
 CLES = [cle for cle, *_ in COLONNES]
+
+# Titres du modèle en arabe (le fichier peut être rempli, et rechargé, dans l'une ou l'autre langue) et leur explication.
+TITRES_ARABES = {
+    "prenom": "الاسم الشخصي", "nom": "اسم العائلة", "sexe": "الجنس", "classe": "القسم", "date_naissance": "تاريخ الميلاد",
+    "lieu_naissance": "مكان الميلاد", "numero_acte_naissance": "رقم عقد الميلاد", "matricule": "رقم التسجيل",
+    "parent_email_1": "البريد الإلكتروني لولي الأمر 1", "parent_nom_1": "اسم عائلة ولي الأمر 1", "parent_prenom_1": "الاسم الشخصي لولي الأمر 1",
+    "parent_telephone_1": "هاتف ولي الأمر 1", "parent_email_2": "البريد الإلكتروني لولي الأمر 2", "parent_nom_2": "اسم عائلة ولي الأمر 2",
+    "parent_prenom_2": "الاسم الشخصي لولي الأمر 2", "parent_telephone_2": "هاتف ولي الأمر 2",
+    "prenom_ar": "الاسم الشخصي بالعربية", "nom_ar": "اسم العائلة بالعربية",
+}
+AIDES_ARABES = {
+    "prenom": "الاسم الشخصي للتلميذ.", "nom": "اسم عائلة التلميذ.", "sexe": "ذكر أو أنثى.",
+    "classe": "اسم القسم كما يظهر في ورقة « الأقسام ».", "date_naissance": "بصيغة يوم/شهر/سنة (مثال : 25/03/2015).", "lieu_naissance": "",
+    "numero_acte_naissance": "رقم مستخرج عقد الميلاد.",
+    "matricule": "اتركه فارغًا : تمنح المنصة رقم تسجيل. لا تملأه إلا لاستعادة رقم تسجيل موجود.",
+    "parent_email_1": "إجباري : بهذا البريد الإلكتروني يتابع ولي الأمر ابنه.", "parent_nom_1": "", "parent_prenom_1": "", "parent_telephone_1": "",
+    "parent_email_2": "اختياري، ويختلف عن بريد ولي الأمر الأول.", "parent_nom_2": "", "parent_prenom_2": "", "parent_telephone_2": "",
+    "prenom_ar": "اختياري : كتابة الاسم الشخصي بحروف عربية.", "nom_ar": "اختياري : كتابة اسم العائلة بحروف عربية.",
+}
 LIBELLES = {cle: libelle for cle, libelle, *_ in COLONNES}
 OBLIGATOIRES = [cle for cle, _, obligatoire, _ in COLONNES if obligatoire]
 
@@ -101,8 +124,30 @@ def _normaliser(texte):
     return re.sub(r"[^a-z0-9]+", "_", sans_accents.lower()).strip("_")
 
 
+def _normaliser_arabe(texte):
+    """Titre ou valeur écrit en arabe : sans voyelles brèves ni allongement, alef et ya unifiés, chiffres occidentaux, espaces simples."""
+    texte = chiffres_ascii(str(texte))
+    texte = re.sub(r"[\u064b-\u065f\u0640]", "", texte)
+    texte = texte.translate(str.maketrans("\u0623\u0625\u0622\u0671\u0649\u0629", "\u0627\u0627\u0627\u0627\u064a\u0647"))
+    return " ".join(re.sub(r"[_\-:()/.]+", " ", texte).split()).casefold()
+
+
+def _cle_arabe(texte):
+    normalise = _normaliser_arabe(texte)
+    return normalise if re.search(r"[\u0600-\u06ff]", normalise) else ""
+
+
 # titre de colonne normalisé -> clé (le titre du modèle comme la clé technique sont acceptés)
 ENTETES = {_normaliser(libelle): cle for cle, libelle, *_ in COLONNES}
+ENTETES_ARABES = {_cle_arabe(titre): cle for cle, titre in TITRES_ARABES.items()}
+ENTETES_ARABES.update({  # autres façons courantes de nommer la même colonne
+    _cle_arabe("الاسم"): "nom", _cle_arabe("اللقب"): "nom", _cle_arabe("الاسم العائلي"): "nom", _cle_arabe("الاسم الاول"): "prenom",
+    _cle_arabe("الصف"): "classe",
+})
+SEXES_ARABES = {
+    "ذكر": "M", "ذ": "M", "ولد": "M", "صبي": "M", "رجل": "M", "م": "M",
+    "انثي": "F", "انثى": "F", "ا": "F", "ب": "F", "بنت": "F", "فتاه": "F", "امراه": "F", "ث": "F", "اناث": "F",
+}
 ENTETES.update({_normaliser(cle): cle for cle in CLES})
 ENTETES.update({
     "acte_de_naissance": "numero_acte_naissance", "n_acte_naissance": "numero_acte_naissance",
@@ -157,7 +202,7 @@ def lire_classeur(fichier):
         texte = _texte(titre)
         if not texte:
             continue
-        cle = ENTETES.get(_normaliser(texte))
+        cle = ENTETES.get(_normaliser(texte)) or ENTETES_ARABES.get(_cle_arabe(texte))
         if cle is None:
             ignorees.append(texte)
         elif cle not in colonnes.values():
@@ -197,6 +242,9 @@ def valider(lignes, utilisateur, annee):
     """
     classes = classes_visibles_pour(utilisateur).filter(annee_scolaire=annee)
     classe_par_nom = {classe.nom.strip().lower(): classe for classe in classes}
+    for classe in classes:  # le modèle en arabe liste les classes en arabe : on les reconnaît aussi
+        ecrit = classe.nom_ar or nom_de_classe_arabe(classe.nom) or transcrire(classe.nom)
+        classe_par_nom.setdefault(_normaliser_arabe(ecrit), classe)
     deja_inscrits = {
         (classe_id, (prenom or "").strip().lower(), (nom or "").strip().lower())
         for classe_id, prenom, nom in Inscription.objects.filter(classe__in=classes).values_list(
@@ -211,9 +259,11 @@ def valider(lignes, utilisateur, annee):
         resultat = LigneValidee(numero=numero, donnees=donnees)
         resultats.append(resultat)
 
-        classe = classe_par_nom.get(donnees["classe"].strip().lower()) if donnees["classe"] else None
+        classe = None
+        if donnees["classe"]:
+            classe = classe_par_nom.get(donnees["classe"].strip().lower()) or classe_par_nom.get(_normaliser_arabe(donnees["classe"]))
         resultat.classe = classe
-        sexe = SEXES.get(_normaliser(donnees["sexe"]), "") if donnees["sexe"] else ""
+        sexe = (SEXES.get(_normaliser(donnees["sexe"])) or SEXES_ARABES.get(_cle_arabe(donnees["sexe"]), "")) if donnees["sexe"] else ""
         date_naissance, erreur_date = _date_iso(donnees["date_naissance"])
 
         formulaire_donnees = {
@@ -302,57 +352,89 @@ def _texte_seul(feuille, ligne, colonne, valeur):
     return cellule
 
 
-def modele_xlsx(utilisateur, annee) -> Workbook:
-    """Classeur à remplir : feuille « Élèves » (titres), feuille « Classes » (noms exacts) et feuille « Mode d'emploi »."""
+def modele_xlsx(utilisateur, annee, langue="fr") -> Workbook:
+    """
+    Classeur à remplir : feuille « Élèves » (titres), feuille « Classes » (noms exacts) et feuille « Mode d'emploi ».
+    En arabe, tout le classeur est en arabe (titres, classes, aide) et se lit de droite à gauche ; le fichier rempli se recharge dans les deux langues.
+    """
+    arabe = langue == "ar"
     classeur = Workbook()
     classeur.properties.creator = getattr(settings, "NOM_PLATEFORME", "Nexora Éducation")
     eleves = classeur.active
-    eleves.title = NOM_FEUILLE
-    noms_classes = list(
-        classes_visibles_pour(utilisateur).filter(annee_scolaire=annee).order_by("cycle", "nom").values_list("nom", flat=True)
-    )
+    nom_eleves = "التلاميذ" if arabe else NOM_FEUILLE
+    nom_classes = "الأقسام" if arabe else "Classes"
+    eleves.title = nom_eleves
+    classes_visibles = list(classes_visibles_pour(utilisateur).filter(annee_scolaire=annee).order_by("cycle", "nom"))
+    if arabe:
+        noms_classes = [classe.nom_ar or nom_de_classe_arabe(classe.nom) or transcrire(classe.nom) for classe in classes_visibles]
+    else:
+        noms_classes = [classe.nom for classe in classes_visibles]
 
     for colonne, (cle, libelle, obligatoire, _) in enumerate(COLONNES, start=1):
-        cellule = _texte_seul(eleves, 1, colonne, libelle)
+        titre = TITRES_ARABES[cle] if arabe else libelle
+        cellule = _texte_seul(eleves, 1, colonne, titre)
         cellule.font = _GRAS
         cellule.fill = _FOND_OBLIGATOIRE if obligatoire else _FOND_ENTETE
         cellule.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center")
-        eleves.column_dimensions[cellule.column_letter].width = max(len(libelle) + 4, 16)
+        eleves.column_dimensions[cellule.column_letter].width = max(len(titre) + 4, 16)
     eleves.freeze_panes = "A2"
 
-    sexe_valide = DataValidation(type="list", formula1='"M,F"', allow_blank=True, showErrorMessage=True,
-                                 errorTitle="Sexe", error="Choisissez M ou F.")
+    if arabe:
+        sexe_valide = DataValidation(type="list", formula1='"ذكر,أنثى"', allow_blank=True, showErrorMessage=True,
+                                     errorTitle="الجنس", error="اختر ذكر أو أنثى.")
+    else:
+        sexe_valide = DataValidation(type="list", formula1='"M,F"', allow_blank=True, showErrorMessage=True,
+                                     errorTitle="Sexe", error="Choisissez M ou F.")
     eleves.add_data_validation(sexe_valide)
     sexe_valide.add(f"C2:C{LIGNES_MAX + 1}")
 
-    classes = classeur.create_sheet("Classes")
-    _texte_seul(classes, 1, 1, f"Classes de l'année {annee.libelle}").font = _GRAS
+    classes = classeur.create_sheet(nom_classes)
+    titre_classes = f"أقسام السنة {annee.libelle}" if arabe else f"Classes de l'année {annee.libelle}"
+    _texte_seul(classes, 1, 1, titre_classes).font = _GRAS
     for ligne, nom in enumerate(noms_classes, start=2):
         _texte_seul(classes, ligne, 1, nom)
     classes.column_dimensions["A"].width = 40
     if noms_classes:
         classe_valide = DataValidation(
-            type="list", formula1=f"Classes!$A$2:$A${len(noms_classes) + 1}", allow_blank=True,
-            showErrorMessage=True, errorTitle="Classe", error="Choisissez une classe de la liste (feuille « Classes »).",
+            type="list", formula1=(f"'{nom_classes}'" if arabe else nom_classes) + f"!$A$2:$A${len(noms_classes) + 1}", allow_blank=True,
+            showErrorMessage=True, errorTitle="القسم" if arabe else "Classe",
+            error="اختر قسمًا من القائمة (ورقة « الأقسام »)." if arabe else "Choisissez une classe de la liste (feuille « Classes »).",
         )
         eleves.add_data_validation(classe_valide)
         classe_valide.add(f"D2:D{LIGNES_MAX + 1}")
 
-    aide = classeur.create_sheet("Mode d'emploi")
-    lignes_aide = [
-        ("Comment remplir ce fichier", ""),
-        ("1.", f"Écrivez un élève par ligne dans la feuille « {NOM_FEUILLE} », sous la ligne de titres. Ne changez pas les titres."),
-        ("2.", "Les colonnes sur fond orangé sont obligatoires."),
-        ("3.", f"Maximum {LIGNES_MAX} élèves par fichier. Enregistrez au format .xlsx, puis envoyez-le sur la page d'import."),
-        ("4.", "Un aperçu vous montre les erreurs ligne par ligne avant la moindre création : rien n'est inscrit tant que "
-               "tout n'est pas correct, et vous confirmez ensuite."),
-        ("", ""),
-        ("Colonne", "Explication"),
-    ]
-    lignes_aide += [(libelle + (" (obligatoire)" if obligatoire else ""), texte) for _, libelle, obligatoire, texte in COLONNES]
+    aide = classeur.create_sheet("دليل الاستعمال" if arabe else "Mode d'emploi")
+    if arabe:
+        lignes_aide = [
+            ("كيف تملأ هذا الملف", ""),
+            ("1.", f"اكتب تلميذًا واحدًا في كل سطر من ورقة « {nom_eleves} »، تحت سطر العناوين. لا تغيّر العناوين."),
+            ("2.", "الأعمدة ذات الخلفية البرتقالية إجبارية."),
+            ("3.", f"الحد الأقصى {LIGNES_MAX} تلميذ في الملف الواحد. احفظ الملف بصيغة إكسل ثم أرسله في صفحة الاستيراد."),
+            ("4.", "تُظهر لك المعاينة الأخطاء سطرًا بسطر قبل أي إنشاء : لا يُسجَّل شيء ما لم يكن كل شيء صحيحًا، ثم تؤكد."),
+            ("", ""),
+            ("العمود", "الشرح"),
+        ]
+        lignes_aide += [
+            (TITRES_ARABES[cle] + (" (إجباري)" if obligatoire else ""), AIDES_ARABES.get(cle, "")) for cle, _, obligatoire, _ in COLONNES
+        ]
+    else:
+        lignes_aide = [
+            ("Comment remplir ce fichier", ""),
+            ("1.", f"Écrivez un élève par ligne dans la feuille « {NOM_FEUILLE} », sous la ligne de titres. Ne changez pas les titres."),
+            ("2.", "Les colonnes sur fond orangé sont obligatoires."),
+            ("3.", f"Maximum {LIGNES_MAX} élèves par fichier. Enregistrez au format .xlsx, puis envoyez-le sur la page d'import."),
+            ("4.", "Un aperçu vous montre les erreurs ligne par ligne avant la moindre création : rien n'est inscrit tant que "
+                   "tout n'est pas correct, et vous confirmez ensuite."),
+            ("", ""),
+            ("Colonne", "Explication"),
+        ]
+        lignes_aide += [(libelle + (" (obligatoire)" if obligatoire else ""), texte) for _, libelle, obligatoire, texte in COLONNES]
     for numero, (gauche, droite) in enumerate(lignes_aide, start=1):
         _texte_seul(aide, numero, 1, gauche).font = _GRAS if numero in (1, 7) else Font()
         _texte_seul(aide, numero, 2, droite)
     aide.column_dimensions["A"].width = 30
     aide.column_dimensions["B"].width = 100
+    if arabe:
+        for feuille in (eleves, classes, aide):
+            feuille.sheet_view.rightToLeft = True
     return classeur

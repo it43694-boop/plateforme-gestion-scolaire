@@ -87,7 +87,7 @@
                 <span class="topbar-identite"><span class="role">{{ user.get_role_display }}</span> - {{ user.nom_complet }}</span>
                 <details class="menu-compte" data-menu-compte>
                     <summary class="menu-compte-declencheur" aria-label="Mon compte">
-                        <span class="avatar-initiales">{{ user.prenom|first }}{{ user.nom|first }}</span>
+                        <span class="avatar-initiales">{{ user.initiales }}</span>
                         <svg class="menu-compte-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
                     </summary>
                     <div class="menu-compte-panneau">

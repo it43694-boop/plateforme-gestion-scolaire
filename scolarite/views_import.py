@@ -45,7 +45,7 @@ def modele_import_eleves(request):
         raise Http404("Aucune année scolaire.")
     reponse = HttpResponse(content_type=TYPE_MIME_XLSX)
     reponse["Content-Disposition"] = 'attachment; filename="modele_import_eleves.xlsx"'
-    modele_xlsx(request.user, annee).save(reponse)
+    modele_xlsx(request.user, annee, langue=getattr(request, "LANGUAGE_CODE", "fr")).save(reponse)
     return reponse
 
 

@@ -7,6 +7,9 @@ Liste les textes restés en français sur des pages, pour compléter le catalogu
 Les pages sont ouvertes comme le compte donné les verrait (en français : c'est le texte d'origine qu'on cherche). Avec
 `--a-traduire`, les textes sans traduction sont écrits dans un fichier CSV (colonnes francais, arabe, note) prêt à être rempli.
 Sans `--email`, les pages sont ouvertes sans être connecté (connexion, accueil...).
+
+Avec `--arabe-pur`, les pages sont ouvertes EN ARABE et on liste ce qui reste en lettres latines ou en chiffres occidentaux (noms, classes, références,
+codes...) : à l'arrivée, il ne doit plus rester que les adresses email.
 """
 import csv
 
@@ -14,7 +17,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.test import Client, override_settings
 
 from comptes.models import Utilisateur
-from comptes.traduction import catalogue_pour, chaines_non_traduites
+from comptes.traduction import catalogue_pour, chaines_non_traduites, restes_latins
 
 
 class Command(BaseCommand):
@@ -25,11 +28,12 @@ class Command(BaseCommand):
         parser.add_argument("--email", help="Compte avec lequel ouvrir les pages (sinon : visiteur).")
         parser.add_argument("--langue", default="ar", help="Langue du catalogue (ar).")
         parser.add_argument("--a-traduire", dest="fichier", help="Écrit les textes sans traduction dans ce fichier CSV.")
+        parser.add_argument("--arabe-pur", action="store_true", help="Ouvre les pages en arabe et liste les lettres latines et chiffres occidentaux restants.")
 
     def handle(self, *args, **options):
         catalogue = catalogue_pour(options["langue"])
         client = Client(HTTP_HOST="localhost")
-        client.cookies["nexora_langue"] = "fr"  # le texte d'origine, quelle que soit la langue du compte
+        client.cookies["nexora_langue"] = "ar" if options["arabe_pur"] else "fr"  # sinon : le texte d'origine, quelle que soit la langue du compte
         if options["email"]:
             try:
                 client.force_login(Utilisateur.objects.get(email=options["email"]))
@@ -44,8 +48,9 @@ class Command(BaseCommand):
                 if reponse.status_code != 200:
                     self.stdout.write(self.style.WARNING(f"{adresse} : réponse {reponse.status_code}"))
                     continue
-                absents = chaines_non_traduites(reponse.content.decode("utf-8"), catalogue)
-                self.stdout.write(f"{adresse} : {len(absents)} texte(s) sans traduction")
+                contenu = reponse.content.decode("utf-8")
+                absents = restes_latins(contenu) if options["arabe_pur"] else chaines_non_traduites(contenu, catalogue)
+                self.stdout.write(f"{adresse} : {len(absents)} texte(s) {'encore en lettres latines ou chiffres occidentaux' if options['arabe_pur'] else 'sans traduction'}")
                 for texte in absents:
                     manquants.setdefault(texte, adresse)
         self.stdout.write(f"\n{len(manquants)} texte(s) à traduire au total ({len(catalogue)} déjà au catalogue).")

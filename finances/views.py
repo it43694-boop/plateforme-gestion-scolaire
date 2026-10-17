@@ -5,10 +5,11 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
-from xhtml2pdf import pisa
 
 from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
+from comptes.langue import texte_pour_langue
+from comptes.pdf import creer_pdf
 from comptes.models import Utilisateur
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
 from finances.forms import (
@@ -71,7 +72,7 @@ def rechercher_eleve_json(request):
     ).distinct().order_by("nom", "prenom"), terme, "nom", "prenom", "matricule", limite=10)
     return JsonResponse({
         "resultats": [
-            {"matricule": e.matricule, "nom_complet": f"{e.nom_complet} ({e.matricule})"}
+            {"matricule": e.matricule, "nom_complet": texte_pour_langue(request, f"{e.nom_complet} ({e.matricule})")}
             for e in eleves
         ],
     })
@@ -99,7 +100,9 @@ def periodes_eleve_json(request):
         eleve=eleve, statut=Inscription.Statut.EN_COURS,
     ).select_related("classe__echeancier").order_by("-date_inscription").first()
     echeancier = getattr(inscription.classe, "echeancier", None) if inscription else None
-    return JsonResponse({"periodes": echeancier.libelles_periodes() if echeancier else []})
+    periodes = echeancier.libelles_periodes() if echeancier else []
+    # `periodes` = valeurs envoyées avec le formulaire (inchangées) ; `etiquettes` = ce que la personne lit, dans sa langue.
+    return JsonResponse({"periodes": periodes, "etiquettes": [texte_pour_langue(request, periode) for periode in periodes]})
 
 
 @module_requis(Module.FINANCES)
@@ -156,10 +159,10 @@ def suivi_paiements(request):
                 (a.telephone for a in sorted(inscription.eleve.parents_en_attente.all(), key=lambda a: (a.cree_le, a.pk))
                  if a.telephone), None,
             )
-        message_whatsapp = (
+        message_whatsapp = texte_pour_langue(request, (
             f"Bonjour, ceci est un rappel concernant le solde de scolarité de "
             f"{inscription.eleve.nom_complet} ({inscription.classe}) : {solde} {devise}."
-        ) if telephone_whatsapp else ""
+        )) if telephone_whatsapp else ""
         lignes.append({
             "inscription": inscription, "total_du": total_du,
             "total_paye": inscription.total_paye, "solde": solde, "statut": statut,
@@ -214,7 +217,7 @@ def exporter_recu_paiement_pdf(request, paiement_id):
 
     reponse = HttpResponse(content_type="application/pdf")
     reponse["Content-Disposition"] = f'attachment; filename="recu_{paiement.reference}.pdf"'
-    resultat = pisa.CreatePDF(html, dest=reponse, encoding="utf-8")
+    resultat = creer_pdf(html, reponse, request=request)
     if resultat.err:
         return HttpResponse("Erreur lors de la génération du reçu.", status=500)
     return reponse
@@ -297,7 +300,7 @@ def rechercher_employe_json(request):
     ).exclude(role=Role.ELEVE).order_by("nom", "prenom"), terme, "nom", "prenom", "email", limite=10)
     return JsonResponse({
         "resultats": [
-            {"email": e.email, "nom_complet": f"{e.nom_complet} ({e.get_role_display()})"}
+            {"email": e.email, "nom_complet": texte_pour_langue(request, f"{e.nom_complet} ({e.get_role_display()})")}
             for e in employes
         ],
     })
@@ -406,7 +409,7 @@ def bulletin_paie_pdf(request, salaire_id):
     html = render_to_string("finances/bulletin_paie_pdf.html", {"salaire": salaire}, request=request)
     reponse = HttpResponse(content_type="application/pdf")
     reponse["Content-Disposition"] = f'attachment; filename="bulletin_{salaire.employe.matricule or salaire.employe.id}_{salaire.periode}.pdf"'
-    resultat = pisa.CreatePDF(html, dest=reponse, encoding="utf-8")
+    resultat = creer_pdf(html, reponse, request=request)
     if resultat.err:
         return HttpResponse("Erreur lors de la génération du bulletin.", status=500)
     return reponse
@@ -504,7 +507,8 @@ def solde_conges_json(request):
     employe = Utilisateur.objects.filter(email__iexact=email, etablissement=request.user.etablissement).first()
     if not employe:
         return JsonResponse({"solde": None})
-    return JsonResponse({"solde": solde_conges_payes(employe)})
+    solde = solde_conges_payes(employe)
+    return JsonResponse({"solde": solde, "solde_texte": texte_pour_langue(request, str(solde))})
 
 
 # ---------------------------------------------------------------------------
@@ -573,7 +577,7 @@ def journal_caisse_syscohada(request):
 def journal_caisse_syscohada_csv(request):
     import csv
 
-    from comptes.excel import cellule_csv
+    from comptes.excel import cellule_csv, ligne_csv_pour_langue
 
     mouvements = MouvementCaisse.objects.filter(
         etablissement=request.user.etablissement, annule=False,
@@ -583,10 +587,10 @@ def journal_caisse_syscohada_csv(request):
     reponse["Content-Disposition"] = 'attachment; filename="journal_caisse_syscohada.csv"'
     reponse.write("﻿")
     ecrivain = csv.writer(reponse, delimiter=";")
-    ecrivain.writerow(["Date", "Pièce", "Libellé", "Compte de contrepartie", "Débit (Caisse)", "Crédit (Caisse)"])
+    ecrivain.writerow(ligne_csv_pour_langue(request, ["Date", "Pièce", "Libellé", "Compte de contrepartie", "Débit (Caisse)", "Crédit (Caisse)"]))
     for mouvement in mouvements:
-        ecrivain.writerow([
+        ecrivain.writerow(ligne_csv_pour_langue(request, [
             mouvement.date_mouvement.strftime("%d/%m/%Y"), cellule_csv(mouvement.reference), cellule_csv(mouvement.description),
             cellule_csv(mouvement.compte_contrepartie), mouvement.debit_caisse, mouvement.credit_caisse,
-        ])
+        ]))
     return reponse

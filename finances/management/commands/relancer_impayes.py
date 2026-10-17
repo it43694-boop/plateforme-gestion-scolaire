@@ -4,6 +4,7 @@ from django.db.models import Q, Sum
 from django.urls import reverse
 from django.utils import timezone
 
+from comptes.langue import langue_du_compte
 from comptes.mail import envoyer_email
 from comptes.models import Notification
 from finances.models import Paiement
@@ -50,6 +51,7 @@ class Command(BaseCommand):
             envoyer_email(
                 sujet=titre, contenu=message,
                 expediteur=settings.DEFAULT_FROM_EMAIL, destinataires=[destinataire.email],
+                langue=langue_du_compte(destinataire), etablissement_id=getattr(etablissement, "pk", None),
             )
             compte += 1
         self.stdout.write(self.style.SUCCESS(f"{compte} relance(s) créée(s)."))

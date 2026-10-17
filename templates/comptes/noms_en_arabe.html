@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block titre %}Noms en arabe{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Noms en arabe</h1>
+        <p>En arabe, chaque nom s'affiche en lettres arabes. Ce que vous enregistrez ici passe avant la proposition automatique, qui n'est pas toujours l'écriture que la famille choisirait : relisez, corrigez si besoin, puis enregistrez.</p>
+    </div>
+</div>
+
+<ul class="nav nav-pills mb-3">
+    {% for code, libelle in groupes %}
+    <li class="nav-item"><a class="nav-link {% if code == groupe %}active{% endif %}" href="{% url 'comptes:noms_en_arabe' %}?groupe={{ code }}">{{ libelle }}</a></li>
+    {% endfor %}
+</ul>
+
+{% if groupe != "ecole" %}
+<form method="get" class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+    <input type="hidden" name="groupe" value="{{ groupe }}">
+    <input type="search" name="q" value="{{ recherche }}" class="form-control mw-320" placeholder="Rechercher un nom" aria-label="Rechercher un nom">
+    <div class="form-check">
+        <input type="checkbox" class="form-check-input" id="a-revoir" name="a_revoir" value="1" {% if a_revoir %}checked{% endif %}>
+        <label class="form-check-label" for="a-revoir">Seulement ceux dont l'écriture n'est pas encore enregistrée</label>
+    </div>
+    <button type="submit" class="btn btn-outline-secondary btn-sm">Rechercher</button>
+</form>
+{% endif %}
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="groupe" value="{{ groupe }}">
+    {% if page %}<input type="hidden" name="page" value="{{ page.number }}">{% endif %}
+    <div class="card mb-3">
+        <div class="card-body">
+            {% if lignes %}
+            <table class="table table-cartes mb-0">
+                <thead>
+                    <tr>
+                        <th>Nom d'origine</th>
+                        {% for champ in lignes.0.champs %}<th>{{ champ.etiquette }}</th>{% endfor %}
+                        <th>État</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne in lignes %}
+                    <tr>
+                        <td translate="no" dir="ltr" class="text-start">{{ ligne.latin }}</td>
+                        {% for champ in ligne.champs %}
+                        <td>
+                            <input type="text" name="{{ champ.nom }}" value="{{ champ.valeur }}" maxlength="100" lang="ar" dir="rtl"
+                                   class="form-control form-control-sm {% if champ.erreur %}is-invalid{% endif %}" aria-label="{{ champ.etiquette }}">
+                            {% if champ.erreur %}<div class="text-danger small mt-1">{{ champ.erreur }}</div>{% endif %}
+                        </td>
+                        {% endfor %}
+                        <td>
+                            {% if ligne.saisi %}<span class="badge bg-success">Enregistré</span>{% else %}<span class="badge bg-warning text-dark">Proposition automatique</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="etat-vide"><p>Aucun nom à afficher.</p></div>
+            {% endif %}
+        </div>
+    </div>
+    {% if lignes %}<button type="submit" class="btn btn-primary">Enregistrer ces écritures</button>{% endif %}
+</form>
+
+{% if page and page.has_other_pages %}
+<nav class="d-flex justify-content-between align-items-center mt-3">
+    <span class="pagination-info">Page {{ page.number }} sur {{ page.paginator.num_pages }} ({{ page.paginator.count }} au total)</span>
+    <div>
+        {% if page.has_previous %}
+        <a href="?groupe={{ groupe }}{% if recherche %}&q={{ recherche|urlencode }}{% endif %}{% if a_revoir %}&a_revoir=1{% endif %}&page={{ page.previous_page_number }}" class="btn btn-sm btn-outline-secondary">Précédent</a>
+        {% endif %}
+        {% if page.has_next %}
+        <a href="?groupe={{ groupe }}{% if recherche %}&q={{ recherche|urlencode }}{% endif %}{% if a_revoir %}&a_revoir=1{% endif %}&page={{ page.next_page_number }}" class="btn btn-sm btn-outline-secondary">Suivant</a>
+        {% endif %}
+    </div>
+</nav>
+{% endif %}
+{% endblock %}

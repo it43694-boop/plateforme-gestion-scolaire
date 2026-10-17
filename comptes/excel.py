@@ -121,12 +121,50 @@ def ajouter_feuille_tableau(classeur, nom, titre, infos, entetes, lignes, *, tot
     return feuille
 
 
-def reponse_xlsx(classeur, nom_fichier) -> HttpResponse:
+def arabiser_classeur(classeur, request):
+    """
+    Classeur d'une personne dont la page est en arabe : les textes (titres, en-têtes, noms, libellés) sont écrits en arabe comme dans les pages,
+    les feuilles se lisent de droite à gauche. Les nombres et les dates ne bougent pas.
+    """
+    from comptes.langue import texte_pour_langue
+
+    deja = set()
+    for feuille in classeur.worksheets:
+        feuille.sheet_view.rightToLeft = True
+        for rangee in feuille.iter_rows():
+            for cellule in rangee:
+                if isinstance(cellule.value, str) and cellule.value:
+                    nouveau = texte_pour_langue(request, cellule.value)
+                    if nouveau != cellule.value:
+                        cellule.value = nouveau
+                        cellule.data_type = "s"  # jamais une formule
+        titre = nom_feuille_sur(texte_pour_langue(request, feuille.title))
+        base, numero = titre, 1
+        while titre in deja:
+            numero += 1
+            titre = f"{base[:28]} {numero}"
+        deja.add(titre)
+        feuille.title = titre
+    return classeur
+
+
+def reponse_xlsx(classeur, nom_fichier, request=None) -> HttpResponse:
     """Réponse de téléchargement d'un classeur (jamais mis en cache : voir le middleware des pages connectées)."""
+    if request is not None and getattr(request, "LANGUAGE_CODE", "fr") == "ar":
+        arabiser_classeur(classeur, request)
     reponse = HttpResponse(content_type=TYPE_MIME_XLSX)
     reponse["Content-Disposition"] = f'attachment; filename="{nom_fichier}.xlsx"'
     classeur.save(reponse)
     return reponse
+
+
+def ligne_csv_pour_langue(request, ligne):
+    """Une ligne de CSV dont les textes sont écrits en arabe quand la page est en arabe (comme pour un classeur Excel)."""
+    if getattr(request, "LANGUAGE_CODE", "fr") != "ar":
+        return ligne
+    from comptes.langue import texte_pour_langue
+
+    return [texte_pour_langue(request, valeur) if isinstance(valeur, str) else valeur for valeur in ligne]
 
 
 def cellule_csv(valeur):

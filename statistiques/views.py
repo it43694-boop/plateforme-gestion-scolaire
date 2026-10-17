@@ -11,6 +11,7 @@ from django.urls import reverse
 
 from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
+from comptes.excel import ligne_csv_pour_langue, reponse_xlsx
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
 from finances.models import Paiement, TypeTranche
 from pedagogie.models import Note
@@ -149,7 +150,7 @@ def exporter_effectifs_csv(request):
     reponse["Content-Disposition"] = f'attachment; filename="{nom_fichier}"'
     reponse.write("﻿")  # BOM UTF-8 : nécessaire pour qu'Excel affiche correctement les accents
     writer = csv.writer(reponse)
-    writer.writerow(["Classe", "Cycle", "Effectif", "Garçons", "Filles", "Taux de réussite (%)", "Taux d'échec (%)"])
+    writer.writerow(ligne_csv_pour_langue(request, ["Classe", "Cycle", "Effectif", "Garçons", "Filles", "Taux de réussite (%)", "Taux d'échec (%)"]))
 
     classes = classes.order_by("cycle", "nom").annotate(
         effectif_actif=Count("inscriptions", filter=Q(inscriptions__statut=Inscription.Statut.EN_COURS)),
@@ -166,11 +167,11 @@ def exporter_effectifs_csv(request):
         total_decide = classe.admis + classe.redouble
         taux_reussite = round(100 * classe.admis / total_decide, 1) if total_decide else ""
         taux_echec = round(100 * classe.redouble / total_decide, 1) if total_decide else ""
-        writer.writerow([
+        writer.writerow(ligne_csv_pour_langue(request, [
             cellule_csv(classe.nom), classe.get_cycle_display(),
             classe.effectif_actif, classe.garcons, classe.filles,
             taux_reussite, taux_echec,
-        ])
+        ]))
     return reponse
 
 
@@ -186,7 +187,7 @@ def exporter_finances_csv(request):
     reponse.write("﻿")
     writer = csv.writer(reponse)
     devise = getattr(request.user.etablissement, "code_devise", "FCFA")
-    writer.writerow(["Échéance", f"Total encaissé ({devise})"])
+    writer.writerow(ligne_csv_pour_langue(request, ["Échéance", f"Total encaissé ({devise})"]))
 
     total_general = 0
     totaux = {
@@ -195,9 +196,9 @@ def exporter_finances_csv(request):
     }
     for tranche in TypeTranche:
         total = totaux.get(tranche.value, 0)
-        writer.writerow([tranche.label, total])
+        writer.writerow(ligne_csv_pour_langue(request, [tranche.label, total]))
         total_general += total
-    writer.writerow(["Total général", total_general])
+    writer.writerow(ligne_csv_pour_langue(request, ["Total général", total_general]))
     return reponse
 
 
@@ -231,9 +232,7 @@ def _fiche_a_exporter(request):
 def exporter_fiche_annuelle_xlsx(request):
     """Même contenu que le CSV, en classeur Excel mis en forme (chiffres reconnus comme des nombres)."""
     fiche, nom_fichier = _fiche_a_exporter(request)
-    reponse = HttpResponse(content_type=TYPE_MIME_XLSX)
-    reponse["Content-Disposition"] = f'attachment; filename="{nom_fichier}.xlsx"'
-    classeur_fiche(fiche).save(reponse)
+    reponse = reponse_xlsx(classeur_fiche(fiche), nom_fichier, request=request)
     enregistrer_action(
         acteur=request.user, action="export_fiche_statistique_annuelle", cible=fiche["annee"].libelle,
         details={"format": "xlsx"}, request=request,
@@ -249,7 +248,7 @@ def exporter_fiche_annuelle_csv(request):
     reponse.write("\ufeff")  # BOM UTF-8 : accents corrects dans Excel
     writer = csv.writer(reponse, delimiter=";")
     for ligne in lignes_csv(fiche):
-        writer.writerow([cellule_csv(valeur) for valeur in ligne])
+        writer.writerow([cellule_csv(valeur) for valeur in ligne_csv_pour_langue(request, ligne)])
     enregistrer_action(
         acteur=request.user, action="export_fiche_statistique_annuelle", cible=fiche["annee"].libelle, request=request,
     )

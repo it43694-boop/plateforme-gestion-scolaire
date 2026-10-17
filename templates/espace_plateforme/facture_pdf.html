@@ -40,7 +40,7 @@
         <tr><td class="libelle">Désignation</td><td class="valeur">{{ facture.libelle }}</td></tr>
         <tr><td class="libelle">Période</td><td class="valeur">du {{ facture.periode_debut|date:"d/m/Y" }} au {{ facture.periode_fin|date:"d/m/Y" }}</td></tr>
         <tr><td class="libelle">Date d'émission</td><td class="valeur">{{ facture.date_emission|date:"d/m/Y" }}</td></tr>
-        <tr><td class="libelle">Échéance</td><td class="valeur">{{ facture.date_echeance|date:"d/m/Y" }}</td></tr>
+        <tr><td class="libelle">Date d'échéance</td><td class="valeur">{{ facture.date_echeance|date:"d/m/Y" }}</td></tr>
         {% if facture.statut == "payee" %}
         <tr><td class="libelle">Règlement</td><td class="valeur">{{ facture.get_mode_reglement_display }}{% if facture.reference_reglement %} - réf. {{ facture.reference_reglement }}{% endif %}</td></tr>
         {% endif %}

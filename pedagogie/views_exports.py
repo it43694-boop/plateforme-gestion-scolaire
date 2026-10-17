@@ -52,6 +52,7 @@ def exporter_releve_notes_xlsx(request, classe_id):
     return reponse_xlsx(
         releve_notes_classeur(classe, affectations, vue_complete=vue_complete),
         nom_fichier_sur("releve_notes", classe.nom, classe.annee_scolaire.libelle),
+        request=request,
     )
 
 
@@ -71,4 +72,5 @@ def exporter_absences_xlsx(request, classe_id):
     return reponse_xlsx(
         absences_classeur(classe, du=du, au=au),
         nom_fichier_sur("absences", classe.nom, classe.annee_scolaire.libelle),
+        request=request,
     )

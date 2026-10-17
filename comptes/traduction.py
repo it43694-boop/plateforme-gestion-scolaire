@@ -21,11 +21,17 @@ from functools import lru_cache
 from pathlib import Path
 
 DOSSIER_CATALOGUES = Path(__file__).resolve().parent / "traductions"
-SEPARATEURS = (" · ", " — ", " - ", " / ", " | ")
-PROFONDEUR_MAXIMALE = 3
+SEPARATEURS = (" · ", " — ", " - ", " / ", " | ", ", ")
+SEPARATEURS_FORTS = (" · ", " — ", " - ", " | ")
+SEPARATEUR_DE_SORTIE = {", ": "، "}  # la virgule française devient la virgule arabe
+PROFONDEUR_MAXIMALE = 6
 LONGUEUR_MAXIMALE_DECOUPEE = 200  # un long paragraphe n'est jamais découpé en morceaux
 
 TROU = re.compile(r"\{(\d+)\}")
+SEPARATEURS_DE_MORCEAUX = re.compile(r"( · | — | \| )")
+PARENTHESE_FINALE = re.compile(r"(.+?) \(([^()]+)\)")
+FIN_DE_PHRASE = re.compile(r"(?<=[.!?…])\s+(?=[A-ZÀ-ÖØ-ÞŒ«\"(])")
+LONGUEUR_MAXIMALE_PAR_PHRASES = 800  # un message de plusieurs phrases collées (« Élève inscrit. Matricule : 5. Dossier complet. »)
 JETONS = re.compile(
     r"(<!--.*?-->|<script\b.*?</script\s*>|<style\b.*?</style\s*>|<textarea\b.*?</textarea\s*>|<[^>]+>)", re.S | re.I,
 )
@@ -42,7 +48,7 @@ TYPE_BOUTON = re.compile(r'(?<![\w-])type\s*=\s*"(?:submit|button|reset)"', re.I
 # est réordonné par le navigateur s'il n'est pas isolé. Les données ne se traduisent pas, mais on les enferme dans un isolat de direction
 # automatique : <bdi> dans le texte, ou les caractères Unicode FSI / PDI là où une balise est interdite (liste déroulante, titre, SVG, attribut).
 ISOLAT_DEBUT, ISOLAT_FIN = "\u2068", "\u2069"
-A_ISOLER = re.compile(r"[A-Za-z\u00C0-\u024F]|(?<!\w)\+\s*\d")
+A_ISOLER = re.compile(r"[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]|(?<!\w)\+\s*\d")
 PONCTUATION_DE_BORD = " \t\r\n-–—·:,;.!?،؛\"'«»"
 ENTOURAGE = re.compile(rf"([{re.escape(PONCTUATION_DE_BORD)}]*)(.*?)([{re.escape(PONCTUATION_DE_BORD)}]*)", re.S)
 BALISES_DE_TEXTE_BRUT = {"option", "title"}
@@ -69,16 +75,19 @@ class Catalogue:
 
     def __init__(self, entrees):
         self.exact = {}
-        self.motifs = []
+        motifs = []
         for francais, traduction in entrees:
             cle = normaliser(francais)
             if not cle or not str(traduction).strip():
                 continue
             if TROU.search(cle):
-                self.motifs.append((self._motif(cle), traduction))
+                motifs.append((len(TROU.sub("", cle)), self._motif(cle), traduction, cle))
             else:
                 self.exact[cle] = traduction
-        self.motifs.sort(key=lambda motif: -len(motif[0].pattern))
+        # La phrase qui contient le plus de texte fixe passe en premier : « Adresse : {0} » avant le très général « {0} : {1} ».
+        motifs.sort(key=lambda motif: -motif[0])
+        self.motifs = [(motif, traduction) for _, motif, traduction, _ in motifs]
+        self._litteraux = {motif: cle for _, motif, _, cle in motifs}  # le texte français de chaque phrase à trous
 
     @staticmethod
     def _motif(cle):
@@ -98,30 +107,117 @@ class Catalogue:
         """
         return self._traduire(normaliser(texte), 0, isoler)
 
-    def _traduire(self, cle, profondeur, isoler=False):
-        if not cle:
+    def _par_phrases(self, cle, profondeur, isoler):
+        """Plusieurs phrases collées : chaque groupe de phrases connu du catalogue est traduit (le plus long d'abord), le reste est laissé tel quel."""
+        phrases = FIN_DE_PHRASE.split(cle)
+        if not 2 <= len(phrases) <= 12:
             return None
+        morceaux, trouve, debut = [], False, 0
+        while debut < len(phrases):
+            for fin in range(len(phrases) if debut else len(phrases) - 1, debut, -1):
+                groupe = " ".join(phrases[debut:fin])
+                if fin - debut > 1:  # plusieurs phrases ensemble : seulement si le catalogue les connaît telles quelles
+                    traduction = self._direct(groupe, profondeur + 1, isoler)
+                else:
+                    traduction = self._traduire(groupe, profondeur + 1, isoler, par_phrases=False)
+                if traduction is None and fin - debut == 1 and groupe.endswith("."):  # « Dossier complet. » : le point final se remet après
+                    sans_point = self._traduire(groupe[:-1], profondeur + 1, isoler, par_phrases=False)
+                    traduction = f"{sans_point}." if sans_point is not None else traduction
+                if traduction is not None and traduction != groupe:  # un modèle très général (« {0} : {1} ») peut rendre le texte tel quel
+                    morceaux.append(traduction)
+                    trouve, debut = True, fin
+                    break
+            else:
+                morceaux.append(_isoler(phrases[debut]) if isoler else phrases[debut])
+                debut += 1
+        return " ".join(morceaux) if trouve else None
+
+    def _direct(self, cle, profondeur, isoler):
+        """Le texte exact du catalogue ou sa phrase à trous précise (jamais un joint général comme « {0} : {1} »), sans aucun découpage."""
         if cle in self.exact:
             return self.exact[cle]
         for motif, traduction in self.motifs:
             correspondance = motif.fullmatch(cle)
-            if correspondance:
-                valeurs = {
-                    nom: self._traduire(normaliser(valeur), profondeur + 1, isoler) or (_isoler(valeur) if isoler else valeur)
-                    for nom, valeur in correspondance.groupdict().items()
-                }
-                return TROU.sub(lambda trou: valeurs.get(f"g{trou.group(1)}", trou.group(0)), traduction)
-        if profondeur >= PROFONDEUR_MAXIMALE or len(cle) > LONGUEUR_MAXIMALE_DECOUPEE:
+            if correspondance and len(TROU.sub("", self._litteraux[motif]).strip()) > 4:
+                if any(FIN_DE_PHRASE.search(valeur) for valeur in correspondance.groupdict().values()):
+                    continue  # un trou ne doit pas avaler plusieurs phrases
+                return self._remplir(correspondance, traduction, profondeur, isoler)
+        return None
+
+    def _remplir(self, correspondance, traduction, profondeur, isoler):
+        valeurs = {
+            nom: self._traduire(normaliser(valeur), profondeur + 1, isoler) or (_isoler(valeur) if isoler else valeur)
+            for nom, valeur in correspondance.groupdict().items()
+        }
+        return TROU.sub(lambda trou: valeurs.get(f"g{trou.group(1)}", trou.group(0)), traduction)
+
+    def _traduire(self, cle, profondeur, isoler=False, par_phrases=True):
+        if not cle:
             return None
+        if cle in self.exact:
+            return self.exact[cle]
+        if cle[0].islower() and (avec_majuscule := cle[0].upper() + cle[1:]) in self.exact:
+            return self.exact[avec_majuscule]  # « handicap moteur » (|lower dans un gabarit) : l'arabe n'a pas de majuscule
+        reserve = None
+        for motif, traduction in self.motifs:
+            correspondance = motif.fullmatch(cle)
+            if correspondance:
+                # « Modifier {0} » capte aussi « Modifier un compte - École X » : si une valeur contient un séparateur absent de la phrase,
+                # on découpe d'abord ; la phrase à trous ne sert qu'en dernier recours.
+                litteral = self._litteraux[motif]
+                if len(TROU.sub("", litteral).strip()) <= 4 and FIN_DE_PHRASE.search(cle):
+                    # « {0} : {1} » est un simple joint : sur plusieurs phrases collées il ne vaut qu'en dernier recours, et jamais pour un groupe
+                    # de phrases déjà examiné une à une.
+                    if par_phrases:
+                        reserve = reserve or (correspondance, traduction)
+                    continue
+                valeurs = correspondance.groupdict().values()
+                if profondeur < PROFONDEUR_MAXIMALE and any(s in v and s not in litteral for s in SEPARATEURS_FORTS for v in valeurs):
+                    reserve = reserve or (correspondance, traduction)
+                    continue
+                return self._remplir(correspondance, traduction, profondeur, isoler)
+        if profondeur >= PROFONDEUR_MAXIMALE:
+            return self._remplir(*reserve, profondeur, isoler) if reserve else None
+        if par_phrases and len(cle) <= LONGUEUR_MAXIMALE_PAR_PHRASES:
+            traduit = self._par_phrases(cle, profondeur, isoler)
+            if traduit is not None:
+                return traduit
+        if len(cle) > LONGUEUR_MAXIMALE_DECOUPEE:
+            return self._remplir(*reserve, profondeur, isoler) if reserve else None
+        # « Nom (Enseignant) », « 6ème A (Mathématiques) », « handicap visuel (1). » : le mot entre parenthèses se traduit à part.
+        point = "." if cle.endswith(").") else ""
+        parenthese = PARENTHESE_FINALE.fullmatch(cle[:-1] if point else cle)
+        # Une tête qui est déjà une phrase du catalogue (« CAP - cycle court (2 ans) (industriel) ») ne se découpe pas aux séparateurs.
+        if parenthese and self._connu(parenthese.group(1)):
+            traduit = self._avec_parenthese(parenthese, point, profondeur, isoler)
+            if traduit is not None:
+                return traduit
         for separateur in SEPARATEURS:
             if separateur in cle:
                 parties = cle.split(separateur)
                 traduites = [self._traduire(partie, profondeur + 1, isoler) for partie in parties]
                 if any(traduite is not None for traduite in traduites):
-                    return separateur.join(
+                    return SEPARATEUR_DE_SORTIE.get(separateur, separateur).join(
                         (_isoler(partie) if isoler else partie) if traduite is None else traduite for partie, traduite in zip(parties, traduites)
                     )
-        return None
+        if parenthese:
+            traduit = self._avec_parenthese(parenthese, point, profondeur, isoler)
+            if traduit is not None:
+                return traduit
+        return self._remplir(*reserve, profondeur, isoler) if reserve else None
+
+    def _connu(self, cle):
+        return cle in self.exact or (cle[:1].islower() and cle[0].upper() + cle[1:] in self.exact)
+
+    def _avec_parenthese(self, parenthese, point, profondeur, isoler):
+        tete, queue = parenthese.groups()
+        tete_traduite = self._traduire(tete, profondeur + 1, isoler)
+        queue_traduite = self._traduire(queue, profondeur + 1, isoler)
+        if tete_traduite is None and queue_traduite is None:
+            return None
+        tete_finale = tete_traduite if tete_traduite is not None else (_isoler(tete) if isoler else tete)
+        queue_finale = queue_traduite if queue_traduite is not None else (_isoler(queue) if isoler else queue)
+        return f"{tete_finale} ({queue_finale}){point}"
 
 
 @lru_cache(maxsize=None)
@@ -143,12 +239,36 @@ def vider_le_cache():
     catalogue_pour.cache_clear()
 
 
-def _traduire_attributs(balise: str, catalogue: Catalogue) -> str:
+def _avec_noms_en_arabe(texte: str, catalogue: Catalogue, localisateur) -> str:
+    """
+    Le texte dont les noms (personnes, école, classes) sont écrits en arabe, SAUF si le texte entier est une phrase du catalogue : « Plan comptable »
+    reste « Plan comptable » même si une personne s'appelle « Comptable », « Sciences Exactes (TSE) » reste le nom d'une série même si une classe
+    s'appelle « TSE ».
+    """
+    if localisateur is None or normaliser(texte) in catalogue.exact:
+        return texte
+    # Un texte fait de morceaux collés (« Lycée — Sciences Exactes (TSE) — CAP - cycle court ») : chaque morceau qui est déjà une phrase du catalogue
+    # est laissé tel quel, les noms ne sont remplacés que dans les autres.
+    morceaux = SEPARATEURS_DE_MORCEAUX.split(texte)
+    if len(morceaux) == 1:
+        return localisateur.remplacer(texte)
+    return "".join(
+        morceau if indice % 2 or normaliser(morceau) in catalogue.exact else localisateur.remplacer(morceau) for indice, morceau in enumerate(morceaux)
+    )
+
+
+def _traduire_attributs(balise: str, catalogue: Catalogue, localisateur=None, chiffres=None) -> str:
     def remplacer(correspondance):
-        traduction = catalogue.traduire(html.unescape(correspondance.group("valeur")))
-        if traduction is None:
+        valeur = html.unescape(correspondance.group("valeur"))
+        final = _avec_noms_en_arabe(valeur, catalogue, localisateur)
+        traduction = catalogue.traduire(final)
+        if traduction is not None:
+            final = traduction
+        if chiffres:
+            final = chiffres(final)
+        if final == valeur:
             return correspondance.group(0)
-        return f"{correspondance.group('debut')}{html.escape(traduction, quote=True)}{correspondance.group('fin')}"
+        return f"{correspondance.group('debut')}{html.escape(final, quote=True)}{correspondance.group('fin')}"
 
     balise = ATTRIBUTS.sub(remplacer, balise)
     if re.match(r"<(?:input|button)\b", balise, re.I) and TYPE_BOUTON.search(balise):
@@ -156,24 +276,36 @@ def _traduire_attributs(balise: str, catalogue: Catalogue) -> str:
     return balise
 
 
-def _traduire_texte(texte: str, catalogue: Catalogue, brut: bool = False) -> str:
+def _traduire_texte(texte: str, catalogue: Catalogue, brut: bool = False, localisateur=None, chiffres=None) -> str:
     correspondance = re.fullmatch(r"(\s*)(.*?)(\s*)", texte, re.S)
     gauche, noyau, droite = correspondance.groups()
     if not noyau:
         return texte
-    original = html.unescape(noyau)
+    source = html.unescape(noyau)
+    original = _avec_noms_en_arabe(source, catalogue, localisateur)  # noms de personnes, d'école et de classes -> arabe
     traduction = catalogue.traduire(original, isoler=True)
     if traduction is not None:
-        return f"{gauche}{_en_balises(html.escape(traduction, quote=False), brut)}{droite}"
-    debut, milieu, fin = ENTOURAGE.fullmatch(original).groups()  # ponctuation de bord : elle reste hors de l'isolat
-    if not A_ISOLER.search(milieu):
-        return texte
-    isole = f"{html.escape(debut, quote=False)}{_en_balises(_isoler(html.escape(milieu, quote=False)), brut)}{html.escape(fin, quote=False)}"
-    return f"{gauche}{isole}{droite}"
+        final = traduction
+    else:
+        debut, milieu, fin = ENTOURAGE.fullmatch(original).groups()  # ponctuation de bord : elle reste hors de l'isolat
+        final = original
+        traduit_au_centre = catalogue.traduire(milieu, isoler=True) if milieu and (debut.strip() or fin.strip()) else None
+        if traduit_au_centre is not None:  # « Libellé: » (deux-points collé par Django), « Aucun élève. » : le texte du centre est au catalogue
+            final = f"{debut}{traduit_au_centre}{fin}"
+        elif A_ISOLER.search(milieu):
+            final = f"{debut}{_isoler(milieu)}{fin}"
+    if chiffres:
+        final = chiffres(final)
+    if final == source:
+        return texte  # rien n'a changé : la page garde exactement son texte d'origine
+    return f"{gauche}{_en_balises(html.escape(final, quote=False), brut)}{droite}"
 
 
-def traduire_html(contenu: str, catalogue: Catalogue) -> str:
-    """Le HTML d'une page avec ses textes et ses attributs lisibles traduits ; tout le reste est rendu à l'identique."""
+def traduire_html(contenu: str, catalogue: Catalogue, localisateur=None, chiffres=None) -> str:
+    """
+    Le HTML d'une page avec ses textes et ses attributs lisibles traduits ; tout le reste est rendu à l'identique.
+    `localisateur` remplace les noms de l'école par leur écriture arabe, `chiffres` convertit les chiffres (voir comptes.arabisation).
+    """
     if not len(catalogue):
         return contenu
     morceaux = JETONS.split(contenu)
@@ -192,7 +324,9 @@ def traduire_html(contenu: str, catalogue: Catalogue) -> str:
                         protege = None
             continue
         if indice % 2 == 0:
-            sortie.append(_traduire_texte(morceau, catalogue, brut=dans_svg > 0 or precedente in BALISES_DE_TEXTE_BRUT))
+            sortie.append(_traduire_texte(
+                morceau, catalogue, brut=dans_svg > 0 or precedente in BALISES_DE_TEXTE_BRUT, localisateur=localisateur, chiffres=chiffres,
+            ))
             continue
         balise_courante = NOM_DE_BALISE.match(morceau)
         if balise_courante:
@@ -211,11 +345,11 @@ def traduire_html(contenu: str, catalogue: Catalogue) -> str:
             sortie.append(morceau)
         elif minuscule.startswith("<textarea"):
             ouverture, _, reste = morceau.partition(">")  # seule l'ouverture (son placeholder) se traduit, jamais le contenu saisi
-            sortie.append(_traduire_attributs(ouverture, catalogue) + ">" + reste)
+            sortie.append(_traduire_attributs(ouverture, catalogue, localisateur, chiffres) + ">" + reste)
         elif morceau.startswith("</"):
             sortie.append(morceau)
         else:
-            sortie.append(_traduire_attributs(morceau, catalogue))
+            sortie.append(_traduire_attributs(morceau, catalogue, localisateur, chiffres))
     return "".join(sortie)
 
 
@@ -244,3 +378,12 @@ def chaines_non_traduites(contenu: str, catalogue: Catalogue):
         texte for texte in textes_de_la_page(contenu)
         if re.search(r"[^\W\d_]", texte) and not re.search(r"[؀-ۿ]", texte) and catalogue.traduire(texte) is None
     ]
+
+
+ADRESSES = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+|https?://\S+|www\.\S+")
+LETTRE_OU_CHIFFRE_LATIN = re.compile(r"[A-Za-zÀ-ÖØ-öø-ɏ0-9]")  # sans les signes × et ÷
+
+
+def restes_latins(contenu: str):
+    """Les textes d'une page déjà en arabe qui contiennent encore une lettre latine ou un chiffre occidental (les adresses email et les liens exceptés)."""
+    return [texte for texte in textes_de_la_page(contenu) if LETTRE_OU_CHIFFRE_LATIN.search(ADRESSES.sub("", texte))]

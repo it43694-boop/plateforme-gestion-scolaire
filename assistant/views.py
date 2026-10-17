@@ -3,6 +3,7 @@ from django_ratelimit.core import is_ratelimited
 
 from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
+from comptes.langue import texte_pour_langue
 from comptes.models import Utilisateur
 from comptes.roles import Role
 from finances.models import Paiement
@@ -145,7 +146,7 @@ def rechercher_eleve_json(request):
         return JsonResponse({"resultats": []})
     eleves = filtrer(eleves_visibles_pour(request.user).order_by("nom", "prenom"), terme, "nom", "prenom", "matricule", limite=10)
     return JsonResponse({"resultats": [
-        {"matricule": e.matricule, "nom_complet": f"{e.nom_complet} ({e.matricule})"} for e in eleves
+        {"matricule": e.matricule, "nom_complet": texte_pour_langue(request, f"{e.nom_complet} ({e.matricule})")} for e in eleves
     ]})
 
 
@@ -200,6 +201,7 @@ def poser_question(request):
                         donnees_autorisees["mon_emploi_du_temps"] = creneaux_personnels
                     reponse_ia = repondre_question_generale_avec_ia(
                         donnees_autorisees=donnees_autorisees, question=anonymiser_question(question_libre),
+                        langue=getattr(request, "LANGUAGE_CODE", "fr"),
                     )
                     enregistrer_action(
                         acteur=request.user, action="question_assistant_ia_generale",
@@ -254,6 +256,7 @@ def poser_question(request):
                         reponse_ia = repondre_avec_ia(
                             donnees_autorisees=serialiser_resultat(resultat),
                             question=anonymiser_question(question_libre, noms=[eleve.prenom, eleve.nom]),
+                            langue=getattr(request, "LANGUAGE_CODE", "fr"),
                         )
                         enregistrer_action(
                             acteur=request.user, action="question_assistant_ia",

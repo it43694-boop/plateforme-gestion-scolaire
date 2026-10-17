@@ -9,6 +9,16 @@ function t(texte) {
     }
 }
 
+// Chiffres affichés par le script : arabes (٠١٢...) quand la page est en arabe, comme ceux que le serveur écrit.
+function chiffres(valeur) {
+    var texte = String(valeur);
+    if (document.documentElement.lang !== "ar") return texte;
+    return texte.replace(/\d/g, function (c) { return "٠١٢٣٤٥٦٧٨٩".charAt(Number(c)); });
+}
+function chiffresOccidentaux(texte) {
+    return String(texte).replace(/[٠-٩]/g, function (c) { return String(c.charCodeAt(0) - 1632); });
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("[data-imprimer]").forEach(function (bouton) {
         bouton.addEventListener("click", function () { window.print(); });
@@ -170,6 +180,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 .then(function (r) { return r.json(); })
                 .then(function (donnees) {
                     if (!donnees.periodes.length) { bloc.style.display = "none"; return; }
+                    var etiquettes = donnees.etiquettes || donnees.periodes;
                     donnees.periodes.forEach(function (libelle, index) {
                         var id = "periode-" + index;
                         var ligne = document.createElement("div");
@@ -183,7 +194,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         var etiquette = document.createElement("label");
                         etiquette.className = "form-check-label";
                         etiquette.htmlFor = id;
-                        etiquette.textContent = libelle;
+                        etiquette.textContent = etiquettes[index] || libelle;
                         ligne.appendChild(case_);
                         ligne.appendChild(etiquette);
                         conteneur.appendChild(ligne);
@@ -206,7 +217,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 .then(function (r) { return r.json(); })
                 .then(function (donnees) {
                     if (donnees.solde === null) { conteneur.style.display = "none"; return; }
-                    conteneur.textContent = t("Solde de congés payés actuel :") + " " + donnees.solde + " " + t("jour(s).");
+                    conteneur.textContent = t("Solde de congés payés actuel :") + " " + (donnees.solde_texte || donnees.solde) + " " + t("jour(s).");
                     conteneur.style.display = "block";
                 });
         });
@@ -282,7 +293,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (sessionExpiree) {
             conteneur.className = "alert alert-danger";
             conteneur.appendChild(document.createTextNode(
-                t("Votre session a expiré : reconnectez-vous pour synchroniser") + " " + enAttente + " " + t("saisie(s) en attente.")
+                t("Votre session a expiré : reconnectez-vous pour synchroniser") + " " + chiffres(enAttente) + " " + t("saisie(s) en attente.")
             ));
             conteneur.style.display = "block";
             return;
@@ -290,7 +301,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (enErreur) {
             conteneur.className = "alert alert-danger";
             conteneur.appendChild(document.createTextNode(
-                enErreur + " saisie(s) n'ont pas pu être synchronisées et doivent être ressaisies."
+                chiffres(enErreur) + " " + t("saisie(s) n'ont pas pu être synchronisées et doivent être ressaisies.")
             ));
             conteneur.style.display = "block";
             return;
@@ -298,7 +309,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (enAttente > 0) {
             conteneur.className = "alert alert-warning";
             conteneur.appendChild(document.createTextNode(
-                enAttente + " " + t("saisie(s) en attente de synchronisation (hors-ligne).") + " "
+                chiffres(enAttente) + " " + t("saisie(s) en attente de synchronisation (hors-ligne).") + " "
             ));
             var bouton = document.createElement("button");
             bouton.type = "button";
@@ -325,9 +336,9 @@ document.addEventListener("DOMContentLoaded", function () {
             var ligne = document.createElement("tr");
             champs.forEach(function (champ) {
                 var valeur = resultat[champ];
-                if (typeof valeur === "boolean") valeur = valeur ? "Oui" : "Non";
+                if (typeof valeur === "boolean") valeur = valeur ? t("Oui") : t("Non");
                 var cellule = document.createElement("td");
-                cellule.textContent = (valeur === null || valeur === undefined) ? "-" : valeur;
+                cellule.textContent = (valeur === null || valeur === undefined) ? "-" : chiffres(valeur);
                 ligne.appendChild(cellule);
             });
             corps.insertBefore(ligne, corps.firstChild);
@@ -491,16 +502,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     var reductionMouvement = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     document.querySelectorAll("[data-compteur]").forEach(function (el) {
-        var texte = el.textContent.trim();
+        var texte = chiffresOccidentaux(el.textContent.trim());
         // Un nombre (avec ses séparateurs de milliers) puis une unité éventuelle (« 1460000 FCFA ») : l'espace reste
         // ENTRE le nombre et l'unité (avant, il était absorbé par le nombre et « FCFA » se collait au chiffre).
         var correspondance = texte.match(/^(\d+(?:[\s\u00a0\u202f]\d{3})*)\s*(.*)$/);
         if (!correspondance) return;
         var cible = parseInt(correspondance[1].replace(/[\s\u00a0\u202f]/g, ""), 10);
         var unite = correspondance[2];
-        if (isNaN(cible) || cible === 0 || /^[,.\d]/.test(unite)) return; // « 66,7 % » : nombre décimal, laissé tel quel
+        if (isNaN(cible) || cible === 0 || /^[,.٫\d]/.test(unite)) return; // « 66,7 % » : nombre décimal, laissé tel quel
         function afficher(valeur) {
-            el.textContent = valeur.toLocaleString("fr-FR").replace(/\u202f/g, "\u00a0"); // espace insécable ordinaire (police du thème)
+            el.textContent = chiffres(valeur.toLocaleString("fr-FR").replace(/\u202f/g, "\u00a0")); // espace insécable ordinaire (police du thème)
             if (unite) {
                 var marque = document.createElement("span");
                 marque.className = "stat-unite";

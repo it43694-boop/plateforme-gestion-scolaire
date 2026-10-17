@@ -370,4 +370,6 @@ def exporter_etats(request):
     if exercice is None:
         raise Http404("Aucun exercice.")
     enregistrer_action(acteur=request.user, action="export_etats_comptables", cible=exercice.libelle, request=request)
-    return reponse_xlsx(classeur_etats(request.user.etablissement, exercice), nom_fichier_sur("etats_comptables", exercice.libelle))
+    return reponse_xlsx(
+        classeur_etats(request.user.etablissement, exercice), nom_fichier_sur("etats_comptables", exercice.libelle), request=request,
+    )

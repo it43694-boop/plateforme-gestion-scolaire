@@ -254,8 +254,19 @@ class PagesEnArabeTests(EducationBase):
         page = self.en("ar").content.decode()
         self.assertTrue(any(mois in page for mois in MOIS_ARABES))
 
-    def test_les_donnees_des_utilisateurs_ne_sont_jamais_traduites(self):
+    def test_les_noms_et_les_chiffres_des_donnees_sont_ecrits_en_arabe(self):
+        """Une école arabe ne veut ni lettre latine ni chiffre occidental : le nom saisi en arabe remplace le nom latin, les chiffres sont arabes."""
+        Utilisateur.objects.filter(pk=self.e5.pk).update(prenom_ar="سالم", nom_ar="كيتا")
+        from comptes.arabisation import chiffres_arabes, invalider
+        invalider(self.ecole.pk)
         page = self.en("ar", reverse("scolarite:liste_eleves")).content.decode()
+        self.assertIn("سالم كيتا", page)
+        self.assertNotIn(self.e5.nom_complet, page)
+        self.assertIn(chiffres_arabes(self.e5.matricule), page)
+        self.assertNotIn(f">{self.e5.matricule}<", page)
+
+    def test_en_francais_les_noms_et_les_chiffres_ne_changent_pas(self):
+        page = self.en("fr", reverse("scolarite:liste_eleves")).content.decode()
         self.assertIn(self.e5.nom_complet, page)
         self.assertIn(self.e5.matricule, page)
 

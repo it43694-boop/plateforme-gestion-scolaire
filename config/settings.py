@@ -94,6 +94,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Les chiffres arabes tapés dans un champ (٠١٢...) deviennent 0123... avant toute lecture (hors mots de passe).
+    "comptes.langue.ChiffresOccidentauxMiddleware",
     # La langue dépend du compte connecté : après l'authentification ; la traduction, juste après elle.
     "comptes.langue.LangueMiddleware",
     "comptes.langue.TraductionMiddleware",

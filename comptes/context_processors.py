@@ -62,6 +62,7 @@ ICONES_DES_LIENS = {
     "statistiques:vue_ensemble": "graphique",
     "assistant:poser_question": "eclair",
     "comptes:comptes_en_attente": "utilisateur-valide",
+    "comptes:noms_en_arabe": "eleves",
     "espace_developpeur:parametres_etablissement": "accueil",
     "espace_developpeur:annees_scolaires": "calendrier",
     "espace_developpeur:liste_comptes": "eleves",
@@ -180,6 +181,8 @@ def navigation(request):
     })
     if role in {r.value for r in ROLES_VALIDATION_COMPTES}:
         administration.append({"label": "Comptes en attente", "url": "comptes:comptes_en_attente"})
+    if request.user.etablissement_id and role in {r.value for r in ROLES_VALIDATION_COMPTES}:
+        administration.append({"label": "Noms en arabe", "url": "comptes:noms_en_arabe"})
     if role == Role.DEVELOPPEUR.value and request.user.etablissement_id:
         administration.append({"label": "Établissement", "url": "espace_developpeur:parametres_etablissement"})
         administration.append({"label": "Années scolaires", "url": "espace_developpeur:annees_scolaires"})

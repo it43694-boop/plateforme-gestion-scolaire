@@ -171,6 +171,14 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField("adresse email", unique=True)
     prenom = models.CharField("prénom", max_length=100)
     nom = models.CharField("nom", max_length=100)
+    prenom_ar = models.CharField(
+        "prénom en arabe", max_length=100, blank=True,
+        help_text="Écriture arabe du prénom, affichée quand la langue est l'arabe. Vide : une proposition automatique est utilisée.",
+    )
+    nom_ar = models.CharField(
+        "nom en arabe", max_length=100, blank=True,
+        help_text="Écriture arabe du nom, affichée quand la langue est l'arabe. Vide : une proposition automatique est utilisée.",
+    )
 
     role = models.CharField("rôle", max_length=40, choices=Role.choices)
     statut = models.CharField(
@@ -278,6 +286,17 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
     @property
     def nom_complet(self):
         return f"{self.prenom} {self.nom}"
+
+    @property
+    def initiales(self):
+        """Les deux initiales de l'avatar : en lettres latines, ou en lettres arabes quand la langue est l'arabe."""
+        from django.utils import translation
+
+        if (translation.get_language() or "fr").startswith("ar"):
+            from comptes.arabisation import arabe_de
+
+            return arabe_de(self.prenom, self.prenom_ar)[:1] + arabe_de(self.nom, self.nom_ar)[:1]
+        return f"{(self.prenom or ' ')[:1]}{(self.nom or ' ')[:1]}".strip().upper()
 
     @property
     def telephone_effectif(self):

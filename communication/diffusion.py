@@ -39,24 +39,28 @@ TYPES = OrderedDict([
         "libelle": "Annonce à toute la classe",
         "aide": "Le même message pour toutes les familles ; une seule ligne par numéro, même avec plusieurs enfants.",
         "modele": "Bonjour, {ecole} vous informe : (à compléter).",
+        "modele_ar": "السلام عليكم، تُعلمكم {المدرسة} بما يلي : (يُستكمل).",
         "individuel": False, "avec_date": False,
     }),
     (CONVOCATION, {
         "libelle": "Convocation d'un parent",
         "aide": "Une ligne par parent et par élève : n'envoyez que celles dont vous avez besoin.",
         "modele": "Bonjour, {ecole} vous prie de passer à l'école au sujet de {eleve} ({classe}) le {date}.",
+        "modele_ar": "السلام عليكم، تدعوكم {المدرسة} إلى المرور بالمدرسة بخصوص {التلميذ} ({القسم}) يوم {التاريخ}.",
         "individuel": True, "avec_date": True,
     }),
     (ABSENCE, {
         "libelle": "Élèves absents",
         "aide": "Les parents des élèves marqués absents à la date choisie.",
         "modele": "Bonjour, {eleve} ({classe}) était absent(e) le {date}. Merci de nous contacter pour le justifier. {ecole}",
+        "modele_ar": "السلام عليكم، كان {التلميذ} ({القسم}) غائبًا يوم {التاريخ}. نرجو الاتصال بنا لتبرير الغياب. {المدرسة}",
         "individuel": True, "avec_date": True,
     }),
     (PAIEMENT, {
         "libelle": "Relance de scolarité",
         "aide": "Les parents des élèves dont le solde n'est pas réglé.",
         "modele": "Bonjour, rappel de {ecole} : le solde de scolarité de {eleve} ({classe}) est de {solde}. Merci de régulariser.",
+        "modele_ar": "السلام عليكم، تذكير من {المدرسة} : رصيد الرسوم الدراسية لـ{التلميذ} ({القسم}) هو {الرصيد}. نرجو التسوية.",
         "individuel": True, "avec_date": False,
     }),
 ])
@@ -64,8 +68,18 @@ TYPES = OrderedDict([
 # Rôles qui voient déjà les coordonnées des familles (état civil des élèves) + surveillant général.
 ROLES_CONTACT_FAMILLES = ROLES_ETAT_CIVIL_ELEVE | {Role.SURVEILLANT_GENERAL.value}
 
-_MARQUEURS = re.compile(r"\{(prenom|eleve|classe|ecole|date|solde)\}")
+# Les mêmes marqueurs existent en arabe (le message d'une école arabe s'écrit sans lettre latine).
+MARQUEURS_ARABES = {
+    "الاسم_الشخصي": "prenom", "التلميذ": "eleve", "القسم": "classe", "المدرسة": "ecole", "التاريخ": "date", "الرصيد": "solde",
+}
+_MARQUEURS = re.compile(r"\{(prenom|eleve|classe|ecole|date|solde|" + "|".join(MARQUEURS_ARABES) + r")\}")
 MARQUEUR_DATE = "{date}"
+MARQUEUR_DATE_ARABE = "{التاريخ}"
+VOTRE_ENFANT = {"fr": "votre enfant", "ar": "طفلكم"}
+
+
+def contient_marqueur_date(modele: str) -> bool:
+    return MARQUEUR_DATE in modele or MARQUEUR_DATE_ARABE in modele
 
 
 def types_pour_role(role, a_acces) -> list[str]:
@@ -95,7 +109,7 @@ def appliquer_modele(modele: str, valeurs: dict) -> str:
     Remplace uniquement les marqueurs connus ({eleve}, {prenom}, {classe}, {ecole}, {date}, {solde}). Pas de
     str.format : un texte tapé par l'utilisateur ne peut jamais lire un attribut d'objet ni provoquer d'erreur.
     """
-    return _MARQUEURS.sub(lambda trouve: valeurs.get(trouve.group(1), ""), modele)
+    return _MARQUEURS.sub(lambda trouve: valeurs.get(MARQUEURS_ARABES.get(trouve.group(1), trouve.group(1)), ""), modele)
 
 
 def _contacts(eleve) -> list[tuple[str, str]]:
@@ -141,10 +155,13 @@ def _inscriptions(classes, type_, date):
     return resultat
 
 
-def preparer_messages(*, type_, classes, modele, ecole, date=None, une_seule_classe=None, devise="FCFA") -> dict:
+def preparer_messages(
+    *, type_, classes, modele, ecole, date=None, une_seule_classe=None, devise="FCFA", langue="fr", ecrire=lambda texte: texte,
+) -> dict:
     """
     Les lignes à afficher : {"lignes": [...], "sans_numero": [noms], "eleves": n}. Chaque ligne porte le message déjà
-    personnalisé et les liens WhatsApp et SMS.
+    personnalisé et les liens WhatsApp et SMS. `ecrire` met en arabe, quand la langue est l'arabe, les noms, le nom de l'école, les dates et
+    les montants insérés dans le message.
     """
     individuel = TYPES[type_]["individuel"]
     date_texte = date.strftime("%d/%m/%Y") if date else ""
@@ -163,8 +180,8 @@ def preparer_messages(*, type_, classes, modele, ecole, date=None, une_seule_cla
             continue
         if individuel:
             message = appliquer_modele(modele, {
-                "prenom": eleve.prenom, "eleve": eleve.nom_complet, "classe": inscription.classe.nom, "ecole": ecole,
-                "date": date_texte, "solde": f"{solde:,} {devise}".replace(",", " ") if solde is not None else "",
+                "prenom": ecrire(eleve.prenom), "eleve": ecrire(eleve.nom_complet), "classe": ecrire(inscription.classe.nom), "ecole": ecrire(ecole),
+                "date": ecrire(date_texte), "solde": ecrire(f"{solde:,} {devise}".replace(",", " ")) if solde is not None else "",
             })
             for libelle, telephone, chiffres, sur in contacts:
                 lignes.append({
@@ -180,7 +197,7 @@ def preparer_messages(*, type_, classes, modele, ecole, date=None, une_seule_cla
                     }
                 ligne["eleves"].append(eleve.nom_complet)
     if not individuel:
-        message = message_neutre(modele, ecole, date_texte, une_seule_classe)
+        message = message_neutre(modele, ecole, date_texte, une_seule_classe, langue=langue, ecrire=ecrire)
         for ligne in par_numero.values():
             ligne.update({
                 "message": message, "whatsapp": lien_whatsapp(ligne["telephone"], message),
@@ -190,9 +207,10 @@ def preparer_messages(*, type_, classes, modele, ecole, date=None, une_seule_cla
     return {"lignes": lignes, "sans_numero": sans_numero, "eleves": eleves}
 
 
-def message_neutre(modele, ecole, date_texte="", classe=None) -> str:
+def message_neutre(modele, ecole, date_texte="", classe=None, langue="fr", ecrire=lambda texte: texte) -> str:
     """Le message sans aucune donnée propre à un élève (ni nom, ni montant) : le seul qu'on peut coller dans un groupe."""
+    enfant = VOTRE_ENFANT.get(langue, VOTRE_ENFANT["fr"])
     return appliquer_modele(modele, {
-        "prenom": "votre enfant", "eleve": "votre enfant", "classe": classe.nom if classe else "", "ecole": ecole,
-        "date": date_texte, "solde": "",
+        "prenom": enfant, "eleve": enfant, "classe": ecrire(classe.nom) if classe else "", "ecole": ecrire(ecole),
+        "date": ecrire(date_texte), "solde": "",
     })

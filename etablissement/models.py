@@ -81,9 +81,17 @@ class Etablissement(models.Model):
         help_text="Nom affiché partout dans l'application (barre latérale, emails, connexion).",
     )
     slug = models.SlugField(max_length=220, unique=True, blank=True, editable=False)
+    nom_ar = models.CharField(
+        "nom en arabe", max_length=200, blank=True,
+        help_text="Nom de l'école écrit en arabe, affiché quand la langue est l'arabe. Vide : une proposition automatique est utilisée.",
+    )
     devise = models.CharField(
         max_length=200, blank=True,
         help_text="Devise ou slogan affiché sous le nom (facultatif).",
+    )
+    devise_ar = models.CharField(
+        "devise en arabe", max_length=200, blank=True,
+        help_text="Devise écrite en arabe (facultatif).",
     )
     code_devise = models.CharField(
         "monnaie", max_length=10, default="FCFA",
@@ -242,6 +250,12 @@ class Etablissement(models.Model):
 
     @property
     def initiale(self):
+        from django.utils import translation
+
+        if (translation.get_language() or "fr").startswith("ar"):  # arabe : la première lettre du nom arabe de l'école
+            from comptes.arabisation import nom_d_ecole_arabe
+
+            return ((self.nom_ar or nom_d_ecole_arabe(self.nom) or "؟").strip()[:1])
         return (self.nom or "?").strip()[:1].upper()
 
 

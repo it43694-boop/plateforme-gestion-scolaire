@@ -13,7 +13,8 @@ TEXTES_JS = (
     "Votre session a expiré : reconnectez-vous pour synchroniser", "saisie(s) en attente.",
     "saisie(s) en attente de synchronisation (hors-ligne).", "Synchroniser maintenant",
     "Une erreur est survenue, la saisie n'a pas été enregistrée.", "Mode clair", "Mode sombre",
-    "Afficher le mot de passe", "Masquer le mot de passe",
+    "Afficher le mot de passe", "Masquer le mot de passe", "Oui", "Non",
+    "saisie(s) n'ont pas pu être synchronisées et doivent être ressaisies.",
 )
 
 

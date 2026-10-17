@@ -61,7 +61,7 @@ class EmettreFactureForm(BootstrapFormMixin, forms.Form):
     )
     libelle = forms.CharField(
         label="Libellé", max_length=200, required=False,
-        help_text="Laissez vide : « Abonnement <formule> - du ... au ... ».",
+        help_text="Laissez vide : « Abonnement (nom de la formule) - du ... au ... ».",
     )
     envoyer_par_email = forms.BooleanField(
         label="Envoyer la facture par email à l'école", required=False, initial=True,

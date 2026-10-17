@@ -1,4 +1,5 @@
 import logging
+import re
 import smtplib
 
 import sentry_sdk
@@ -29,15 +30,25 @@ def diagnostic_smtp() -> dict:
     }
 
 
+PIED_DE_COURRIEL = {
+    "fr": "Cet email est envoyé automatiquement, merci de ne pas y répondre directement.",
+    "ar": "يُرسل هذا البريد الإلكتروني تلقائيًا، يرجى عدم الرد عليه مباشرة.",
+}
+NOM_DE_LA_PLATEFORME = {"ar": "نيكسورا"}
+
+
 def construire_corps_html(sujet, contenu):
     """
     Habille un email en texte brut dans le gabarit de marque de la
     plateforme - utilisé à la fois par l'envoi synchrone (ci-dessous) et
     par la file différée (comptes/management/commands/envoyer_emails.py),
-    pour que les deux chemins produisent le même rendu.
+    pour que les deux chemins produisent le même rendu. Un message écrit en arabe se lit de droite à gauche.
     """
+    arabe = bool(re.search("[\u0600-\u06ff]", f"{sujet} {contenu}"))
+    langue = "ar" if arabe else "fr"
     return render_to_string("emails/base_email.html", {
-        "sujet": sujet, "contenu": contenu, "nom_plateforme": getattr(settings, "NOM_PLATEFORME", ""),
+        "sujet": sujet, "contenu": contenu, "langue": langue, "sens": "rtl" if arabe else "ltr", "alignement": "right" if arabe else "left",
+        "nom_plateforme": NOM_DE_LA_PLATEFORME.get(langue) or getattr(settings, "NOM_PLATEFORME", ""), "pied": PIED_DE_COURRIEL[langue],
     })
 
 
@@ -64,7 +75,7 @@ def construire_message(sujet, contenu, expediteur, destinataires):
     return email
 
 
-def envoyer_email(*, sujet, contenu, expediteur, destinataires):
+def envoyer_email(*, sujet, contenu, expediteur, destinataires, langue="fr", etablissement_id=None):
     """
     Envoie immédiatement en développement ou met en file en production.
 
@@ -82,6 +93,10 @@ def envoyer_email(*, sujet, contenu, expediteur, destinataires):
     destinataires = list(destinataires)
     if not destinataires:
         return 0
+    if langue == "ar":  # la langue de la personne qui reçoit : noms, phrases et chiffres en arabe (voir comptes.langue.texte_en_langue)
+        from comptes.langue import texte_en_langue
+
+        sujet, contenu = texte_en_langue(sujet, langue, etablissement_id), texte_en_langue(contenu, langue, etablissement_id)
     lots = [
         destinataires[i:i + TAILLE_LOT_DESTINATAIRES]
         for i in range(0, len(destinataires), TAILLE_LOT_DESTINATAIRES)
@@ -113,7 +128,9 @@ def _signaler_echec_d_envoi(erreur):
     sentry_sdk.capture_exception()
 
 
-def envoyer_email_avec_pieces_jointes(*, sujet, contenu, expediteur, destinataires, pieces_jointes, repondre_a=None) -> bool:
+def envoyer_email_avec_pieces_jointes(
+    *, sujet, contenu, expediteur, destinataires, pieces_jointes, repondre_a=None, langue="fr", etablissement_id=None,
+) -> bool:
     """
     Envoie TOUT DE SUITE un email avec des pièces jointes `[(nom_de_fichier, octets, type_mime)]` ; True si le serveur
     l'a accepté. Jamais mis en file (EmailOutbox ne garde pas de pièces jointes) et sans jamais lever d'erreur d'envoi :
@@ -123,6 +140,10 @@ def envoyer_email_avec_pieces_jointes(*, sujet, contenu, expediteur, destinatair
     destinataires = list(destinataires)
     if not destinataires:
         return False
+    if langue == "ar":
+        from comptes.langue import texte_en_langue
+
+        sujet, contenu = texte_en_langue(sujet, langue, etablissement_id), texte_en_langue(contenu, langue, etablissement_id)
     message = construire_message(sujet, contenu, expediteur, destinataires)
     if repondre_a:
         message.reply_to = [repondre_a]

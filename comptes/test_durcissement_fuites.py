@@ -70,13 +70,20 @@ class SyntheseDesAlertesTests(TestCase):
         cache.clear()
         self.utilisateur = mock.Mock(etablissement_id=1, role="enseignant")
 
-    def synthese(self, alertes, reponse):
+    def synthese(self, alertes, reponse, langue="fr"):
         from comptes.views import _synthese_alertes_en_cache
 
         with mock.patch("assistant.services.ia_disponible", return_value=True), mock.patch(
             "assistant.services.resumer_alertes_avec_ia", return_value=reponse,
         ) as appel:
-            return _synthese_alertes_en_cache(self.utilisateur, alertes), appel
+            return _synthese_alertes_en_cache(self.utilisateur, alertes, langue), appel
+
+    def test_la_phrase_d_une_langue_n_est_pas_servie_dans_l_autre(self):
+        alertes = [{"titre": "2 élève(s) avec des frais impayés", "description": "Solde dû."}]
+        self.synthese(alertes, "Deux familles ont un impayé.", "fr")
+        phrase, appel = self.synthese(alertes, "عائلتان لديهما متأخرات.", "ar")
+        self.assertEqual(phrase, "عائلتان لديهما متأخرات.")
+        appel.assert_called_once()
 
     def test_deux_enseignants_aux_alertes_differentes_ne_partagent_pas_la_phrase(self):
         alertes_a = [{"titre": "5 élève(s) en risque de redoublement", "description": "Moyenne sous 10/20."}]
@@ -97,7 +104,7 @@ class SyntheseDesAlertesTests(TestCase):
         alertes = [{"titre": "t", "description": "d"}]
         self.synthese(alertes, "ok")
         contenu = json.dumps([["t", "d"]], ensure_ascii=False)
-        attendu = "synthese_alertes_" + hashlib.sha256(contenu.encode("utf-8")).hexdigest()
+        attendu = "synthese_alertes_fr_" + hashlib.sha256(contenu.encode("utf-8")).hexdigest()  # la langue, jamais le rôle ni l'école
         self.assertEqual(cache.get(attendu), "ok")
 
 

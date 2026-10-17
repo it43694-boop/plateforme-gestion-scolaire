@@ -304,7 +304,7 @@ def generer_attestation_scolarite(request, matricule):
     from django.http import HttpResponse
     from django.template.loader import render_to_string
     from django.urls import reverse
-    from xhtml2pdf import pisa
+    from comptes.pdf import creer_pdf
 
     eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
     if not eleve_visible_pour(request.user, eleve):
@@ -346,7 +346,7 @@ def generer_attestation_scolarite(request, matricule):
 
     reponse = HttpResponse(content_type="application/pdf")
     reponse["Content-Disposition"] = f'attachment; filename="attestation_{eleve.matricule}.pdf"'
-    resultat = pisa.CreatePDF(html, dest=reponse, encoding="utf-8")
+    resultat = creer_pdf(html, reponse, request=request)
     if resultat.err:
         return HttpResponse("Erreur lors de la génération du PDF.", status=500)
 

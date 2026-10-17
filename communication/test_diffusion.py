@@ -278,3 +278,43 @@ class JournalEtPaginationTests(DiffusionBase):
         self.assertContains(reponse, "Page 1 sur 2")
         self.assertContains(reponse, "&page=2")
         self.assertContains(reponse, "type=annonce")
+
+
+class EnArabeTests(DiffusionBase):
+    """Une page arabe propose un message en arabe, écrit avec des marqueurs arabes, avec les noms de l'école et de l'élève en arabe."""
+
+    def en_arabe(self, **parametres):
+        self.client.force_login(self.fondateur)
+        self.client.cookies["nexora_langue"] = "ar"
+        return self.client.get(reverse(URL), parametres)
+
+    def test_le_message_propose_est_en_arabe(self):
+        reponse = self.en_arabe(type="convocation", classe=self.c6a.pk, date="2026-10-20")
+        self.assertIn("السلام عليكم", reponse.context["texte"])
+        self.assertIn("{التلميذ}", reponse.context["texte"])
+
+    def test_les_marqueurs_arabes_sont_remplaces_par_les_noms_en_arabe(self):
+        Utilisateur.objects.filter(pk=self.e1.pk).update(prenom_ar="سلمى", nom_ar="كيتا")
+        from comptes.arabisation import invalider
+        invalider(self.ecole.pk)
+        reponse = self.en_arabe(type="convocation", classe=self.c6a.pk, date="2026-10-20")
+        messages = [ligne["message"] for ligne in self.lignes(reponse)]
+        self.assertTrue(any("سلمى كيتا" in message for message in messages), messages)
+        self.assertTrue(all("{" not in message for message in messages), messages)
+        self.assertTrue(all("٢٠/١٠/٢٠٢٦" in message for message in messages), messages)  # date et chiffres en arabe
+
+    def test_le_message_de_groupe_dit_votre_enfant_en_arabe(self):
+        reponse = self.en_arabe(type="annonce", classe=self.c6a.pk)
+        self.assertNotIn("votre enfant", reponse.context["message_groupe"])
+        self.assertIn("السلام عليكم", reponse.context["message_groupe"])
+
+    def test_en_francais_rien_ne_change(self):
+        self.client.force_login(self.fondateur)
+        reponse = self.client.get(reverse(URL), {"type": "annonce", "classe": self.c6a.pk})
+        self.assertIn("Bonjour", reponse.context["texte"])
+
+    def test_la_date_est_exigee_pour_le_marqueur_arabe_aussi(self):
+        self.client.force_login(self.fondateur)
+        self.client.cookies["nexora_langue"] = "ar"
+        reponse = self.client.get(reverse(URL), {"type": "annonce", "classe": self.c6a.pk, "texte": "موعدنا يوم {التاريخ}"})
+        self.assertIn("Choisissez une date", reponse.context["erreur"])

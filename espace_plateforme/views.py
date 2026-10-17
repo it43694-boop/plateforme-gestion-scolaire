@@ -464,4 +464,4 @@ def exporter_factures_xlsx(request):
         formats={6: "#,##0"},
     )
     enregistrer_action(acteur=request.user, action="export_factures_abonnement", cible="factures", request=request)
-    return reponse_xlsx(classeur, "factures_abonnement")
+    return reponse_xlsx(classeur, "factures_abonnement", request=request)

@@ -28,6 +28,8 @@ def creer_eleve_inscrit(donnees, etablissement):
             email=f"{matricule}@{DOMAINE_EMAIL_AUTO_ELEVE}",
             prenom=donnees["prenom"],
             nom=donnees["nom"],
+            prenom_ar=(donnees.get("prenom_ar") or "").strip(),
+            nom_ar=(donnees.get("nom_ar") or "").strip(),
             role=Role.ELEVE,
             matricule=matricule,
             etablissement=etablissement,

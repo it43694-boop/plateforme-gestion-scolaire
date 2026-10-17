@@ -46,7 +46,7 @@ def pdf_de_la_facture(facture, request=None):
     """Les octets du PDF de la facture, ou None si sa génération échoue."""
     from io import BytesIO
 
-    from xhtml2pdf import pisa
+    from comptes.pdf import creer_pdf
 
     html = render_to_string("espace_plateforme/facture_pdf.html", {
         "facture": facture, "editeur": {
@@ -58,7 +58,9 @@ def pdf_de_la_facture(facture, request=None):
         "nom_commercial": settings.NOM_COMMERCIAL,
     }, request=request)
     sortie = BytesIO()
-    if pisa.CreatePDF(html, dest=sortie, encoding="utf-8").err:
+    # Demandée par une personne : dans sa langue ; envoyée par le serveur (rappel automatique) : dans la langue par défaut de l'école.
+    langue = None if request is not None else facture.etablissement.langue_par_defaut
+    if creer_pdf(html, sortie, request=request, langue=langue, etablissement_id=facture.etablissement_id).err:
         return None
     return sortie.getvalue()
 
@@ -125,7 +127,10 @@ def message_whatsapp(facture, aujourdhui=None) -> str:
     if settings.ABONNEMENT_INSTRUCTIONS_PAIEMENT:
         lignes.append(f"Comment payer : {settings.ABONNEMENT_INSTRUCTIONS_PAIEMENT}")
     lignes.append("Merci d'indiquer le numéro de la facture lors du règlement.")
-    return "\n".join(lignes)
+    from comptes.langue import texte_en_langue
+
+    # Le message part chez l'école : dans sa langue (par défaut), pas dans celle de la personne qui clique.
+    return texte_en_langue("\n".join(lignes), facture.etablissement.langue_par_defaut, facture.etablissement_id)
 
 
 def ajouter_les_liens_whatsapp(factures, aujourdhui=None) -> list:
@@ -200,6 +205,7 @@ def envoyer_facture(facture, *, rappel=False, acteur=None, request=None, aujourd
         sujet=sujet, contenu=contenu, expediteur=settings.DEFAULT_FROM_EMAIL, destinataires=destinataires,
         pieces_jointes=[(f"facture_{facture.numero}.pdf", pdf, "application/pdf")],
         repondre_a=settings.EDITEUR_EMAIL or None,
+        langue=facture.etablissement.langue_par_defaut, etablissement_id=facture.etablissement_id,  # la langue de l'école qui reçoit
     )
     if not envoye:
         return ResultatEnvoi(False, destinataires, "echec")

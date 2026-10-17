@@ -32,13 +32,16 @@ def espaces(valeur) -> str:
 
 
 def montant_compact(valeur) -> str:
-    """Un montant court pour le haut d'une colonne : 350 k, 1,2 M, 12 (jamais plus de quatre caractères utiles)."""
+    """Un montant court pour le haut d'une colonne : 350 k, 1,2 M, 12 (jamais plus de quatre caractères utiles) ; en arabe : 350 ألف, 1,2 مليون."""
+    from django.utils import translation
+
+    arabe = (translation.get_language() or "fr").startswith("ar")
     valeur = int(valeur or 0)
     if valeur >= 999_500:
         millions = f"{valeur / 1_000_000:.1f}".replace(".", ",")
-        return f"{millions[:-2] if millions.endswith(',0') else millions} M"
+        return f"{millions[:-2] if millions.endswith(',0') else millions} {'مليون' if arabe else 'M'}"
     if valeur >= 1000:
-        return f"{round(valeur / 1000)} k"
+        return f"{round(valeur / 1000)} {'ألف' if arabe else 'k'}"
     return str(valeur)
 
 

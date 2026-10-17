@@ -118,7 +118,7 @@
 
         <p class="titre-section-espace">1. Téléchargez le modèle</p>
         <p>Il contient les titres de colonnes, la liste de vos classes de {{ annee.libelle }} et un mode d'emploi.
-           Les colonnes obligatoires sont : {% for cle, libelle, obligatoire, aide in colonnes %}{% if obligatoire %}{{ libelle }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}.</p>
+           Les colonnes obligatoires sont : {% for cle, libelle, obligatoire, aide in colonnes %}{% if obligatoire %}{% if not forloop.first %}, {% endif %}{{ libelle }}{% endif %}{% endfor %}.</p>
         <a href="{% url 'scolarite:modele_import_eleves' %}?annee={{ annee.id }}" class="btn btn-outline-secondary btn-sm mb-3" data-telechargement>Télécharger le modèle Excel</a>
 
         <p class="titre-section-espace">2. Envoyez votre fichier</p>

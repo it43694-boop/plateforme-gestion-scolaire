@@ -257,6 +257,10 @@ class Classe(models.Model):
     """
 
     nom = models.CharField(max_length=60, help_text="Exemple : 3ème année A")
+    nom_ar = models.CharField(
+        "nom en arabe", max_length=60, blank=True,
+        help_text="Nom de la classe écrit en arabe (facultatif) : vide, une proposition automatique est utilisée pour les noms usuels de classes.",
+    )
     cycle = models.CharField(max_length=20, choices=Cycle.choices)
     serie = models.CharField(
         "série", max_length=20, choices=Serie.choices, blank=True,

@@ -1,7 +1,7 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from comptes import views
+from comptes import views, views_noms_arabes
 
 app_name = "comptes"
 
@@ -32,6 +32,8 @@ urlpatterns = [
         views.ReinitialiserMotDePasseView.as_view(),
         name="reinitialiser_mot_de_passe",
     ),
+
+    path("noms-en-arabe/", views_noms_arabes.noms_en_arabe, name="noms_en_arabe"),
 
     path("comptes-en-attente/", views.comptes_en_attente, name="comptes_en_attente"),
     path("comptes-en-attente/<int:utilisateur_id>/valider/", views.valider_compte, name="valider_compte"),

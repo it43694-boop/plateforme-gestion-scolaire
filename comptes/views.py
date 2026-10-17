@@ -14,6 +14,7 @@ from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
 from comptes.audit import enregistrer_action
+from comptes.langue import langue_du_compte
 from comptes.langues import DUREE_COOKIE_LANGUE, NOM_COOKIE_LANGUE, langue_valide
 from comptes.mail import envoyer_email
 from comptes.decorators import role_requis
@@ -55,7 +56,7 @@ def changer_langue(request):
 # Inscription et vérification de l'email
 # ---------------------------------------------------------------------------
 
-def _envoyer_code_verification(utilisateur):
+def _envoyer_code_verification(utilisateur, langue=None):
     nom_etablissement = utilisateur.etablissement.nom if utilisateur.etablissement_id else settings.NOM_PLATEFORME
     code = CodeVerificationEmail.generer_code()
     CodeVerificationEmail.objects.create(utilisateur=utilisateur, code=code)
@@ -69,6 +70,7 @@ def _envoyer_code_verification(utilisateur):
         ),
         destinataires=[utilisateur.email],
         expediteur=settings.DEFAULT_FROM_EMAIL,
+        langue=langue_du_compte(utilisateur, langue), etablissement_id=utilisateur.etablissement_id,
     )
 
 
@@ -109,7 +111,7 @@ def inscription(request):
             utilisateur = formulaire.save(commit=False)
             utilisateur.etablissement = etablissement
             utilisateur.save()
-            _envoyer_code_verification(utilisateur)
+            _envoyer_code_verification(utilisateur, getattr(request, "LANGUAGE_CODE", None))
             request.session["utilisateur_en_verification_id"] = utilisateur.id
             enregistrer_action(
                 acteur=utilisateur, action="inscription_creee",
@@ -190,7 +192,7 @@ def renvoyer_code(request):
         messages.error(request, "Session expirée, veuillez recommencer l'inscription.")
         return redirect("comptes:inscription")
     utilisateur = get_object_or_404(Utilisateur, id=utilisateur_id)
-    _envoyer_code_verification(utilisateur)
+    _envoyer_code_verification(utilisateur, getattr(request, "LANGUAGE_CODE", None))
     messages.info(request, "Un nouveau code vient de vous être envoyé.")
     return redirect("comptes:verifier_email")
 
@@ -489,7 +491,7 @@ def redirection_tableau_de_bord(request):
 
     from assistant.alertes import construire_alertes
     alertes = construire_alertes(request.user)
-    synthese_alertes = _synthese_alertes_en_cache(request.user, alertes) if alertes else ""
+    synthese_alertes = _synthese_alertes_en_cache(request.user, alertes, getattr(request, "LANGUAGE_CODE", "fr")) if alertes else ""
 
     return render(request, "comptes/tableau_de_bord.html", {
         "indicateurs": indicateurs, "actions_rapides": actions_rapides, "graphiques": graphiques,
@@ -499,7 +501,7 @@ def redirection_tableau_de_bord(request):
     })
 
 
-def _synthese_alertes_en_cache(utilisateur, alertes):
+def _synthese_alertes_en_cache(utilisateur, alertes, langue="fr"):
     """
     Phrase de synthèse générée par l'Assistant IA, mise en cache 1h, la clé étant
     le contenu des alertes lui-même (les chiffres affichés, eux, restent toujours
@@ -522,13 +524,13 @@ def _synthese_alertes_en_cache(utilisateur, alertes):
     import json
 
     contenu = json.dumps([[a["titre"], a["description"]] for a in alertes], ensure_ascii=False)
-    cle = "synthese_alertes_" + hashlib.sha256(contenu.encode("utf-8")).hexdigest()
+    cle = f"synthese_alertes_{langue}_" + hashlib.sha256(contenu.encode("utf-8")).hexdigest()
     synthese = cache.get(cle)
     if synthese is not None:
         return synthese
 
     try:
-        synthese = resumer_alertes_avec_ia(alertes=alertes)
+        synthese = resumer_alertes_avec_ia(alertes=alertes, langue=langue)
     except AssistantIndisponible:
         return ""
 
@@ -654,6 +656,7 @@ def changer_email(request):
                     "contactez immédiatement le secrétariat ou la direction."
                 ),
                 expediteur=settings.DEFAULT_FROM_EMAIL, destinataires=[ancien_email],
+                langue=langue_du_compte(request.user, getattr(request, "LANGUAGE_CODE", None)), etablissement_id=request.user.etablissement_id,
             )
             messages.success(request, "Adresse email modifiée avec succès.")
             return redirect("comptes:redirection_tableau_de_bord")
@@ -802,6 +805,7 @@ def mot_de_passe_oublie(request):
                     contenu=f"Bonjour {utilisateur.prenom},\n\nCliquez sur ce lien pour choisir un "
                     f"nouveau mot de passe :\n{lien}\n\nCe lien est à usage unique.",
                     expediteur=settings.DEFAULT_FROM_EMAIL, destinataires=[utilisateur.email],
+                    langue=langue_du_compte(utilisateur, getattr(request, "LANGUAGE_CODE", None)), etablissement_id=utilisateur.etablissement_id,
                 )
         else:
             # Recherche par matricule (élève) : le lien part chez le(s) parent(s) lié(s),
@@ -823,6 +827,7 @@ def mot_de_passe_oublie(request):
                             f"de passe :\n{lien}\n\nSi vous n'êtes pas à l'origine de cette demande, "
                             "ignorez cet email.",
                             expediteur=settings.DEFAULT_FROM_EMAIL, destinataires=[parent.email],
+                            langue=langue_du_compte(parent, getattr(request, "LANGUAGE_CODE", None)), etablissement_id=eleve.etablissement_id,
                         )
                     enregistrer_action(
                         acteur=None, action="demande_reinitialisation_mdp_eleve",

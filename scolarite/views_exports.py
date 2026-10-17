@@ -93,4 +93,5 @@ def exporter_liste_classe_xlsx(request, classe_id):
     return reponse_xlsx(
         liste_classe_classeur(request.user, classe),
         nom_fichier_sur("liste_eleves", classe.nom, classe.annee_scolaire.libelle),
+        request=request,
     )

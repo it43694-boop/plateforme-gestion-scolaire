@@ -65,7 +65,18 @@ def _interroger_groq(*, instructions: str, question: str) -> str:
         raise AssistantIndisponible(str(erreur)) from erreur
 
 
-def repondre_avec_ia(*, donnees_autorisees: dict, question: str) -> str:
+def consigne_de_langue(langue: str, avec_longueur: bool = True) -> str:
+    """La dernière consigne donnée à l'IA : dans quelle langue répondre (la langue de la page de la personne)."""
+    longueur = ", en 2 à 4 phrases" if avec_longueur else ""
+    if langue == "ar":
+        return (
+            f"- Réponds en arabe standard simple{longueur}, uniquement en lettres arabes (aucun mot français ou anglais, "
+            "chiffres écrits en chiffres arabes ٠١٢٣٤٥٦٧٨٩), sans formule d'introduction."
+        )
+    return f"- Réponds en français{longueur}, sans formule d'introduction."
+
+
+def repondre_avec_ia(*, donnees_autorisees: dict, question: str, langue: str = "fr") -> str:
     contexte_json = json.dumps(donnees_autorisees, default=str, ensure_ascii=False, indent=2)
 
     instructions = (
@@ -83,12 +94,12 @@ def repondre_avec_ia(*, donnees_autorisees: dict, question: str) -> str:
         "- N'émets aucune hypothèse sur des données non fournies (finances, "
         "notes, absences...) : leur absence signifie que la personne n'y a "
         "pas droit, pas qu'elles sont vides ou inconnues d'elle.\n"
-        "- Réponds en français, en 2 à 4 phrases, sans formule d'introduction."
+        + consigne_de_langue(langue)
     )
     return _interroger_groq(instructions=instructions, question=question)
 
 
-def repondre_question_generale_avec_ia(*, donnees_autorisees: dict, question: str) -> str:
+def repondre_question_generale_avec_ia(*, donnees_autorisees: dict, question: str, langue: str = "fr") -> str:
     """
     Variante « vue d'ensemble » : la question ne porte plus sur un élève
     mais sur l'établissement, avec les mêmes garanties - le dictionnaire
@@ -113,12 +124,12 @@ def repondre_question_generale_avec_ia(*, donnees_autorisees: dict, question: st
         "jamais et ne suppose jamais qu'elle existe ailleurs.\n"
         "- Ne mentionne jamais un élève, un employé ou un paiement nommément : "
         "tu ne disposes que d'agrégats, jamais de dossiers individuels.\n"
-        "- Réponds en français, en 2 à 4 phrases, sans formule d'introduction."
+        + consigne_de_langue(langue)
     )
     return _interroger_groq(instructions=instructions, question=question)
 
 
-def resumer_alertes_avec_ia(*, alertes: list[dict]) -> str:
+def resumer_alertes_avec_ia(*, alertes: list[dict], langue: str = "fr") -> str:
     """
     Synthétise en une phrase les alertes DÉJÀ calculées de manière
     déterministe (voir assistant.alertes.construire_alertes) : l'IA ne fait
@@ -136,7 +147,7 @@ def resumer_alertes_avec_ia(*, alertes: list[dict]) -> str:
         "- Résume ces alertes en une seule phrase, sans inventer aucun "
         "chiffre au-delà de ceux fournis ci-dessus.\n"
         "- Ton factuel et actionnable, jamais alarmiste.\n"
-        "- Réponds en français, sans formule d'introduction."
+        + consigne_de_langue(langue, avec_longueur=False)
     )
     return _interroger_groq(instructions=instructions, question="Résume ces alertes en une phrase.")
 

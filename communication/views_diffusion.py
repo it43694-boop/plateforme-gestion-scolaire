@@ -8,8 +8,9 @@ from django.http import Http404
 from django.shortcuts import render
 
 from communication.diffusion import (
-    LONGUEUR_MAX_MODELE, MARQUEUR_DATE, TYPES, message_neutre, preparer_messages, types_autorises,
+    LONGUEUR_MAX_MODELE, TYPES, contient_marqueur_date, message_neutre, preparer_messages, types_autorises,
 )
+from comptes.langue import texte_pour_langue
 from comptes.audit import enregistrer_action
 from scolarite.models import AnneeScolaire, classes_visibles_pour
 
@@ -61,7 +62,8 @@ def messages_a_envoyer(request):
         return render(request, "communication/messages_a_envoyer.html", contexte)
 
     infos = TYPES[type_code]
-    modele = texte or infos["modele"]
+    langue = getattr(request, "LANGUAGE_CODE", "fr")
+    modele = texte or (infos["modele_ar"] if langue == "ar" else infos["modele"])  # le message proposé suit la langue de la page
     contexte["texte"] = modele
 
     # Classes sur lesquelles porte le message : uniquement celles que l'utilisateur voit (une autre classe est « introuvable »).
@@ -86,7 +88,7 @@ def messages_a_envoyer(request):
     if type_code == "absence" and date > datetime.date.today():
         contexte["erreur"] = "Une absence ne peut pas être dans le futur."
         return render(request, "communication/messages_a_envoyer.html", contexte)
-    if MARQUEUR_DATE in modele and date is None:
+    if contient_marqueur_date(modele) and date is None:
         contexte["erreur"] = "Choisissez une date : le message contient {date}."
         return render(request, "communication/messages_a_envoyer.html", contexte)
 
@@ -94,6 +96,7 @@ def messages_a_envoyer(request):
     resultat = preparer_messages(
         type_=type_code, classes=concernees, modele=modele, ecole=etablissement.nom, date=date,
         une_seule_classe=une_classe, devise=getattr(etablissement, "code_devise", None) or "FCFA",
+        langue=langue, ecrire=lambda texte: texte_pour_langue(request, texte),
     )
     page = Paginator(resultat["lignes"], LIGNES_PAR_PAGE).get_page(request.GET.get("page"))
     parametres = {cle: valeur for cle, valeur in request.GET.items() if cle != "page"}
@@ -104,6 +107,7 @@ def messages_a_envoyer(request):
         # Collable dans un groupe WhatsApp : uniquement un message sans donnée d'élève, pour une seule classe.
         "message_groupe": message_neutre(
             modele, etablissement.nom, date.strftime("%d/%m/%Y") if date else "", une_classe,
+            langue=langue, ecrire=lambda texte: texte_pour_langue(request, texte),
         ) if not infos["individuel"] and une_classe else "",
     })
     if request.GET.get("page") in (None, "", "1"):  # un clic sur « page suivante » ne se note pas une deuxième fois

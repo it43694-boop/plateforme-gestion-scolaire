@@ -6,7 +6,9 @@ from comptes.forms import BootstrapFormMixin
 from comptes.models import SituationHandicap, StatutDeplacement
 from comptes.models import Sexe, Utilisateur
 from comptes.roles import Role
-from comptes.validators import valider_contenu_fichier, valider_extension_document, valider_taille_fichier_10mo
+from comptes.validators import (
+    valider_contenu_fichier, valider_ecriture_arabe, valider_extension_document, valider_taille_fichier_10mo,
+)
 from scolarite.models import PAS_MONTANT as PAS_MONTANT_PAR_DEFAUT
 from scolarite.models import (
     DEVISE_PAR_DEFAUT, NOMBRE_VERSEMENTS_FIXE, AnneeScolaire, Classe, Cycle, DomaineProfessionnel, EcheancierFrais,
@@ -17,6 +19,10 @@ from scolarite.models import (
 
 class CreerClasseForm(BootstrapFormMixin, forms.Form):
     nom = forms.CharField(label="Nom de la classe", max_length=60, help_text="Exemple : 3ème année A")
+    nom_ar = forms.CharField(
+        label="Nom de la classe en arabe", max_length=60, required=False, validators=[valider_ecriture_arabe],
+        help_text="Facultatif : si vous le laissez vide, une proposition automatique est utilisée pour les noms usuels de classes.",
+    )
     cycle = forms.ChoiceField(label="Cycle", choices=Cycle.choices)
     niveau = forms.ChoiceField(
         label="Niveau (année d'études)", choices=[("", "— Non précisé —")] + list(Niveau.choices), required=False,
@@ -93,7 +99,7 @@ class CreerClasseForm(BootstrapFormMixin, forms.Form):
 
     def save(self):
         classe = Classe.objects.create(
-            nom=self.cleaned_data["nom"], cycle=self.cleaned_data["cycle"],
+            nom=self.cleaned_data["nom"], nom_ar=self.cleaned_data.get("nom_ar", "").strip(), cycle=self.cleaned_data["cycle"],
             niveau=self.cleaned_data.get("niveau", ""),
             serie=self.cleaned_data["serie"], filiere_professionnelle=self.cleaned_data["filiere_professionnelle"],
             domaine_professionnel=self.cleaned_data.get("domaine_professionnel", ""),
@@ -136,6 +142,13 @@ class AffecterEnseignantForm(BootstrapFormMixin, forms.Form):
 class InscrireEleveForm(BootstrapFormMixin, forms.Form):
     prenom = forms.CharField(label="Prénom de l'élève", max_length=100)
     nom = forms.CharField(label="Nom de l'élève", max_length=100)
+    prenom_ar = forms.CharField(
+        label="Prénom de l'élève en arabe", max_length=100, required=False, validators=[valider_ecriture_arabe],
+        help_text="Facultatif : si vous le laissez vide, une proposition automatique est affichée en arabe.",
+    )
+    nom_ar = forms.CharField(
+        label="Nom de l'élève en arabe", max_length=100, required=False, validators=[valider_ecriture_arabe],
+    )
     matricule = forms.CharField(
         label="Matricule (optionnel)", max_length=20, required=False,
         help_text="Laissez vide pour générer automatiquement un matricule.",
@@ -252,12 +265,14 @@ class CorrigerDossierEleveForm(BootstrapFormMixin, forms.Form):
     """
 
     CHAMPS = (
-        "prenom", "nom", "sexe", "date_naissance", "lieu_naissance", "numero_acte_naissance", "handicap",
+        "prenom", "nom", "prenom_ar", "nom_ar", "sexe", "date_naissance", "lieu_naissance", "numero_acte_naissance", "handicap",
         "statut_deplacement",
     )
 
     prenom = forms.CharField(label="Prénom", max_length=100)
     nom = forms.CharField(label="Nom", max_length=100)
+    prenom_ar = forms.CharField(label="Prénom en arabe", max_length=100, required=False, validators=[valider_ecriture_arabe])
+    nom_ar = forms.CharField(label="Nom en arabe", max_length=100, required=False, validators=[valider_ecriture_arabe])
     sexe = forms.ChoiceField(label="Sexe", choices=Sexe.choices)
     date_naissance = forms.DateField(
         label="Date de naissance", required=False,

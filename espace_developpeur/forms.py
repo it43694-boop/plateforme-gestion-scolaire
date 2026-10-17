@@ -3,6 +3,7 @@ from django import forms
 from comptes.forms import BootstrapFormMixin
 from comptes.models import FormationPedagogique, Sexe, SituationHandicap, StatutDeplacement, StatutPersonnel
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role, StatutCompte
+from comptes.validators import valider_ecriture_arabe
 from etablissement.models import Etablissement
 from scolarite.models import AnneeScolaire, role_autorise_pour_plan
 
@@ -134,6 +135,7 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
         # Même principe pour le coefficient de la conduite : absent ou vide, il garde la valeur actuelle.
         self.fields["coefficient_conduite"].required = False
         self.fields["langue_par_defaut"].required = False
+        self.fields["nom_ar"].label = "Nom de l'école en arabe"
 
     def clean_langue_par_defaut(self):
         return self.cleaned_data.get("langue_par_defaut") or self.instance.langue_par_defaut or "fr"
@@ -141,6 +143,16 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
     def clean_coefficient_conduite(self):
         valeur = self.cleaned_data.get("coefficient_conduite")
         return self.instance.coefficient_conduite if valeur is None else valeur
+
+    def clean_nom_ar(self):
+        valeur = (self.cleaned_data.get("nom_ar") or "").strip()
+        valider_ecriture_arabe(valeur)
+        return valeur
+
+    def clean_devise_ar(self):
+        valeur = (self.cleaned_data.get("devise_ar") or "").strip()
+        valider_ecriture_arabe(valeur)
+        return valeur
 
     def clean_telephone_facturation(self):
         from comptes.utils import numero_international
@@ -156,7 +168,7 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Etablissement
         fields = [
-            "nom", "devise", "logo", "code_devise", "pas_montant", "coefficient_conduite", "email_facturation", "telephone_facturation", "langue_par_defaut",
+            "nom", "nom_ar", "devise", "devise_ar", "logo", "code_devise", "pas_montant", "coefficient_conduite", "email_facturation", "telephone_facturation", "langue_par_defaut",
             "code_etablissement", "statut_juridique", "region", "cercle", "commune", "milieu",
             "rattachement_administratif", "numero_agrement",
             "situation_fonctionnement", "motif_fermeture", "date_situation",

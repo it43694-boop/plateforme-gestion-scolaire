@@ -44,12 +44,12 @@
                 {# Caché tant que le script n'est pas chargé : sans lui, ces boutons ne feraient rien. #}
                 <div class="mots-a-inserer" data-mots-a-inserer data-cible-insertion="champ-texte" data-selecteur-type="champ-type" hidden>
                     <span class="mots-a-inserer-titre">Ajouter dans le message :</span>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{eleve}">Nom de l'élève</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{prenom}">Prénom de l'élève</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{classe}">Classe</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{ecole}">Nom de l'école</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{date}">Date</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{solde}" data-types="paiement" hidden>Montant dû</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{% if request.LANGUAGE_CODE == 'ar' %}{التلميذ}{% else %}{eleve}{% endif %}">Nom de l'élève</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{% if request.LANGUAGE_CODE == 'ar' %}{الاسم_الشخصي}{% else %}{prenom}{% endif %}">Prénom de l'élève</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{% if request.LANGUAGE_CODE == 'ar' %}{القسم}{% else %}{classe}{% endif %}">Classe</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{% if request.LANGUAGE_CODE == 'ar' %}{المدرسة}{% else %}{ecole}{% endif %}">Nom de l'école</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{% if request.LANGUAGE_CODE == 'ar' %}{التاريخ}{% else %}{date}{% endif %}">Date</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-inserer-mot="{% if request.LANGUAGE_CODE == 'ar' %}{الرصيد}{% else %}{solde}{% endif %}" data-types="paiement" hidden>Montant dû</button>
                 </div>
                 <div class="form-text">
                     Chaque bouton ajoute, à l'endroit du curseur, une information que l'application remplace pour chaque famille : le nom de

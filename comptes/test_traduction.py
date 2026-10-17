@@ -268,8 +268,8 @@ class CatalogueArabeTests(SimpleTestCase):
     def test_une_phrase_a_trous_du_catalogue_se_traduit(self):
         self.assertEqual(self.catalogue.traduire("27 élèves inscrits."), "27 تلميذًا مسجلًا.")
         self.assertEqual(self.catalogue.traduire("Bonjour, Mamadou"), "مرحبًا، Mamadou")
-        self.assertEqual(self.catalogue.traduire("35 000 FCFA"), "35 000 فرنك CFA")
-        self.assertEqual(self.catalogue.traduire("mai : 0 FCFA"), "مايو : 0 فرنك CFA")
+        self.assertEqual(self.catalogue.traduire("35 000 FCFA"), "35 000 فرنك سيفا")
+        self.assertEqual(self.catalogue.traduire("mai : 0 FCFA"), "مايو : 0 فرنك سيفا")
 
 
 class IsolationDesDonneesTests(SimpleTestCase):

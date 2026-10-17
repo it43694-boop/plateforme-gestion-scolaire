@@ -28,9 +28,9 @@ CLE_SESSION = "import_eleves_en_attente"
 
 def ligne(prenom="Awa", nom="Diarra", sexe="F", classe="6A", naissance="25/03/2015", lieu="Kati", acte="",
           matricule="", p1_email="parent-awa@parents.test", p1_nom="Diarra", p1_prenom="Oumar", p1_tel="70111222",
-          p2_email="", p2_nom="", p2_prenom="", p2_tel=""):
+          p2_email="", p2_nom="", p2_prenom="", p2_tel="", prenom_ar="", nom_ar=""):
     return [prenom, nom, sexe, classe, naissance, lieu, acte, matricule, p1_email, p1_nom, p1_prenom, p1_tel,
-            p2_email, p2_nom, p2_prenom, p2_tel]
+            p2_email, p2_nom, p2_prenom, p2_tel, prenom_ar, nom_ar]
 
 
 def fichier_excel(lignes, titres=None, nom="eleves.xlsx", feuille="Élèves"):
@@ -488,3 +488,50 @@ class InscriptionUniqueInchangeeTests(ImportBase):
         for nom in ("scolarite:liste_eleves", "scolarite:inscrire_eleve"):
             with self.subTest(page=nom):
                 self.assertContains(self.client.get(reverse(nom)), reverse(self.URL))
+
+
+class ImportEnArabeTests(ImportBase):
+    """Une école arabe télécharge un modèle entièrement en arabe, le remplit en arabe et le recharge : mêmes règles, mêmes comptes."""
+
+    TITRES_AR = [import_eleves.TITRES_ARABES[cle] for cle, *_ in COLONNES]
+
+    def modele_en_arabe(self):
+        self.client.force_login(self.fondateur)
+        self.client.cookies["nexora_langue"] = "ar"
+        reponse = self.client.get(reverse("scolarite:modele_import_eleves"), {"annee": self.annee.id})
+        self.assertEqual(reponse.status_code, 200)
+        return load_workbook(io.BytesIO(reponse.content))
+
+    def test_le_modele_est_entierement_en_arabe(self):
+        classeur = self.modele_en_arabe()
+        self.assertEqual(classeur.sheetnames, ["التلاميذ", "الأقسام", "دليل الاستعمال"])
+        self.assertEqual([c.value for c in classeur["التلاميذ"][1]], self.TITRES_AR)
+        classes = [c.value for c in classeur["الأقسام"]["A"]][1:]
+        self.assertEqual(len(classes), 5)
+        self.assertTrue(all(not any("a" <= lettre.lower() <= "z" for lettre in nom) or nom in {"6A", "6B", "9A", "TSE", "CAP-E"} for nom in classes))
+        validations = {str(v.sqref): v.formula1 for v in classeur["التلاميذ"].data_validations.dataValidation}
+        self.assertEqual(validations[f"C2:C{LIGNES_MAX + 1}"], '"ذكر,أنثى"')
+        self.assertTrue(classeur["التلاميذ"].sheet_view.rightToLeft)
+
+    def test_un_fichier_rempli_en_arabe_est_importe(self):
+        Classe.objects.filter(pk=self.c6a.pk).update(nom_ar="السادسة أ")
+        lignes = [[
+            "سالم", "كيتا", "ذكر", "السادسة أ", "25/03/2015", "كاتي", "", "", "parent-salem@parents.test", "كيتا", "عمر", "٧٠١١١٢٢٢", "", "", "", "",
+            "سالم", "كيتا",
+        ]]
+        reponse = self.apercu(self.fondateur, fichier_excel(lignes, titres=self.TITRES_AR))
+        self.assertIn("jeton", reponse.context, [r.erreurs for r in reponse.context.get("refusees", [])])
+        self.confirmer(reponse.context["jeton"])
+        eleve = Utilisateur.objects.get(role=Role.ELEVE, prenom="سالم", nom="كيتا")
+        self.assertEqual(eleve.sexe, "M")
+        self.assertEqual((eleve.prenom_ar, eleve.nom_ar), ("سالم", "كيتا"))
+        self.assertTrue(Inscription.objects.filter(eleve=eleve, classe=self.c6a).exists())
+
+    def test_les_colonnes_en_arabe_facultatives_sont_enregistrees_depuis_un_fichier_francais(self):
+        self.importer(self.fondateur, [ligne(prenom="Awa", nom="Traore", prenom_ar="عوا", nom_ar="تراوري")])
+        eleve = Utilisateur.objects.get(role=Role.ELEVE, prenom="Awa", nom="Traore")
+        self.assertEqual((eleve.prenom_ar, eleve.nom_ar), ("عوا", "تراوري"))
+
+    def test_une_ecriture_arabe_avec_des_lettres_latines_est_refusee(self):
+        reponse = self.apercu(self.fondateur, fichier_excel([ligne(prenom_ar="Awa")]))
+        self.assertNotIn("jeton", reponse.context)
