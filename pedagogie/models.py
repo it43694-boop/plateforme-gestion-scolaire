@@ -149,19 +149,20 @@ class NoteHistorique(models.Model):
 
 
 APPRECIATIONS_PAR_SEUIL = [
-    (Decimal("17"), "Excellent"),
+    (Decimal("18"), "Excellent"),
     (Decimal("16"), "Très Bien"),
-    (Decimal("13"), "Bien"),
+    (Decimal("14"), "Bien"),
+    (Decimal("12"), "Assez Bien"),
     (Decimal("10"), "Passable"),
 ]
 
 
 def appreciation_pour(moyenne):
     """
-    Échelle à 5 niveaux (Excellent/Très Bien/Bien/Passable/Insuffisant),
-    seuils déduits de bulletins maliens réels (aucune échelle nationale
-    publiée trouvée par ailleurs) - vérifiés exacts sur 13 notes de
-    matières de deux bulletins différents (fondamental et lycée).
+    Échelle à 6 niveaux : Excellent (18 et plus), Très Bien (16), Bien (14), Assez Bien (12), Passable (10),
+    Insuffisant (en dessous de 10). Elle sert aux notes de matières, à la note de conduite et à la moyenne du
+    trimestre. L'ancienne échelle, relevée sur un seul bulletin, n'avait pas « Assez Bien » : une note de 13
+    sortait « Bien ».
     """
     if moyenne is None:
         return ""

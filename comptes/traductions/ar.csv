@@ -383,9 +383,9 @@ Moyenne,المعدل,Terme à valider : المعدل
 Moy. coefficiée,المعدل مضروبًا في المعامل,
 Appréciation,التقدير,Terme à valider : التقدير
 Excellent,ممتاز,
-Très Bien,ممتاز,
+Très Bien,جيد جدًا,
 Bien,جيد,
-Assez Bien,مستحسن,
+Assez Bien,مستحسن,Terme à valider : مستحسن (entre جيد et مقبول)
 Passable,مقبول,
 Insuffisant,ضعيف,
 Moyenne obtenue,المعدل المحصَّل,

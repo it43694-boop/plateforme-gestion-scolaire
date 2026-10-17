@@ -1022,8 +1022,13 @@ cycle) et à un retour sur l'utilisabilité des formulaires de paiement :
   `(classe + composition) ÷ 3`. Formule vérifiée chiffre pour chiffre
   sur plus de quatre matières du bulletin du Lycée Fatoumata Haidara
   (ex. Mathématiques : (16,50 + 38,00) ÷ 3 = 18,17 - exact), ainsi que
-  les cinq paliers d'appréciation (Excellent ≥17, Très Bien ≥16, Bien
-  ≥13, Passable ≥10, Insuffisant en dessous). Faute de pouvoir
+  les paliers d'appréciation (Excellent ≥17, Très Bien ≥16, Bien
+  ≥13, Passable ≥10, Insuffisant en dessous). **Corrigé ensuite** : cette
+  échelle, relevée sur un seul bulletin, n'avait pas « Assez Bien » (une
+  note de 13 sortait « Bien »). Elle compte maintenant six niveaux :
+  Excellent ≥18, Très Bien ≥16, Bien ≥14, Assez Bien ≥12, Passable ≥10,
+  Insuffisant en dessous (`pedagogie.models.APPRECIATIONS_PAR_SEUIL`, une
+  seule règle pour les matières, la conduite et le trimestre). Faute de pouvoir
   revérifier avec la même certitude chaque chiffre du bulletin de 2ème
   cycle, la même règle s'applique uniformément à tous les cycles (1er
   cycle, 2ème cycle, Lycée) plutôt que de risquer une formule
