@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Cahier de textes - {{ classe.nom }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "livre" 24 %}</div>
+        <div>
+            <h1>Cahier de textes - {{ classe }}</h1>
+            <p>Les séances et les devoirs de toutes les matières de la classe.</p>
+        </div>
+    </div>
+</div>
+<form method="get" class="d-flex flex-wrap gap-2 mb-3">
+    <select name="affectation" class="form-select form-select-sm w-auto" aria-label="Matière">
+        <option value="">Toutes les matières</option>
+        {% for a in affectations %}<option value="{{ a.id }}"{% if affectation_id == a.id|stringformat:"s" %} selected{% endif %}>{{ a.matiere|default:"Titulaire" }} - {{ a.enseignant.nom_complet }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-outline-secondary btn-sm">Filtrer</button>
+</form>
+<div class="card"><div class="card-body">
+    {% if seances %}
+    <div class="table-responsive">
+        <table class="table">
+            <thead><tr><th>Date</th><th>Matière</th><th>Séance</th><th>Travail à faire</th></tr></thead>
+            <tbody>
+                {% for seance in seances %}
+                <tr>
+                    <td>{{ seance.date_seance|date:"d/m/Y" }}</td>
+                    <td>{{ seance.affectation.matiere|default:"Titulaire" }}<div class="text-muted small">{{ seance.affectation.enseignant.nom_complet }}</div></td>
+                    <td>{{ seance.contenu }}</td>
+                    <td>{% if seance.travail_a_faire %}{{ seance.travail_a_faire }}{% if seance.date_remise %}<div class="text-muted small">À rendre pour le {{ seance.date_remise|date:"d/m/Y" }}</div>{% endif %}{% else %}-{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "_pagination.html" %}
+    {% else %}
+    <div class="etat-vide"><p>Aucune séance notée pour le moment.</p></div>
+    {% endif %}
+</div></div>
+{% endblock %}

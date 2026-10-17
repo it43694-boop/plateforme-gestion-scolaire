@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load icones montants %}
+{% block titre %}Arriérés{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone rouge">{% icone "alerte" 24 %}</div>
+        <div>
+            <h1>Arriérés</h1>
+            <p>Ce que les familles doivent encore pour les années passées, calculé avec la classe de l'époque.</p>
+        </div>
+    </div>
+    <a href="{% url 'finances:frais_annexes' %}" class="btn btn-outline-secondary btn-sm">Frais annexes</a>
+</div>
+
+<form method="get" class="d-flex flex-wrap gap-2 mb-3">
+    <input type="search" name="q" value="{{ recherche }}" class="form-control form-control-sm w-auto" placeholder="Nom ou matricule" aria-label="Rechercher un élève">
+    <select name="annee" class="form-select form-select-sm w-auto" aria-label="Année scolaire">
+        <option value="">Toutes les années</option>
+        {% for a in annees %}<option value="{{ a.id }}"{% if annee_id == a.id|stringformat:"s" %} selected{% endif %}>{{ a.libelle }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-outline-secondary btn-sm">Filtrer</button>
+</form>
+
+<div class="card"><div class="card-body">
+    {% if lignes %}
+    <p class="mb-3">Total des arriérés : <strong>{{ total|montant }} {{ etablissement.code_devise|default:"FCFA" }}</strong></p>
+    <div class="table-responsive">
+        <table class="table">
+            <thead><tr><th>Élève</th><th>Année scolaire</th><th>Classe</th><th class="text-end">Dû</th><th class="text-end">Payé</th><th class="text-end">Reste</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td>{{ ligne.inscription.eleve.nom_complet }} <span class="text-muted">({{ ligne.inscription.eleve.matricule }})</span></td>
+                    <td>{{ ligne.inscription.classe.annee_scolaire.libelle }}</td>
+                    <td>{{ ligne.inscription.classe.nom }}</td>
+                    <td class="text-end montant-val">{{ ligne.total_du|montant }}</td>
+                    <td class="text-end montant-val">{{ ligne.total_paye|montant }}</td>
+                    <td class="text-end montant-val negatif">{{ ligne.solde|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{% url 'finances:enregistrer_paiement' %}?eleve={{ ligne.inscription.eleve.matricule }}&inscription={{ ligne.inscription.id }}">Régler</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "_pagination.html" %}
+    {% else %}
+    <div class="etat-vide"><p>Aucun arriéré : toutes les années passées sont soldées.</p></div>
+    {% endif %}
+</div></div>
+{% endblock %}

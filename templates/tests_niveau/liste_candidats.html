@@ -7,24 +7,48 @@
         <div class="page-header-icone or">{% icone "administration" 24 %}</div>
         <div>
             <h1>Tests de niveau</h1>
-            <p>Suivi des candidats et décision d'admission, cloisonné par cycle.</p>
+            <p>Suivi des candidats et décision d'admission, cloisonné par cycle.{% if a_traiter %} {{ a_traiter }} demande(s) en ligne à traiter.{% endif %}</p>
         </div>
     </div>
-    <a href="{% url 'tests_niveau:ajouter_candidat' %}" class="btn btn-primary btn-sm">Ajouter un candidat</a>
+    <div class="d-flex gap-2">
+        {% if peut_gerer_campagnes %}<a href="{% url 'tests_niveau:campagnes' %}" class="btn btn-outline-secondary btn-sm">Pré-inscription en ligne</a>{% endif %}
+        <a href="{% url 'tests_niveau:ajouter_candidat' %}" class="btn btn-primary btn-sm">Ajouter un candidat</a>
+    </div>
 </div>
+<form method="get" class="d-flex flex-wrap gap-2 mb-3">
+    <select name="demande" class="form-select form-select-sm w-auto" aria-label="État de la demande">
+        <option value="">Tous les candidats</option>
+        {% for code, libelle in statuts %}<option value="{{ code }}"{% if code == demande %} selected{% endif %}>{{ libelle }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-outline-secondary btn-sm">Filtrer</button>
+</form>
 <div class="card">
     <div class="card-body">
         {% if candidats %}
         <table class="table table-cartes">
             <thead>
-                <tr><th>Candidat</th><th>Classe visée</th><th>Date du test</th><th class="text-end">Note</th><th>Décision</th><th><span class="visually-hidden">Actions</span></th></tr>
+                <tr><th>Candidat</th><th>Classe visée</th><th>Demande</th><th>Date du test</th><th class="text-end">Note</th><th>Décision</th><th><span class="visually-hidden">Actions</span></th></tr>
             </thead>
             <tbody>
                 {% for candidat in candidats %}
                 <tr>
-                    <td>{{ candidat.nom_complet }}</td>
+                    <td>
+                        {{ candidat.nom_complet }}
+                        {% if candidat.campagne_id %}
+                        <div class="text-muted small">
+                            {% if candidat.nom_parent %}{{ candidat.nom_parent }}{% endif %}
+                            {% if candidat.telephone_contact %} - {{ candidat.telephone_contact }}{% endif %}
+                            {% if candidat.email_contact %} - {{ candidat.email_contact }}{% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
                     <td>{{ candidat.classe_visee }}</td>
-                    <td>{{ candidat.date_test|date:"d/m/Y" }}</td>
+                    <td>
+                        {% if candidat.campagne_id %}
+                        <span class="badge {% if candidat.statut_demande == 'recue' %}bg-warning{% elif candidat.statut_demande == 'refusee' %}bg-danger{% else %}bg-secondary{% endif %}">{{ candidat.get_statut_demande_display }}</span>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td>{% if candidat.date_test %}{{ candidat.date_test|date:"d/m/Y" }}{% else %}-{% endif %}</td>
                     <td class="text-end montant-val">{{ candidat.note_test|default:"-" }}</td>
                     <td>
                         <span class="badge {% if candidat.decision == 'admis' %}bg-success{% elif candidat.decision == 'refuse' %}bg-danger{% else %}bg-warning{% endif %}">
@@ -32,7 +56,14 @@
                         </span>
                     </td>
                     <td class="text-end">
-                        {% if candidat.decision == 'en_attente' %}
+                        {% if candidat.statut_demande == 'recue' %}
+                        <a href="{% url 'tests_niveau:convoquer_candidat' candidat.id %}" class="btn btn-sm btn-success">Convoquer au test</a>
+                        <form method="post" action="{% url 'tests_niveau:refuser_demande' candidat.id %}" class="d-inline" data-confirmer="Refuser cette demande ? La famille sera prévenue par email.">
+                            {% csrf_token %}<button class="btn btn-sm btn-outline-danger">Refuser la demande</button>
+                        </form>
+                        {% elif candidat.statut_demande == 'refusee' %}
+                        {% elif candidat.decision == 'en_attente' %}
+                        {% if candidat.statut_demande == 'convoque' %}<a href="{% url 'tests_niveau:convoquer_candidat' candidat.id %}" class="btn btn-sm btn-outline-secondary">Changer la date</a>{% endif %}
                         <form method="post" action="{% url 'tests_niveau:decider_candidat' candidat.id 'admis' %}" class="d-inline">
                             {% csrf_token %}<button class="btn btn-sm btn-success">Admettre</button>
                         </form>

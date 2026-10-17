@@ -119,6 +119,9 @@ def saisir_note(*, eleve, affectation, trimestre, enseignant, note_classe=None, 
         raise ValidationError("Vous n'êtes pas l'enseignant affecté à cette matière pour cette classe.")
     if note_classe is None and note_composition is None:
         raise ValidationError("Au moins une des deux notes (classe ou composition) est requise.")
+    from pedagogie.clotures import verifier_periode_ouverte
+
+    verifier_periode_ouverte(affectation.classe, trimestre)
 
     with transaction.atomic():
         note = Note.objects.filter(eleve=eleve, affectation=affectation, trimestre=trimestre).first()
@@ -394,3 +397,135 @@ class NoteConduite(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+class TypeMesureDiscipline(models.TextChoices):
+    RETARD = "retard", "Retard"
+    AVERTISSEMENT = "avertissement", "Avertissement"
+    BLAME = "blame", "Blâme"
+    CONVOCATION = "convocation", "Convocation des parents"
+    EXCLUSION = "exclusion", "Exclusion"
+
+
+class MesureDiscipline(models.Model):
+    """
+    Une ligne du registre de discipline : un retard, un avertissement, un blâme, une convocation des parents ou une exclusion.
+    Visible par l'élève, ses parents et l'administration qui le suit ; les parents sont prévenus par courriel (voir pedagogie.discipline).
+    """
+
+    eleve = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.CASCADE, related_name="mesures_discipline", limit_choices_to={"role": Role.ELEVE},
+    )
+    classe = models.ForeignKey(Classe, on_delete=models.CASCADE, related_name="mesures_discipline")
+    date_mesure = models.DateField("date")
+    type_mesure = models.CharField("mesure", max_length=20, choices=TypeMesureDiscipline.choices)
+    motif = models.CharField(max_length=255, blank=True)
+    enregistre_par = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.SET_NULL, null=True, blank=True, related_name="mesures_discipline_saisies",
+    )
+    saisie_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "mesure de discipline"
+        verbose_name_plural = "mesures de discipline"
+        ordering = ["-date_mesure", "-pk"]
+        indexes = [models.Index(fields=["eleve", "date_mesure"], name="discipline_eleve_date")]
+
+    def __str__(self):
+        return f"{self.get_type_mesure_display()} - {self.eleve} - {self.date_mesure}"
+
+    def clean(self):
+        super().clean()
+        if self.eleve_id and self.eleve.role != Role.ELEVE:
+            raise ValidationError("Seul un élève peut faire l'objet d'une mesure de discipline.")
+        if self.date_mesure and self.date_mesure > datetime.date.today():
+            raise ValidationError("Impossible d'enregistrer une mesure pour une date future.")
+        if self.type_mesure != TypeMesureDiscipline.RETARD and not (self.motif or "").strip():
+            raise ValidationError("Indiquez le motif de la mesure.")
+        if self.eleve_id and self.classe_id:
+            if self.eleve.etablissement_id != self.classe.annee_scolaire.etablissement_id:
+                raise ValidationError("L'élève et la classe doivent appartenir au même établissement.")
+            if not Inscription.objects.filter(eleve_id=self.eleve_id, classe_id=self.classe_id).exists():
+                raise ValidationError("Cet élève n'est pas inscrit dans cette classe.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+class PeriodeCloturee(models.Model):
+    """
+    Un trimestre dont les notes sont clôturées pour toute une année scolaire : plus aucune note de matière ni de conduite ne s'y ajoute ni
+    ne s'y corrige, tant que la direction ne l'a pas rouvert. Une année archivée est toujours clôturée (voir pedagogie.clotures).
+    """
+
+    annee_scolaire = models.ForeignKey("scolarite.AnneeScolaire", on_delete=models.CASCADE, related_name="periodes_cloturees")
+    trimestre = models.CharField(max_length=20, choices=Trimestre.choices)
+    cloturee_par = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.SET_NULL, null=True, blank=True, related_name="periodes_cloturees",
+    )
+    cloturee_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "période clôturée"
+        verbose_name_plural = "périodes clôturées"
+        constraints = [models.UniqueConstraint(fields=["annee_scolaire", "trimestre"], name="periode_cloturee_unique")]
+
+    def __str__(self):
+        return f"{self.get_trimestre_display()} - {self.annee_scolaire}"
+
+
+class SeanceCahier(models.Model):
+    """
+    Une ligne du cahier de textes d'une classe : ce qui a été fait pendant une séance de cours (matière de l'affectation), le travail à faire et
+    la date de remise. Les parents et les élèves de la classe voient les devoirs ; l'enseignant et la direction tiennent le cahier.
+    """
+
+    affectation = models.ForeignKey(Affectation, on_delete=models.CASCADE, related_name="seances_cahier")
+    date_seance = models.DateField("date de la séance")
+    contenu = models.CharField("séance", max_length=500, help_text="Ce qui a été fait ou étudié.")
+    travail_a_faire = models.CharField("travail à faire", max_length=500, blank=True)
+    date_remise = models.DateField("à rendre pour le", null=True, blank=True)
+    cree_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.SET_NULL, null=True, blank=True, related_name="seances_cahier_saisies")
+    cree_le = models.DateTimeField(auto_now_add=True)
+    modifie_le = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "séance du cahier de textes"
+        verbose_name_plural = "séances du cahier de textes"
+        ordering = ["-date_seance", "-pk"]
+        indexes = [models.Index(fields=["affectation", "date_seance"], name="cahier_affectation_date")]
+
+    def __str__(self):
+        return f"{self.affectation} - {self.date_seance}"
+
+    def clean(self):
+        super().clean()
+        if self.date_seance and self.date_seance > datetime.date.today():
+            raise ValidationError("Une séance se note le jour même ou après : pas de date future.")
+        if self.date_remise and self.date_seance and self.date_remise < self.date_seance:
+            raise ValidationError("La date de remise ne peut pas précéder la séance.")
+        if self.date_remise and not (self.travail_a_faire or "").strip():
+            raise ValidationError("Indiquez le travail à faire pour la date de remise.")
+
+
+class ChapitreProgramme(models.Model):
+    """Un chapitre du programme d'une matière dans une classe : où l'on en est (en %), la date prévue pour le finir, les difficultés rencontrées."""
+
+    affectation = models.ForeignKey(Affectation, on_delete=models.CASCADE, related_name="chapitres")
+    titre = models.CharField(max_length=200)
+    ordre = models.PositiveSmallIntegerField(default=0)
+    date_prevue = models.DateField("à terminer pour le", null=True, blank=True)
+    pourcentage = models.PositiveSmallIntegerField("avancement (%)", default=0, validators=[MaxValueValidator(100)])
+    difficultes = models.CharField("difficultés rencontrées", max_length=255, blank=True)
+    modifie_le = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "chapitre du programme"
+        verbose_name_plural = "chapitres du programme"
+        ordering = ["ordre", "pk"]
+        constraints = [models.CheckConstraint(condition=models.Q(pourcentage__lte=100), name="chapitre_pourcentage_max_100")]
+
+    def __str__(self):
+        return f"{self.titre} ({self.pourcentage} %)"
+
+    @property
+    def en_retard(self) -> bool:
+        """Un chapitre non terminé dont la date prévue est passée."""
+        return bool(self.date_prevue and self.pourcentage < 100 and self.date_prevue < datetime.date.today())

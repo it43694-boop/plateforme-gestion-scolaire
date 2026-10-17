@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Clôture des notes{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "cadenas" 24 %}</div>
+        <div>
+            <h1>Clôture des notes</h1>
+            <p>Un trimestre clôturé ne reçoit plus aucune note ni correction (matières et conduite). Vous pouvez le rouvrir si une erreur doit être corrigée.</p>
+        </div>
+    </div>
+</div>
+
+{% if annee %}
+{% if annees|length > 1 %}
+<form method="get" class="d-flex gap-2 mb-3">
+    <select name="annee" class="form-select form-select-sm w-auto" aria-label="Année scolaire">
+        {% for a in annees %}<option value="{{ a.id }}"{% if a == annee %} selected{% endif %}>{{ a.libelle }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-outline-secondary btn-sm">Afficher</button>
+</form>
+{% endif %}
+{% if annee.est_archivee %}
+<div class="alert alert-info">Cette année scolaire est archivée : tous ses trimestres sont clôturés et ne peuvent plus être rouverts.</div>
+{% endif %}
+<div class="card"><div class="card-body">
+    <h2 class="titre-section">Année scolaire {{ annee.libelle }}</h2>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead><tr><th>Trimestre</th><th>État</th><th>Clôturé par</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td>{{ ligne.libelle }}</td>
+                    <td>{% if ligne.cloturee %}<span class="badge bg-danger">Clôturé</span>{% else %}<span class="badge bg-success">Ouvert aux notes</span>{% endif %}</td>
+                    <td>{% if ligne.par %}{{ ligne.par.nom_complet }}{% if ligne.le %} - {{ ligne.le|date:"d/m/Y" }}{% endif %}{% else %}-{% endif %}</td>
+                    <td class="text-end">
+                        {% if not annee.est_archivee %}
+                        {% if ligne.cloturee %}
+                        <form method="post" action="{% url 'pedagogie:rouvrir_periode' annee.id ligne.valeur %}" class="d-inline" data-confirmer="Rouvrir ce trimestre ? Les notes pourront de nouveau être modifiées.">
+                            {% csrf_token %}<button class="btn btn-sm btn-outline-secondary">Rouvrir</button>
+                        </form>
+                        {% else %}
+                        <form method="post" action="{% url 'pedagogie:cloturer_periode' annee.id ligne.valeur %}" class="d-inline" data-confirmer="Clôturer ce trimestre ? Plus aucune note ne pourra y être saisie ni corrigée.">
+                            {% csrf_token %}<button class="btn btn-sm btn-outline-danger">Clôturer</button>
+                        </form>
+                        {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div></div>
+{% else %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Aucune année scolaire n'est encore créée.</p></div></div></div>
+{% endif %}
+{% endblock %}

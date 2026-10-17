@@ -5,6 +5,8 @@ Quand la langue est l'arabe, chaque nom est écrit en lettres arabes : celui que
 (comptes.transcription) qui n'est pas toujours l'écriture que la famille choisirait. Cet écran affiche la proposition dans chaque case : l'école la
 corrige si besoin, puis enregistre ; ce qui est enregistré passe avant la proposition partout.
 """
+from urllib.parse import quote
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -175,7 +177,7 @@ def noms_en_arabe(request):
             messages.success(request, f"{modifies} écriture(s) enregistrée(s).")
             adresse = reverse("comptes:noms_en_arabe") + f"?groupe={groupe}"
             if recherche:
-                adresse += f"&q={recherche}"
+                adresse += f"&q={quote(recherche)}"  # le texte cherché ne doit jamais ajouter de paramètre à l'adresse
             if seulement_a_revoir:
                 adresse += "&a_revoir=1"
             if page is not None and page.number > 1:

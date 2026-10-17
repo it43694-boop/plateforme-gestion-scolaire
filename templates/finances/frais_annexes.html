@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load icones montants %}
+{% block titre %}Frais annexes{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone vert">{% icone "finances" 24 %}</div>
+        <div>
+            <h1>Frais annexes</h1>
+            <p>Tenue, examen, transport, fournitures... : des frais en plus de la scolarité, pour une classe ou pour toute l'école. Chaque élève concerné les doit en plus de sa scolarité ; ils se règlent avec la tranche « Frais annexe ».</p>
+        </div>
+    </div>
+    <a href="{% url 'finances:arrieres' %}" class="btn btn-outline-secondary btn-sm">Arriérés</a>
+</div>
+<div class="row">
+    <div class="col-lg-4">
+        <div class="card mb-3"><div class="card-body">
+            <p class="titre-section">Ajouter un frais</p>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% for erreur in formulaire.non_field_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+                {% for champ in formulaire %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <button class="btn btn-primary w-100">Ajouter</button>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card"><div class="card-body">
+            {% if liste %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead><tr><th>Frais</th><th>Concerne</th><th class="text-end">Montant</th><th class="text-end">Encaissé</th><th>Date limite</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <tbody>
+                        {% for ligne in liste %}
+                        <tr>
+                            <td><strong>{{ ligne.frais.libelle }}</strong><div class="text-muted small">{{ ligne.frais.annee_scolaire.libelle }}</div></td>
+                            <td>{% if ligne.frais.classe %}{{ ligne.frais.classe.nom }}{% else %}Toute l'école{% endif %}<div class="text-muted small">{{ ligne.concernes }} élève(s)</div></td>
+                            <td class="text-end montant-val">{{ ligne.frais.montant|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                            <td class="text-end montant-val">{{ ligne.total_paye|montant }} {{ etablissement.code_devise|default:"FCFA" }}<div class="text-muted small">{{ ligne.payeurs }} / {{ ligne.concernes }}</div></td>
+                            <td>{% if ligne.frais.date_limite %}{{ ligne.frais.date_limite|date:"d/m/Y" }}{% else %}-{% endif %}</td>
+                            <td class="text-end">
+                                {% if ligne.supprimable %}
+                                <form method="post" action="{% url 'finances:supprimer_frais_annexe' ligne.frais.id %}" data-confirmer="Supprimer ce frais annexe ?">
+                                    {% csrf_token %}<button class="btn btn-sm btn-outline-danger">Supprimer</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="etat-vide"><p>Aucun frais annexe défini pour le moment.</p></div>
+            {% endif %}
+        </div></div>
+    </div>
+</div>
+{% endblock %}

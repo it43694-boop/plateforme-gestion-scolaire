@@ -20,9 +20,13 @@
                     <td>{{ affectation.matiere|default:"Titulaire" }}</td>
                     <td class="text-end">
                         <a href="{% url 'pedagogie:saisir_note' affectation.id %}" class="btn btn-sm btn-outline-secondary">Notes</a>
+                        <a href="{% url 'pedagogie:cahier_affectation' affectation.id %}" class="btn btn-sm btn-outline-secondary">Cahier de textes</a>
+                        <a href="{% url 'pedagogie:programme_affectation' affectation.id %}" class="btn btn-sm btn-outline-secondary">Programme</a>
                         <a href="{% url 'pedagogie:saisir_absence' affectation.classe.id %}" class="btn btn-sm btn-outline-secondary">Absences</a>
+                        {% if peut_discipline %}<a href="{% url 'pedagogie:registre_discipline' affectation.classe.id %}" class="btn btn-sm btn-outline-secondary">Discipline</a>{% endif %}
                         <a href="{% url 'pedagogie:gerer_emploi_du_temps' affectation.classe.id %}" class="btn btn-sm btn-outline-secondary">Emploi du temps</a>
                         <a href="{% url 'scolarite:exporter_liste_classe_xlsx' affectation.classe.id %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Liste (Excel)</a>
+                        <a href="{% url 'scolarite:exporter_liste_classe_pdf' affectation.classe.id %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Liste (PDF)</a>
                         <a href="{% url 'pedagogie:exporter_releve_notes_xlsx' affectation.classe.id %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Notes (Excel)</a>
                         <a href="{% url 'pedagogie:exporter_absences_xlsx' affectation.classe.id %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Absences (Excel)</a>
                     </td>

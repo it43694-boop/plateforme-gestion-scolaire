@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titre %}{% if evenement %}Modifier une date{% else %}Ajouter une date{% endif %}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>{% if evenement %}Modifier une date du calendrier{% else %}Ajouter une date au calendrier{% endif %}</h1>
+        <p>Les dates réservées au personnel ne sont visibles ni des parents ni des élèves.</p>
+    </div>
+</div>
+<div class="card mw-560">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for erreur in formulaire.non_field_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+            {% for champ in formulaire %}
+            <div class="mb-3">
+                {% if champ.field.widget.input_type == "checkbox" %}
+                <div class="form-check">{{ champ }} <label class="form-check-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label></div>
+                {% else %}
+                <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                {{ champ }}
+                {% endif %}
+                {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary">Enregistrer</button>
+                <a href="{% url 'scolarite:calendrier' %}" class="btn btn-outline-secondary">Annuler</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

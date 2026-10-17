@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Calendrier scolaire{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "calendrier" 24 %}</div>
+        <div>
+            <h1>Calendrier scolaire</h1>
+            <p>Rentrée, vacances, jours fériés, examens et réunions{% if annee %} - année scolaire {{ annee.libelle }}{% endif %}.</p>
+        </div>
+    </div>
+    {% if peut_gerer %}<a href="{% url 'scolarite:ajouter_evenement' %}" class="btn btn-primary btn-sm">Ajouter une date</a>{% endif %}
+</div>
+
+<form method="get" class="d-flex flex-wrap gap-2 mb-3">
+    {% if annees|length > 1 %}
+    <select name="annee" class="form-select form-select-sm w-auto" aria-label="Année scolaire">
+        {% for a in annees %}<option value="{{ a.id }}"{% if a == annee %} selected{% endif %}>{{ a.libelle }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <select name="type" class="form-select form-select-sm w-auto" aria-label="Type">
+        <option value="">Tous les types</option>
+        {% for code, libelle in types %}<option value="{{ code }}"{% if code == type_choisi %} selected{% endif %}>{{ libelle }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-outline-secondary btn-sm">Filtrer</button>
+</form>
+
+{% if mois %}
+{% for premier_du_mois, evenements in mois %}
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="titre-section">{{ premier_du_mois|date:"F Y"|capfirst }}</h2>
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead><tr><th>Date</th><th>Évènement</th><th>Type</th>{% if peut_gerer %}<th><span class="visually-hidden">Actions</span></th>{% endif %}</tr></thead>
+                <tbody>
+                    {% for e in evenements %}
+                    <tr{% if e.date_debut <= aujourdhui and e.fin >= aujourdhui %} class="table-active"{% endif %}>
+                        <td>{% if e.est_une_periode %}Du {{ e.date_debut|date:"d/m/Y" }} au {{ e.fin|date:"d/m/Y" }}{% else %}{{ e.date_debut|date:"d/m/Y" }}{% endif %}</td>
+                        <td>
+                            <strong>{{ e.titre }}</strong>
+                            {% if e.reserve_au_personnel %}<span class="badge bg-warning">Personnel</span>{% endif %}
+                            {% if e.description %}<div class="text-muted small">{{ e.description }}</div>{% endif %}
+                        </td>
+                        <td>{{ e.get_type_evenement_display }}</td>
+                        {% if peut_gerer %}
+                        <td class="text-end">
+                            <a href="{% url 'scolarite:modifier_evenement' e.id %}" class="btn btn-sm btn-outline-secondary">Modifier</a>
+                            <form method="post" action="{% url 'scolarite:supprimer_evenement' e.id %}" class="d-inline" data-confirmer="Supprimer cet évènement ?">
+                                {% csrf_token %}<button class="btn btn-sm btn-outline-danger">Supprimer</button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Aucune date au calendrier pour le moment.</p></div></div></div>
+{% endif %}
+{% endblock %}

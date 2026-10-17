@@ -37,6 +37,12 @@ def creer_eleve_inscrit(donnees, etablissement):
             date_naissance=donnees.get("date_naissance"),
             lieu_naissance=(donnees.get("lieu_naissance") or "").strip(),
             numero_acte_naissance=(donnees.get("numero_acte_naissance") or "").strip(),
+            nom_pere=(donnees.get("nom_pere") or "").strip(),
+            nom_mere=(donnees.get("nom_mere") or "").strip(),
+            adresse=(donnees.get("adresse") or "").strip(),
+            contact_urgence_nom=(donnees.get("contact_urgence_nom") or "").strip(),
+            contact_urgence_telephone=(donnees.get("contact_urgence_telephone") or "").strip(),
+            ecole_origine=(donnees.get("ecole_origine") or "").strip(),
             handicap=donnees.get("handicap") or "",
             statut_deplacement=donnees.get("statut_deplacement") or "",
             statut=StatutCompte.ACTIF,
@@ -58,4 +64,8 @@ def creer_eleve_inscrit(donnees, etablissement):
     for info in donnees.get("parents_en_attente", []):
         ParentEnAttente.objects.create(eleve=eleve, **info)
     Inscription.objects.create(eleve=eleve, classe=donnees["classe"])
+    photo = donnees.get("photo")  # déjà préparée par le formulaire ; enregistrée en dernier pour ne laisser aucun fichier orphelin
+    if photo is not None:  # (un fichier sans nom est « faux » pour Python : on compare à None)
+        eleve.photo.save(f"{eleve.matricule}.jpg", photo, save=False)
+        eleve.save(update_fields=["photo"])
     return eleve

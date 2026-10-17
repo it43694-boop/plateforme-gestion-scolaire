@@ -10,9 +10,10 @@ from comptes.validators import (
     valider_contenu_fichier, valider_ecriture_arabe, valider_extension_document, valider_taille_fichier_10mo,
 )
 from scolarite.models import PAS_MONTANT as PAS_MONTANT_PAR_DEFAUT
+from scolarite.photos import preparer_photo
 from scolarite.models import (
     DEVISE_PAR_DEFAUT, NOMBRE_VERSEMENTS_FIXE, AnneeScolaire, Classe, Cycle, DomaineProfessionnel, EcheancierFrais,
-    FiliereProfessionnelle,
+    EvenementCalendrier, FiliereProfessionnelle,
     Inscription, NIVEAUX_PAR_CYCLE, Niveau, ParentEnAttente, Periodicite, Serie, cycles_autorises_pour,
 )
 
@@ -168,6 +169,16 @@ class InscrireEleveForm(BootstrapFormMixin, forms.Form):
     statut_deplacement = forms.ChoiceField(
         label="Situation de déplacement", choices=[("", "— Aucune —")] + StatutDeplacement.choices, required=False,
     )
+    nom_pere = forms.CharField(label="Père (nom et prénom)", max_length=150, required=False)
+    nom_mere = forms.CharField(label="Mère (nom et prénom)", max_length=150, required=False)
+    adresse = forms.CharField(label="Adresse", max_length=255, required=False)
+    contact_urgence_nom = forms.CharField(label="Personne à prévenir en cas d'urgence", max_length=150, required=False)
+    contact_urgence_telephone = forms.CharField(label="Téléphone de la personne à prévenir", max_length=20, required=False)
+    ecole_origine = forms.CharField(label="École d'origine", max_length=150, required=False)
+    photo = forms.ImageField(
+        label="Photo (optionnelle)", required=False,
+        help_text="JPEG, PNG ou WebP. Elle est redressée et réduite automatiquement.",
+    )
     classe = forms.ModelChoiceField(label="Classe", queryset=Classe.objects.none())
     parent_email_1 = forms.EmailField(label="Email du 1er parent")
     parent_nom_1 = forms.CharField(label="Nom du 1er parent", max_length=100, required=False)
@@ -215,6 +226,11 @@ class InscrireEleveForm(BootstrapFormMixin, forms.Form):
             raise forms.ValidationError("Ce matricule est déjà utilisé par un autre élève.")
         return matricule
 
+    def clean_photo(self):
+        """L'image est vérifiée et préparée ici (redressée, réduite, en JPEG) ; un faux fichier est refusé avant toute création."""
+        fichier = self.cleaned_data.get("photo")
+        return preparer_photo(fichier.read()) if fichier else None
+
     def clean(self):
         cleaned = super().clean()
         email_1, email_2 = cleaned.get("parent_email_1"), cleaned.get("parent_email_2")
@@ -229,6 +245,19 @@ class InscrireEleveForm(BootstrapFormMixin, forms.Form):
         cleaned["parent_2"] = parent_2
         cleaned["parents_en_attente"] = [info for info in (en_attente_1, en_attente_2) if info]
         return cleaned
+
+
+class EvenementCalendrierForm(BootstrapFormMixin, forms.ModelForm):
+    class Meta:
+        model = EvenementCalendrier
+        fields = ["titre", "type_evenement", "date_debut", "date_fin", "description", "reserve_au_personnel"]
+        widgets = {
+            "date_debut": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "date_fin": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        }
+
+    def clean_titre(self):
+        return " ".join(self.cleaned_data["titre"].split())
 
 
 class CloturerInscriptionForm(BootstrapFormMixin, forms.Form):
@@ -266,7 +295,7 @@ class CorrigerDossierEleveForm(BootstrapFormMixin, forms.Form):
 
     CHAMPS = (
         "prenom", "nom", "prenom_ar", "nom_ar", "sexe", "date_naissance", "lieu_naissance", "numero_acte_naissance", "handicap",
-        "statut_deplacement",
+        "statut_deplacement", "nom_pere", "nom_mere", "adresse", "contact_urgence_nom", "contact_urgence_telephone", "ecole_origine",
     )
 
     prenom = forms.CharField(label="Prénom", max_length=100)
@@ -286,6 +315,12 @@ class CorrigerDossierEleveForm(BootstrapFormMixin, forms.Form):
     statut_deplacement = forms.ChoiceField(
         label="Situation de déplacement", choices=[("", "— Aucune —")] + StatutDeplacement.choices, required=False,
     )
+    nom_pere = forms.CharField(label="Père (nom et prénom)", max_length=150, required=False)
+    nom_mere = forms.CharField(label="Mère (nom et prénom)", max_length=150, required=False)
+    adresse = forms.CharField(label="Adresse", max_length=255, required=False)
+    contact_urgence_nom = forms.CharField(label="Personne à prévenir en cas d'urgence", max_length=150, required=False)
+    contact_urgence_telephone = forms.CharField(label="Téléphone de la personne à prévenir", max_length=20, required=False)
+    ecole_origine = forms.CharField(label="École d'origine", max_length=150, required=False)
 
     def __init__(self, *args, eleve, **kwargs):
         kwargs.setdefault("initial", {nom: getattr(eleve, nom) or "" for nom in self.CHAMPS})

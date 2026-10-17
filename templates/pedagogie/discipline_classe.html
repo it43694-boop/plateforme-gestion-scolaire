@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block titre %}Discipline - {{ classe.nom }}{% endblock %}
+{% block contenu %}
+<div class="page-header"><div><h1>Discipline - {{ classe }}</h1><p>Retards, avertissements, blâmes, convocations et exclusions. Les parents sont prévenus par courriel pour toute mesure, et au troisième retard du mois.</p></div></div>
+<div class="row">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-body">
+                {% if lecture_seule %}
+                <div class="alert alert-info mb-0">Cette année scolaire est archivée : le registre est en lecture seule.</div>
+                {% else %}
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% for erreur in formulaire.non_field_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+                    {% for champ in formulaire %}
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                            {{ champ }}
+                            {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                            {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                        </div>
+                    {% endfor %}
+                    <datalist id="eleves-de-la-classe">{% for option in formulaire.options_eleves %}<option value="{{ option }}"></option>{% endfor %}</datalist>
+                    <button type="submit" class="btn btn-primary w-100">Enregistrer</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-body">
+                <p class="titre-section">Dernières mesures</p>
+                {% if mesures %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead><tr><th>Élève</th><th>Date</th><th>Mesure</th><th>Motif</th>{% if peut_supprimer and not lecture_seule %}<th><span class="visually-hidden">Actions</span></th>{% endif %}</tr></thead>
+                        <tbody>
+                            {% for mesure in mesures %}
+                            <tr>
+                                <td><a href="{% url 'pedagogie:historique_discipline' mesure.eleve.matricule %}">{{ mesure.eleve.nom_complet }}</a></td>
+                                <td>{{ mesure.date_mesure|date:"d/m/Y" }}</td>
+                                <td>{{ mesure.get_type_mesure_display }}</td>
+                                <td>{{ mesure.motif|default:"-" }}</td>
+                                {% if peut_supprimer and not lecture_seule %}
+                                <td>
+                                    <form method="post" action="{% url 'pedagogie:supprimer_mesure_discipline' mesure.pk %}" data-confirmer="Supprimer cette mesure ?">
+                                        {% csrf_token %}<input type="hidden" name="retour" value="classe">
+                                        <button class="btn btn-sm btn-outline-danger">Supprimer</button>
+                                    </form>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="etat-vide"><p>Aucune mesure enregistrée pour le moment.</p></div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

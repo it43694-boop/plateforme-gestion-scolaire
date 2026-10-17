@@ -263,6 +263,14 @@ class DeuxFacteursTests(TestCase):
         self.assertEqual(self.utilisateur.totp_secret, secret)
         self.assertEqual(self.utilisateur.codes_secours_2fa.count(), 10)
 
+    def test_un_envoi_direct_sans_passer_par_la_page_ne_plante_pas(self):
+        self.client.force_login(self.utilisateur)
+        reponse = self.client.post(reverse("comptes:activer_2fa"), {"code": "000000"})
+        self.assertEqual(reponse.status_code, 200)  # une nouvelle clé est préparée, le code est refusé
+        self.assertIn("secret_2fa_en_attente", self.client.session)
+        self.utilisateur.refresh_from_db()
+        self.assertFalse(self.utilisateur.deux_facteurs_actif)
+
     def test_activer_avec_mauvais_code_najoute_pas(self):
         self.client.force_login(self.utilisateur)
         self.client.get(reverse("comptes:activer_2fa"))

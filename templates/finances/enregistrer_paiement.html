@@ -15,21 +15,23 @@
             <div class="mb-3">
                 <label class="form-label" for="recherche-eleve">Élève</label>
                 <div class="recherche-conteneur">
-                    <input type="text" id="recherche-eleve" class="form-control" autocomplete="off"
+                    <input type="text" id="recherche-eleve" class="form-control" autocomplete="off"{% if eleve_prefill %} value="{{ eleve_prefill.nom_complet }} ({{ eleve_prefill.matricule }})"{% endif %}
                            placeholder="Rechercher par nom ou matricule..."
                            data-recherche-url="{% url 'finances:rechercher_eleve_json' %}"
                            data-recherche-cible="{{ formulaire.matricule_eleve.id_for_label }}"
                            data-recherche-affichage="nom_complet" data-recherche-valeur="matricule">
                     <div class="recherche-resultats" data-recherche-resultats></div>
                 </div>
-                {{ formulaire.matricule_eleve }}
+                {{ formulaire.matricule_eleve }}{{ formulaire.inscription_visee }}
                 {% for erreur in formulaire.matricule_eleve.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                {% if arriere_vise %}<div class="alert alert-warning mt-2 mb-0 py-2">Règlement d'un arriéré : année scolaire {{ arriere_vise.classe.annee_scolaire.libelle }}, classe {{ arriere_vise.classe.nom }}.</div>{% endif %}
             </div>
             {% for champ in formulaire %}
-                {% if champ.name != "matricule_eleve" and champ.name != "periodes" %}
+                {% if champ.name != "matricule_eleve" and champ.name != "periodes" and champ.name != "inscription_visee" %}
                 <div class="mb-3">
                     <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
                     {{ champ }}
+                    {% if champ.help_text and champ.name == "frais_annexe" %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
                     {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
                 </div>
                 {% endif %}

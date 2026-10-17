@@ -105,8 +105,8 @@ class LocalisateurTests(SimpleTestCase):
         self.assertEqual(loc.remplacer("mamadou keita"), "mamadou كيتا")
 
     def test_les_adresses_email_et_les_liens_sont_intacts(self):
-        texte = "Écrire à mamadou.keita@ecole.ml ou Mamadou@ecole.ml, voir https://exemple.ml/Mamadou"
-        self.assertEqual(self.loc.remplacer(texte), "Écrire à mamadou.keita@ecole.ml ou Mamadou@ecole.ml, voir https://exemple.ml/Mamadou")
+        texte = "Écrire à mamadou.keita@exemple.test ou Mamadou@exemple.test, voir https://exemple.test/Mamadou"
+        self.assertEqual(self.loc.remplacer(texte), "Écrire à mamadou.keita@exemple.test ou Mamadou@exemple.test, voir https://exemple.test/Mamadou")
 
     def test_un_groupe_de_mots_passe_avant_les_mots_seuls(self):
         self.assertEqual(self.loc.remplacer("Abdoul Karim"), "عبد الكريم")

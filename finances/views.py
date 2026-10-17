@@ -12,6 +12,7 @@ from comptes.langue import texte_pour_langue
 from comptes.pdf import creer_pdf
 from comptes.models import Utilisateur
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
+from finances.courriels import prevenir_les_parents_du_paiement
 from finances.forms import (
     CloturerContratForm, CorrigerPaiementForm, CreerBulletinPaieForm, CreerContratForm, EnregistrerCongeForm,
     EnregistrerPaiementForm, SaisirSalaireForm,
@@ -136,10 +137,14 @@ def suivi_paiements(request):
     if classe_id:
         inscriptions = inscriptions.filter(classe_id=classe_id)
 
+    from finances.annexes import arrieres_des_eleves, totaux_annexes
+
     devise = getattr(request.user.etablissement, "code_devise", "FCFA")
+    inscriptions = list(inscriptions)
+    annexes_de = totaux_annexes(inscriptions)  # une seule requête pour tous les frais annexes, pas une par élève
     lignes = []
     for inscription in inscriptions:
-        total_du = calculer_total_du(inscription, aides_actives=inscription.aides_actives_prefetchees)
+        total_du = calculer_total_du(inscription, aides_actives=inscription.aides_actives_prefetchees, annexes=annexes_de(inscription))
         solde = total_du - inscription.total_paye
         statut = "paye" if solde <= 0 else ("partiel" if inscription.total_paye > 0 else "impaye")
         if filtre_statut and statut != filtre_statut:
@@ -170,6 +175,9 @@ def suivi_paiements(request):
         })
 
     page_obj = Paginator(lignes, 30).get_page(request.GET.get("page"))
+    arrieres = arrieres_des_eleves([ligne["inscription"].eleve for ligne in page_obj.object_list], request.user) if page_obj.object_list else {}
+    for ligne in page_obj.object_list:
+        ligne["arrieres"] = arrieres.get(ligne["inscription"].eleve_id, 0)
     return render(request, "finances/suivi_paiements.html", {
         "page_obj": page_obj, "lignes": page_obj.object_list,
         "classes": classes_visibles_pour(request.user) if request.user.role != Role.PARENT else classes_visibles_pour(request.user).filter(
@@ -182,7 +190,21 @@ def suivi_paiements(request):
 def enregistrer_paiement_vue(request):
     if not _peut_gerer_les_paiements(request.user):
         raise PermissionDenied("Vous n'avez pas le droit d'enregistrer un paiement.")
-    formulaire = EnregistrerPaiementForm(request.POST or None, etablissement=request.user.etablissement)
+    # Un arriéré se règle depuis la page des arriérés : l'élève et l'année passée arrivent déjà choisis.
+    initial, eleve_prefill, arriere_vise = {}, None, None
+    if request.method == "GET" and request.GET.get("eleve") and request.GET.get("inscription", "").isdigit():
+        from scolarite.models import Inscription
+
+        eleve_prefill = Utilisateur.objects.filter(
+            matricule=request.GET["eleve"], role=Role.ELEVE, etablissement=request.user.etablissement,
+        ).first()
+        if eleve_prefill is not None:
+            arriere_vise = Inscription.objects.filter(pk=int(request.GET["inscription"]), eleve=eleve_prefill).select_related("classe__annee_scolaire").first()
+        if arriere_vise is not None:
+            initial = {"matricule_eleve": eleve_prefill.matricule, "inscription_visee": arriere_vise.pk, "tranche": "versement"}
+        else:
+            eleve_prefill = None
+    formulaire = EnregistrerPaiementForm(request.POST or None, etablissement=request.user.etablissement, initial=initial)
     if request.method == "POST" and formulaire.is_valid():
         paiement = enregistrer_paiement(
             eleve=formulaire.cleaned_data["eleve"],
@@ -192,16 +214,24 @@ def enregistrer_paiement_vue(request):
             mode_paiement=formulaire.cleaned_data["mode_paiement"],
             enregistre_par=request.user,
             periodes_couvertes=formulaire.cleaned_data["periodes"],
+            frais_annexe=formulaire.cleaned_data.get("frais_annexe"),
         )
         enregistrer_action(
             acteur=request.user, action="enregistrement_paiement",
             cible=paiement.reference,
-            details={"eleve": paiement.eleve.matricule, "montant": paiement.montant},
+            details={
+                "eleve": paiement.eleve.matricule, "montant": paiement.montant, "tranche": paiement.tranche,
+                "arriere": bool(formulaire.cleaned_data.get("inscription_visee")),
+            },
             request=request,
         )
+        prevenir_les_parents_du_paiement(paiement)  # courriel de reçu ; ne bloque jamais le paiement
         messages.success(request, f"Paiement enregistré. Référence : {paiement.reference}")
         return redirect("finances:liste_paiements")
-    return render(request, "finances/enregistrer_paiement.html", {"formulaire": formulaire})
+    return render(request, "finances/enregistrer_paiement.html", {
+        "formulaire": formulaire, "eleve_prefill": eleve_prefill, "arriere_vise": arriere_vise,
+        "inscription_visee": formulaire["inscription_visee"].value() if request.method == "POST" else None,
+    })
 
 
 @module_requis(Module.FINANCES)
@@ -227,7 +257,7 @@ def exporter_recu_paiement_pdf(request, paiement_id):
 def liste_paiements(request):
     paiements = Paiement.objects.filter(
         est_supprime=False, etablissement=request.user.etablissement,
-    ).select_related("eleve", "inscription__classe")
+    ).select_related("eleve", "inscription__classe", "frais_annexe")
     if request.user.role == Role.PARENT:
         paiements = paiements.filter(eleve__parents_lies=request.user)
     page_obj = Paginator(paiements, 25).get_page(request.GET.get("page"))

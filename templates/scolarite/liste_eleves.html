@@ -14,6 +14,10 @@
     <div class="d-flex gap-2">
         {% if classe_exportable %}
         <a href="{% url 'scolarite:exporter_liste_classe_xlsx' classe_exportable.id %}" class="btn btn-outline-secondary btn-sm" data-telechargement>Exporter la classe (Excel)</a>
+        <a href="{% url 'scolarite:exporter_liste_classe_csv' classe_exportable.id %}" class="btn btn-outline-secondary btn-sm" data-telechargement>Exporter la classe (CSV)</a>
+        <a href="{% url 'scolarite:exporter_liste_classe_pdf' classe_exportable.id %}" class="btn btn-outline-secondary btn-sm" data-telechargement>Exporter la classe (PDF)</a>
+        {% if peut_importer_photos %}<a href="{% url 'scolarite:importer_photos_classe' classe_exportable.id %}" class="btn btn-outline-secondary btn-sm">Photos de la classe</a>
+        <a href="{% url 'scolarite:cartes_classe_pdf' classe_exportable.id %}" class="btn btn-outline-secondary btn-sm" data-telechargement>Cartes d'élève (PDF)</a>{% endif %}
         {% endif %}
         <a href="{% url 'scolarite:importer_eleves' %}" class="btn btn-outline-secondary btn-sm">Importer depuis Excel</a>
         <a href="{% url 'scolarite:inscrire_eleve' %}" class="btn btn-primary btn-sm">Inscrire un élève</a>

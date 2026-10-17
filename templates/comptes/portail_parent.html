@@ -17,9 +17,12 @@
             <div class="col-4"><strong>{% if dossier.moyenne is not None %}{{ dossier.moyenne|floatformat:2 }}{% else %}-{% endif %}</strong><br>Moyenne</div>
             <div class="col-4"><strong>{{ dossier.solde|montant }} {{ etablissement.code_devise|default:"FCFA" }}</strong><br>Solde</div>
         </div>
+        {% if dossier.arrieres %}<p class="small text-danger mb-3">Arriérés des années passées : {{ dossier.arrieres|montant }} {{ etablissement.code_devise|default:"FCFA" }}</p>{% endif %}
         <div class="d-flex flex-wrap gap-2">
             <a class="btn btn-sm btn-outline-primary" href="{% url 'pedagogie:bulletin_eleve' dossier.eleve.matricule %}">Bulletin</a>
             <a class="btn btn-sm btn-outline-primary" href="{% url 'pedagogie:historique_absences' dossier.eleve.matricule %}">Absences</a>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'pedagogie:historique_discipline' dossier.eleve.matricule %}">Discipline</a>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'pedagogie:devoirs' %}">Devoirs</a>
             <a class="btn btn-sm btn-outline-primary" href="{% url 'scolarite:dossier_eleve' dossier.eleve.matricule %}">Dossier</a>
         </div>
     </div></div>
@@ -28,5 +31,18 @@
 </div>
 {% else %}
 <div class="card"><div class="card-body etat-vide"><p>Aucun enfant n’est encore rattaché à votre compte.</p></div></div>
+{% endif %}
+
+{% if prochaines_dates %}
+<div class="card mt-3"><div class="card-body">
+    <h2 class="h5">Prochaines dates</h2>
+    {% for e in prochaines_dates %}
+    <div class="border-bottom py-2 d-flex justify-content-between gap-3">
+        <strong>{{ e.titre }}</strong>
+        <span class="text-muted small">{% if e.est_une_periode %}Du {{ e.date_debut|date:"d/m/Y" }} au {{ e.fin|date:"d/m/Y" }}{% else %}{{ e.date_debut|date:"d/m/Y" }}{% endif %}</span>
+    </div>
+    {% endfor %}
+    <a href="{% url 'scolarite:calendrier' %}" class="small">Voir tout le calendrier</a>
+</div></div>
 {% endif %}
 {% endblock %}

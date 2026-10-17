@@ -1,5 +1,6 @@
 import base64
 import os
+import re
 from io import BytesIO
 
 from django.conf import settings
@@ -14,6 +15,7 @@ from django.views.decorators.http import require_http_methods
 
 from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
+from comptes.excel import nom_fichier_sur
 from comptes.langue import donnees_pour_langue
 from comptes.pdf import creer_pdf
 from comptes.models import Utilisateur
@@ -119,7 +121,12 @@ def mes_classes(request):
     """
     affectations = Affectation.objects.filter(enseignant=request.user).select_related("classe") \
         if request.user.role == Role.ENSEIGNANT else Affectation.objects.none()
-    return render(request, "pedagogie/mes_classes.html", {"affectations": affectations})
+    from permissions_matrix.models import PermissionMatrix
+
+    return render(request, "pedagogie/mes_classes.html", {
+        "affectations": affectations,
+        "peut_discipline": PermissionMatrix.a_acces(request.user.role, "absences", etablissement=request.user.etablissement),
+    })
 
 
 ROLES_SAISIE_NOTE_INTERDITE = {Role.PARENT.value, Role.ELEVE.value}
@@ -377,17 +384,8 @@ def bulletin_eleve(request, matricule):
     })
 
 
-@module_requis(Module.NOTES_BULLETINS)
-def exporter_bulletin_pdf(request, matricule):
-    eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
-    if not _eleve_visible_pour(request.user, eleve):
-        raise PermissionDenied("Vous n'avez pas accès au bulletin de cet élève.")
-
-    inscription_id = request.GET.get("inscription")
-    inscriptions = Inscription.objects.filter(eleve=eleve).select_related("classe", "classe__annee_scolaire")
-    inscription = inscriptions.filter(pk=inscription_id).first() if inscription_id else inscriptions.filter(
-        statut=Inscription.Statut.EN_COURS,
-    ).first()
+def _html_du_bulletin(request, eleve, inscription):
+    """Le HTML du bulletin d'un élève pour une inscription (avec son jeton de vérification et son QR code), prêt pour le PDF."""
     verification = VerificationBulletin.objects.filter(
         eleve=eleve, inscription=inscription, actif=True,
     ).first() if inscription else None
@@ -407,11 +405,67 @@ def exporter_bulletin_pdf(request, matricule):
         except ImportError:
             pass
 
-    html = render_to_string("pedagogie/bulletin_pdf.html", {
+    return render_to_string("pedagogie/bulletin_pdf.html", {
         "eleve": eleve, "inscription": inscription, "verification": verification,
         "verification_url": verification_url, "qr_code": qr_code,
         **_calculer_bulletin(eleve, inscription),
     }, request=request)
+
+
+LIMITE_BULLETINS_PAR_PDF = 150
+CORPS_DE_PAGE = re.compile(r"<body[^>]*>(.*)</body>", re.S | re.I)
+DEBUT_DU_CORPS = re.compile(r"<body[^>]*>", re.I)
+
+
+def reunir_les_bulletins(pages_html):
+    """Plusieurs bulletins (chacun un document HTML complet) en UN seul document : l'en-tête du premier, puis chaque corps sur sa page."""
+    corps = [CORPS_DE_PAGE.search(page).group(1) for page in pages_html]
+    entete = DEBUT_DU_CORPS.split(pages_html[0], maxsplit=1)[0]
+    return entete + "<body>" + "<pdf:nextpage />".join(corps) + "</body></html>"
+
+
+@module_requis(Module.NOTES_BULLETINS)
+def exporter_bulletins_classe_pdf(request, classe_id):
+    """Tous les bulletins d'une classe dans un seul PDF (un bulletin par page), pour la direction et la supervision."""
+    from scolarite.models import ROLES_VOIENT_TOUT_ELEVE_DE_LETABLISSEMENT
+
+    if request.user.role not in ROLES_VOIENT_TOUT_ELEVE_DE_LETABLISSEMENT:
+        raise PermissionDenied("Vous n'avez pas le droit d'imprimer les bulletins d'une classe.")
+    classe = get_object_or_404(classes_visibles_pour(request.user), id=classe_id)
+    inscriptions = list(
+        Inscription.objects.filter(classe=classe, statut=Inscription.Statut.EN_COURS)
+        .select_related("eleve", "classe", "classe__annee_scolaire").order_by("eleve__nom", "eleve__prenom")
+    )
+    if not inscriptions:
+        messages.error(request, "Aucun élève inscrit dans cette classe : aucun bulletin à imprimer.")
+        return redirect("scolarite:liste_classes")
+    if len(inscriptions) > LIMITE_BULLETINS_PAR_PDF:
+        messages.error(request, f"Cette classe a plus de {LIMITE_BULLETINS_PAR_PDF} élèves : imprimez les bulletins un par un.")
+        return redirect("scolarite:liste_classes")
+    html = reunir_les_bulletins([_html_du_bulletin(request, i.eleve, i) for i in inscriptions])
+    reponse = HttpResponse(content_type="application/pdf")
+    nom = f"bulletins_{classe.nom}_{classe.annee_scolaire.libelle}".replace(" ", "_").replace("/", "-")
+    reponse["Content-Disposition"] = f'attachment; filename="{nom_fichier_sur(nom)}.pdf"'
+    if creer_pdf(html, reponse, request=request, link_callback=_lien_pdf).err:
+        return HttpResponse("Erreur lors de la génération du PDF.", status=500)
+    enregistrer_action(
+        acteur=request.user, action="export_bulletins_classe", cible=str(classe), details={"bulletins": len(inscriptions)}, request=request,
+    )
+    return reponse
+
+
+@module_requis(Module.NOTES_BULLETINS)
+def exporter_bulletin_pdf(request, matricule):
+    eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
+    if not _eleve_visible_pour(request.user, eleve):
+        raise PermissionDenied("Vous n'avez pas accès au bulletin de cet élève.")
+
+    inscription_id = request.GET.get("inscription")
+    inscriptions = Inscription.objects.filter(eleve=eleve).select_related("classe", "classe__annee_scolaire")
+    inscription = inscriptions.filter(pk=inscription_id).first() if inscription_id else inscriptions.filter(
+        statut=Inscription.Statut.EN_COURS,
+    ).first()
+    html = _html_du_bulletin(request, eleve, inscription)
 
     reponse = HttpResponse(content_type="application/pdf")
     reponse["Content-Disposition"] = f'attachment; filename="bulletin_{eleve.matricule}.pdf"'

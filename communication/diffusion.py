@@ -147,9 +147,13 @@ def _inscriptions(classes, type_, date):
     inscriptions = inscriptions.prefetch_related(Prefetch(
         "aides_scolarite", queryset=AideScolarite.objects.filter(active=True), to_attr="aides_actives_prefetchees",
     )).annotate(total_paye=Coalesce(Sum("paiements__montant", filter=Q(paiements__est_supprime=False)), 0))
+    from finances.annexes import totaux_annexes
+
+    inscriptions = list(inscriptions)
+    annexes_de = totaux_annexes(inscriptions)  # une seule requête pour les frais annexes de tous les élèves
     resultat = []
     for inscription in inscriptions:
-        solde = calculer_total_du(inscription, aides_actives=inscription.aides_actives_prefetchees) - inscription.total_paye
+        solde = calculer_total_du(inscription, aides_actives=inscription.aides_actives_prefetchees, annexes=annexes_de(inscription)) - inscription.total_paye
         if solde > 0:
             resultat.append((inscription, solde))
     return resultat

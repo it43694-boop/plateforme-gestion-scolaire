@@ -12,6 +12,8 @@ from django.utils import timezone
 
 from comptes.langues import LANGUES
 from comptes.roles import Role, StatutCompte
+from comptes.uploads import chemin_upload_unique
+from comptes.validators import valider_taille_fichier_10mo
 
 
 def _hacheur_code_secours():
@@ -161,6 +163,11 @@ def creer_avec_matricule_unique(construire_utilisateur, tentatives=5):
     raise RuntimeError("Impossible de créer le compte élève après plusieurs tentatives.") from derniere_erreur
 
 
+def chemin_photo_eleve(instance, nom_fichier):
+    """Adresse de stockage de la photo d'un élève : un jeton aléatoire dans le chemin, jamais le nom ni le matricule seuls."""
+    return chemin_upload_unique("photos_eleves", instance.etablissement_id, nom_fichier)
+
+
 class Utilisateur(AbstractBaseUser, PermissionsMixin):
     """
     Utilisateur unique pour tous les rôles de la plateforme (direction,
@@ -236,6 +243,19 @@ class Utilisateur(AbstractBaseUser, PermissionsMixin):
     statut_deplacement = models.CharField(
         "situation de déplacement", max_length=20, choices=StatutDeplacement.choices, blank=True,
         help_text="Laisser vide si l'élève n'est ni déplacé ni réfugié.",
+    )
+    # Renseignements complémentaires du dossier d'un élève (filiation, adresse, urgence, scolarité antérieure, photo).
+    nom_pere = models.CharField("nom et prénom du père", max_length=150, blank=True)
+    nom_mere = models.CharField("nom et prénom de la mère", max_length=150, blank=True)
+    adresse = models.CharField(
+        "adresse", max_length=255, blank=True, help_text="Quartier, rue ou village où vit l'élève.",
+    )
+    contact_urgence_nom = models.CharField("personne à prévenir en cas d'urgence", max_length=150, blank=True)
+    contact_urgence_telephone = models.CharField("téléphone de la personne à prévenir", max_length=20, blank=True)
+    ecole_origine = models.CharField("école d'origine", max_length=150, blank=True)
+    photo = models.ImageField(
+        "photo", upload_to=chemin_photo_eleve, blank=True, null=True, validators=[valider_taille_fichier_10mo],
+        help_text="Redressée et réduite automatiquement à l'enregistrement (voir scolarite.photos).",
     )
     parents_lies = models.ManyToManyField(
         "self", symmetrical=False, related_name="enfants_lies",

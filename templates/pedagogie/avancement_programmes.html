@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Avancement des programmes{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone vert">{% icone "suivi" 24 %}</div>
+        <div>
+            <h1>Avancement des programmes</h1>
+            <p>Où en est chaque matière de chaque classe, les retards en tête.{% if total_en_retard %} {{ total_en_retard }} chapitre(s) en retard.{% endif %}</p>
+        </div>
+    </div>
+    <a href="{% url 'pedagogie:suivi_des_cours' %}" class="btn btn-outline-secondary btn-sm">Suivi des cours</a>
+</div>
+<div class="card"><div class="card-body">
+    {% if lignes %}
+    <div class="table-responsive">
+        <table class="table">
+            <thead><tr><th>Classe</th><th>Matière</th><th>Enseignant</th><th class="text-end">Chapitres</th><th class="text-end">Avancement</th><th class="text-end">En retard</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td>{{ ligne.affectation.classe.nom }}</td>
+                    <td>{{ ligne.affectation.matiere|default:"Titulaire" }}</td>
+                    <td>{{ ligne.affectation.enseignant.nom_complet }}</td>
+                    <td class="text-end montant-val">{{ ligne.nombre }}</td>
+                    <td class="text-end montant-val">{% if ligne.nombre %}{{ ligne.avancement }} %{% else %}-{% endif %}</td>
+                    <td class="text-end montant-val{% if ligne.en_retard %} negatif{% endif %}">{{ ligne.en_retard }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'pedagogie:programme_affectation' ligne.affectation.id %}" class="btn btn-sm btn-outline-secondary">Détail</a>
+                        <a href="{% url 'pedagogie:cahier_classe' ligne.affectation.classe.id %}?affectation={{ ligne.affectation.id }}" class="btn btn-sm btn-outline-secondary">Cahier</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="etat-vide"><p>Aucune matière affectée dans les classes de votre périmètre.</p></div>
+    {% endif %}
+</div></div>
+{% endblock %}

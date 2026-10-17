@@ -80,6 +80,15 @@ class NomsEnArabeTests(EducationBase):
         self.eleve_b.refresh_from_db()
         self.assertEqual(self.eleve_b.prenom_ar, "")
 
+    def test_la_recherche_gardee_apres_l_enregistrement_ne_peut_pas_ajouter_de_parametre(self):
+        client = self.client_de(self.fondateur)
+        reponse = client.post(
+            self.url + "?q=a%26groupe%3Decole%23", {"groupe": "eleves", f"prenom_ar_{self.eleve.pk}": "سالم", f"nom_ar_{self.eleve.pk}": "كيتا"},
+        )
+        self.assertEqual(reponse.status_code, 302)
+        self.assertEqual(reponse["Location"].count("groupe="), 1)
+        self.assertIn("q=a%26groupe%3Decole%23", reponse["Location"])
+
     def test_les_noms_d_un_autre_groupe_ne_sont_pas_modifiables_par_le_secretariat(self):
         client = self.client_de(self.secretaire)
         client.post(self.url, {"groupe": "eleves", f"prenom_ar_{self.enseignant.pk}": "أستاذ"})

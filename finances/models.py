@@ -69,6 +69,49 @@ class ModePaiement(models.TextChoices):
 class TypeTranche(models.TextChoices):
     INSCRIPTION = "inscription", "Inscription"
     VERSEMENT = "versement", "Versement de scolarité"
+    ANNEXE = "annexe", "Frais annexe"
+
+
+class FraisAnnexe(models.Model):
+    """
+    Un frais en plus de la scolarité (tenue, examen, transport, fournitures...) : pour toute une classe ou pour toute l'école, pour une année
+    scolaire, avec une date limite facultative. Chaque élève concerné le doit en plus de sa scolarité ; il se règle par un paiement de type
+    « Frais annexe ». Les aides (bourses, remises) ne s'appliquent qu'à la scolarité, jamais aux frais annexes.
+    """
+
+    etablissement = models.ForeignKey("etablissement.Etablissement", on_delete=models.PROTECT, related_name="frais_annexes")
+    annee_scolaire = models.ForeignKey("scolarite.AnneeScolaire", on_delete=models.PROTECT, related_name="frais_annexes")
+    classe = models.ForeignKey(
+        "scolarite.Classe", on_delete=models.CASCADE, null=True, blank=True, related_name="frais_annexes",
+        help_text="Laissez vide pour toute l'école.",
+    )
+    libelle = models.CharField("libellé", max_length=120)
+    montant = models.PositiveIntegerField()
+    date_limite = models.DateField("date limite", null=True, blank=True)
+    cree_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.SET_NULL, null=True, blank=True, related_name="frais_annexes_crees")
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "frais annexe"
+        verbose_name_plural = "frais annexes"
+        ordering = ["-annee_scolaire__date_debut", "libelle", "pk"]
+
+    def __str__(self):
+        return f"{self.libelle} ({self.montant})"
+
+    def clean(self):
+        super().clean()
+        if self.montant is not None and self.montant <= 0:
+            raise ValidationError("Le montant doit être strictement positif.")
+        if self.classe_id and self.annee_scolaire_id and self.classe.annee_scolaire_id != self.annee_scolaire_id:
+            raise ValidationError("La classe n'appartient pas à cette année scolaire.")
+        if self.annee_scolaire_id and self.etablissement_id and self.annee_scolaire.etablissement_id != self.etablissement_id:
+            raise ValidationError("L'année scolaire n'appartient pas à cet établissement.")
+
+    def concerne(self, inscription) -> bool:
+        """Cet élève (cette inscription) doit-il ce frais ?"""
+        classe = inscription.classe
+        return self.annee_scolaire_id == classe.annee_scolaire_id and (self.classe_id is None or self.classe_id == classe.pk)
 
 
 class Paiement(models.Model):
@@ -92,6 +135,10 @@ class Paiement(models.Model):
     tranche = models.CharField(max_length=20, choices=TypeTranche.choices)
     montant = models.PositiveIntegerField()
     mode_paiement = models.CharField(max_length=20, choices=ModePaiement.choices)
+    frais_annexe = models.ForeignKey(
+        "finances.FraisAnnexe", on_delete=models.PROTECT, null=True, blank=True, related_name="paiements",
+        help_text="Le frais annexe réglé (seulement pour une tranche « Frais annexe »).",
+    )
     periodes_couvertes = models.JSONField(
         default=list, blank=True,
         help_text="Mois ou trimestres couverts par ce versement (ex. ['Janvier 2027', 'Février 2027']) - "
@@ -134,6 +181,15 @@ class Paiement(models.Model):
                 raise ValidationError("Le paiement et l'inscription doivent appartenir au même établissement.")
         if self.montant <= 0:
             raise ValidationError("Le montant du paiement doit être strictement positif.")
+        if self.tranche == TypeTranche.ANNEXE:
+            if not self.frais_annexe_id:
+                raise ValidationError("Choisissez le frais annexe réglé.")
+            if self.inscription_id and not self.frais_annexe.concerne(self.inscription):
+                raise ValidationError("Ce frais annexe ne concerne pas cet élève.")
+            if self.periodes_couvertes:
+                raise ValidationError("Un frais annexe n'a pas de mois couverts.")
+        elif self.frais_annexe_id:
+            raise ValidationError("Un frais annexe se règle avec la tranche « Frais annexe ».")
         if self.periodes_couvertes and self.inscription_id:
             echeancier = getattr(self.inscription.classe, "echeancier", None)
             valides = set(echeancier.libelles_periodes()) if echeancier else set()
@@ -536,13 +592,15 @@ class MouvementCaisse(models.Model):
 # Opérations métier - chaque cascade est atomique (tout ou rien).
 # ---------------------------------------------------------------------------
 
-def enregistrer_paiement(*, eleve, inscription, tranche, montant, mode_paiement, enregistre_par, periodes_couvertes=None):
-    """Crée un paiement de scolarité ET sa ligne de Caisse, de façon atomique."""
+def enregistrer_paiement(
+    *, eleve, inscription, tranche, montant, mode_paiement, enregistre_par, periodes_couvertes=None, frais_annexe=None,
+):
+    """Crée un paiement de scolarité (ou de frais annexe) ET sa ligne de Caisse, de façon atomique."""
     with transaction.atomic():
         paiement = Paiement(
             eleve=eleve, inscription=inscription, tranche=tranche, montant=montant,
             mode_paiement=mode_paiement, enregistre_par=enregistre_par,
-            periodes_couvertes=periodes_couvertes or [],
+            periodes_couvertes=periodes_couvertes or [], frais_annexe=frais_annexe,
             reference=generer_reference("REC", eleve.etablissement),
         )
         paiement.full_clean()
@@ -551,7 +609,10 @@ def enregistrer_paiement(*, eleve, inscription, tranche, montant, mode_paiement,
         MouvementCaisse.objects.create(
             type_mouvement=MouvementCaisse.TypeMouvement.ENTREE,
             montant=montant,
-            description=f"Paiement scolarité - {eleve.nom_complet} - {paiement.get_tranche_display()}",
+            description=(
+                f"Frais annexe - {frais_annexe.libelle} - {eleve.nom_complet}" if frais_annexe is not None
+                else f"Paiement scolarité - {eleve.nom_complet} - {paiement.get_tranche_display()}"
+            ),
             reference=generer_reference("CAI", paiement.etablissement),
             paiement=paiement,
         )

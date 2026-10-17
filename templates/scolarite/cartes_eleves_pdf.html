@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+    @page { size: A4 portrait; margin: 8mm 10mm; }
+    body { font-family: Helvetica, sans-serif; font-size: 8px; color: #12203D; }
+    table.planche { width: 177.2mm; }
+    td.case { width: 85.6mm; height: 58mm; padding: 0; vertical-align: top; }
+    td.espace { width: 6mm; padding: 0; }
+    div.carte { width: 85.6mm; border: 0.3mm solid #8993A8; }
+    table.bande, table.corps, table.bas { width: 85.6mm; }
+    table.bande { border-bottom: 0.8mm solid #B98B2E; }
+    td { padding: 0; vertical-align: middle; }
+    td.bandeau { background-color: #12203D; color: #FFFFFF; height: 12mm; padding: 1mm 2mm; font-size: 9px; font-weight: bold; text-align: center; }
+    td.bandeau-logo { background-color: #12203D; width: 12mm; height: 12mm; padding: 1mm; }
+    img.logo { width: 10mm; height: 10mm; }
+    td.photo { width: 24mm; height: 34mm; padding: 1.5mm; text-align: center; }
+    img.photo { width: 21mm; height: 28mm; border: 0.2mm solid #DEE1E6; }
+    div.sans-photo { width: 21mm; height: 28mm; border: 0.2mm solid #DEE1E6; background-color: #F3F4F7; }
+    td.infos { padding: 1.5mm 2mm; height: 34mm; font-size: 8.5px; line-height: 1.5; text-align: left; }
+    span.nom { font-size: 11px; font-weight: bold; }
+    span.etiquette { color: #55607A; }
+    td.pied { height: 7mm; padding: 1mm 2mm; background-color: #F3F4F7; font-size: 8px; color: #55607A; text-align: center; }
+    td.titre-verso { height: 10mm; padding: 1mm 2mm; background-color: #12203D; color: #FFFFFF; font-size: 10px; font-weight: bold; text-align: center; }
+    td.qr { width: 28mm; height: 36mm; padding: 2mm; text-align: center; }
+    img.qr { width: 24mm; height: 24mm; }
+    td.texte-verso { padding: 2mm; height: 36mm; font-size: 8px; line-height: 1.5; text-align: left; }
+    td.arabe { text-align: right; }
+</style>
+</head>
+<body>
+{% for page in planches %}
+    <table class="planche">
+        {% for ligne in page.recto %}
+        <tr>
+            {% for carte in ligne %}
+            {% if not forloop.first %}<td class="espace"> </td>{% endif %}
+            <td class="case">
+                {% if carte %}
+                <div class="carte">
+                    <table class="bande">
+                        <tr>
+                            {% if logo %}<td class="bandeau-logo"><img src="{{ logo }}" class="logo"></td>{% endif %}
+                            <td class="bandeau">{{ etablissement.nom }}</td>
+                        </tr>
+                    </table>
+                    <table class="corps">
+                        <tr>
+                            <td class="photo">{% if carte.photo %}<img src="{{ carte.photo }}" class="photo">{% else %}<div class="sans-photo"> </div>{% endif %}</td>
+                            <td class="infos{% if arabe %} arabe{% endif %}">
+                                <span class="nom">{{ carte.eleve.nom }}</span><br>
+                                <span class="nom">{{ carte.eleve.prenom }}</span><br>
+                                <span class="etiquette">Classe :</span> {{ carte.classe.nom }}<br>
+                                {% if carte.eleve.date_naissance %}<span class="etiquette">Né(e) le :</span> {{ carte.eleve.date_naissance|date:"d/m/Y" }}<br>{% endif %}
+                                <span class="etiquette">Matricule :</span> {{ carte.eleve.matricule }}
+                            </td>
+                        </tr>
+                    </table>
+                    <table class="bas"><tr><td class="pied">Carte d'élève - Année scolaire {{ carte.annee.libelle }}</td></tr></table>
+                </div>
+                {% endif %}
+            </td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </table>
+
+    <pdf:nextpage />
+
+    <table class="planche">
+        {% for ligne in page.verso %}
+        <tr>
+            {% for carte in ligne %}
+            {% if not forloop.first %}<td class="espace"> </td>{% endif %}
+            <td class="case">
+                {% if carte %}
+                <div class="carte">
+                    <table class="bande"><tr><td class="titre-verso">{{ etablissement.nom }}</td></tr></table>
+                    <table class="corps">
+                        <tr>
+                            <td class="qr">{% if carte.qr %}<img src="{{ carte.qr }}" class="qr">{% endif %}</td>
+                            <td class="texte-verso{% if arabe %} arabe{% endif %}">
+                                <strong>Élève :</strong> {{ carte.eleve.prenom }} {{ carte.eleve.nom }}<br>
+                                {% if carte.eleve.contact_urgence_nom or carte.eleve.contact_urgence_telephone %}<strong>En cas d'urgence :</strong> {{ carte.eleve.contact_urgence_nom }} {{ carte.eleve.contact_urgence_telephone }}<br>{% endif %}
+                                Cette carte est strictement personnelle. En cas de perte ou de découverte, merci de la rapporter à l'établissement.<br>
+                                Scannez le QR code pour vérifier cette carte.
+                            </td>
+                        </tr>
+                    </table>
+                    <table class="bas"><tr><td class="pied">Valable pour l'année scolaire {{ carte.annee.libelle }}</td></tr></table>
+                </div>
+                {% endif %}
+            </td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </table>
+    {% if not forloop.last %}<pdf:nextpage />{% endif %}
+{% endfor %}
+</body>
+</html>

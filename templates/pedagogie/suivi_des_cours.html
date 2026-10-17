@@ -6,6 +6,7 @@
         <h1>Suivi des cours</h1>
         <p>Vue d'ensemble de l'activité pédagogique par classe, cloisonnée par cycle.</p>
     </div>
+    <a href="{% url 'pedagogie:avancement_programmes' %}" class="btn btn-outline-secondary btn-sm">Avancement des programmes</a>
 </div>
 <div class="card">
     <div class="card-body">
@@ -33,6 +34,7 @@
                     {% if peut_exporter_liste or peut_exporter_notes or peut_exporter_absences %}
                     <td>
                         {% if peut_exporter_liste %}<a href="{% url 'scolarite:exporter_liste_classe_xlsx' ligne.classe.id %}" data-telechargement>Liste</a>{% endif %}
+                        <a href="{% url 'pedagogie:cahier_classe' ligne.classe.id %}">Cahier de textes</a>
                         {% if peut_exporter_notes %}<a href="{% url 'pedagogie:exporter_releve_notes_xlsx' ligne.classe.id %}" data-telechargement>Notes</a>{% endif %}
                         {% if peut_exporter_absences %}<a href="{% url 'pedagogie:exporter_absences_xlsx' ligne.classe.id %}" data-telechargement>Absences</a>{% endif %}
                     </td>

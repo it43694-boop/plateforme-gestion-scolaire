@@ -14,6 +14,14 @@ def chemin_upload_logo(instance, nom_fichier):
     return chemin_upload_unique("etablissement", instance.pk, nom_fichier)
 
 
+def chemin_upload_signature(instance, nom_fichier):
+    return chemin_upload_unique("etablissement_signature", instance.pk, nom_fichier)
+
+
+def chemin_upload_cachet(instance, nom_fichier):
+    return chemin_upload_unique("etablissement_cachet", instance.pk, nom_fichier)
+
+
 class PlanEtablissement(models.TextChoices):
     """
     Formule d'abonnement d'un établissement : détermine les cycles dont les
@@ -114,6 +122,28 @@ class Etablissement(models.Model):
         help_text="Logo affiché dans la barre latérale et sur la page de connexion. "
                    "Si aucun logo n'est fourni, l'initiale du nom est utilisée à la place. "
                    "Taille maximale : 2 Mo.",
+    )
+    # Documents officiels (certificats, attestations) : numéro, signataire, signature et cachet imprimés au choix.
+    sigle = models.CharField(
+        "sigle", max_length=15, blank=True,
+        help_text="Abréviation qui figure dans le numéro des documents officiels (exemple : CSE). Vide : les initiales du nom de l'école.",
+    )
+    nom_signataire = models.CharField(
+        "nom du signataire", max_length=120, blank=True,
+        help_text="Personne qui signe les documents officiels (directeur, proviseur...).",
+    )
+    fonction_signataire = models.CharField(
+        "fonction du signataire", max_length=100, blank=True, help_text="Exemple : Le Directeur, La Directrice, Le Proviseur.",
+    )
+    signature = models.ImageField(
+        "signature", upload_to=chemin_upload_signature, blank=True, null=True,
+        validators=[valider_taille_image_2mo, valider_contenu_fichier],
+        help_text="Image de la signature (de préférence PNG sur fond transparent), imprimée sur les documents si on le demande. Taille maximale : 2 Mo.",
+    )
+    cachet = models.ImageField(
+        "cachet", upload_to=chemin_upload_cachet, blank=True, null=True,
+        validators=[valider_taille_image_2mo, valider_contenu_fichier],
+        help_text="Image du cachet de l'école (de préférence PNG sur fond transparent), imprimée sur les documents si on le demande. Taille maximale : 2 Mo.",
     )
     email_facturation = models.EmailField(
         "email pour les factures d'abonnement", blank=True,
@@ -247,6 +277,19 @@ class Etablissement(models.Model):
                 suffixe += 1
             self.slug = candidat
         super().save(*args, **kwargs)
+
+    @property
+    def sigle_effectif(self) -> str:
+        """Le sigle saisi, sinon les initiales des mots du nom (« Groupe Scolaire Les Étoiles » -> « GSLE »), sinon « ECOLE »."""
+        import re
+        import unicodedata
+
+        if self.sigle.strip():
+            return self.sigle.strip().upper()
+        sans_accent = unicodedata.normalize("NFKD", self.nom or "").encode("ascii", "ignore").decode("ascii")
+        mots = [m for m in re.findall(r"[A-Za-z0-9]+", sans_accent) if len(m) > 2 or m[0].isupper()]
+        initiales = "".join(m[0] for m in mots).upper()[:8]
+        return initiales or "ECOLE"
 
     @property
     def initiale(self):

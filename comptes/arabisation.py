@@ -41,7 +41,7 @@ def chiffres_arabes(texte: str) -> str:
 LEXIQUE = {
     "FCFA": "فرنك سيفا", "CFA": "سيفا", "EUR": "يورو", "USD": "دولار", "Excel": "إكسل", "PDF": "بي دي إف", "CSV": "سي إس في",
     "ZIP": "زيب", "zip": "زيب", "xlsx": "إكسل", "SYSCOHADA": "سيسكوهادا", "OHADA": "أوهادا", "WhatsApp": "واتساب", "SMS": "رسالة نصية",
-    "QR": "كيو آر", "Nexora": "نيكسورا",
+    "QR": "كيو آر", "Nexora": "نيكسورا", "JPEG": "جي بي إي جي", "PNG": "بي إن جي", "WebP": "ويب بي",
 }
 LEXIQUE_ARABE = re.compile(r"(?<![\w@])\.?(" + "|".join(re.escape(m) for m in sorted(LEXIQUE, key=len, reverse=True)) + r")(?![\w@])")
 # Préfixes des numéros (reçu REC-2026-000057, caisse CAI-..., banque BQ-..., salaire SAL-..., abonnement ABO-...) : un mot arabe devant les chiffres.
@@ -252,6 +252,9 @@ def construire_index(etablissement_id) -> dict:
         _ajouter(cles, nom, nom_ar or nom_d_ecole_arabe(nom), saisi=bool(nom_ar))
         _ajouter(cles, devise, devise_ar or nom_d_ecole_arabe(devise), saisi=bool(devise_ar))
     if etablissement_id == "public":
+        # Les classes qu'une campagne de pré-inscription ouverte propose aux visiteurs : leurs noms s'écrivent sur une page publique.
+        for nom, nom_ar in Classe.objects.filter(annee_scolaire__campagnes_preinscription__active=True).values_list("nom", "nom_ar").distinct():
+            _ajouter(cles, nom, nom_ar or nom_de_classe_arabe(nom), saisi=bool(nom_ar))
         return cles
     if etablissement_id is None:
         # Le propriétaire de la plateforme voit les comptes de toutes les écoles (liste des comptes d'un établissement) et ses propres comptes.
@@ -267,6 +270,27 @@ def construire_index(etablissement_id) -> dict:
     for prenom, nom, prenom_ar, nom_ar in personnes.values_list("prenom", "nom", "prenom_ar", "nom_ar"):
         _ajouter(cles, prenom, prenom_ar, saisi=bool(prenom_ar))
         _ajouter(cles, nom, nom_ar, saisi=bool(nom_ar))
+    # Père, mère et personne à prévenir d'un élève : des noms de personnes sans compte, mot par mot (le nom de famille déjà saisi en arabe garde le dessus).
+    # Lieux de naissance et écoles d'origine ou de destination saisis en lettres latines : un nom de lieu se transcrit, un nom d'école se
+    # traduit mot à mot (« Lycée » -> الثانوية) puis se transcrit. L'adresse, libre, reste telle que saisie.
+    from scolarite.models import TransfertEleve
+
+    for lieu in personnes.exclude(lieu_naissance="").values_list("lieu_naissance", flat=True).distinct():
+        _ajouter(cles, lieu, None, saisi=False)
+    destinations = TransfertEleve.objects.exclude(destination_libelle="")
+    if etablissement_id is not None:
+        destinations = destinations.filter(inscription__classe__annee_scolaire__etablissement_id=etablissement_id)
+    ecoles_citees = list(personnes.exclude(ecole_origine="").values_list("ecole_origine", flat=True).distinct())
+    ecoles_citees += list(destinations.values_list("destination_libelle", flat=True).distinct())
+    for nom_ecole in ecoles_citees:
+        _ajouter(cles, nom_ecole, nom_d_ecole_arabe(nom_ecole), saisi=False)
+    for nom_signataire in ecoles.exclude(nom_signataire="").values_list("nom_signataire", flat=True):
+        for mot in MOT.findall(nom_signataire):
+            _ajouter(cles, mot, None, saisi=False)
+    for noms in personnes.exclude(nom_pere="", nom_mere="", contact_urgence_nom="").values_list("nom_pere", "nom_mere", "contact_urgence_nom").distinct():
+        for nom_complet in noms:
+            for mot in MOT.findall(nom_complet or ""):
+                _ajouter(cles, mot, None, saisi=False)
     # Personnes qui n'ont pas (encore) de compte : candidats aux tests de niveau et parents annoncés à l'inscription d'un élève.
     # Aucune écriture saisie pour eux : la transcription automatique sert, et le nom d'une personne qui a un compte garde le dessus.
     from scolarite.models import ParentEnAttente

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from finances import views
+from finances import views, views_annexes
 
 app_name = "finances"
 
@@ -8,6 +8,9 @@ urlpatterns = [
     path("suivi-paiements/", views.suivi_paiements, name="suivi_paiements"),
     path("paiements/", views.liste_paiements, name="liste_paiements"),
     path("paiements/enregistrer/", views.enregistrer_paiement_vue, name="enregistrer_paiement"),
+    path("frais-annexes/", views_annexes.frais_annexes, name="frais_annexes"),
+    path("frais-annexes/<int:frais_id>/supprimer/", views_annexes.supprimer_frais_annexe, name="supprimer_frais_annexe"),
+    path("arrieres/", views_annexes.arrieres, name="arrieres"),
     path("paiements/rechercher-eleve.json", views.rechercher_eleve_json, name="rechercher_eleve_json"),
     path("paiements/periodes-eleve.json", views.periodes_eleve_json, name="periodes_eleve_json"),
     path("paiements/<int:paiement_id>/corriger/", views.corriger_paiement_vue, name="corriger_paiement"),

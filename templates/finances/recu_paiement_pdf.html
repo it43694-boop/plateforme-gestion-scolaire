@@ -25,6 +25,7 @@
         <tr><td class="libelle">Élève</td><td class="valeur">{{ paiement.eleve.nom_complet }} ({{ paiement.eleve.matricule }})</td></tr>
         <tr><td class="libelle">Classe</td><td class="valeur">{{ paiement.inscription.classe }}</td></tr>
         <tr><td class="libelle">Échéance réglée</td><td class="valeur">{{ paiement.get_tranche_display }}</td></tr>
+        {% if paiement.frais_annexe %}<tr><td class="libelle">Frais annexe</td><td class="valeur">{{ paiement.frais_annexe.libelle }}</td></tr>{% endif %}
         {% if paiement.periodes_couvertes %}
         <tr><td class="libelle">Mois couverts</td><td class="valeur">{{ paiement.periodes_couvertes|join:", " }}</td></tr>
         {% endif %}

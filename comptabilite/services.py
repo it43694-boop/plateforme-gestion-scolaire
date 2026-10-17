@@ -243,7 +243,9 @@ def vecteur_attendu(mouvement) -> dict:
     if mouvement.paiement_id:
         paiement = mouvement.paiement
         tresorerie = MODES_TRESORERIE.get(paiement.mode_paiement, plan.BANQUE)
-        produit = plan.DROITS_INSCRIPTION if paiement.tranche == "inscription" else plan.FRAIS_SCOLARITE
+        produit = {
+            "inscription": plan.DROITS_INSCRIPTION, "annexe": plan.AUTRES_SERVICES_VENDUS,
+        }.get(paiement.tranche, plan.FRAIS_SCOLARITE)
         return {tresorerie: montant, produit: -montant}
     salaire = mouvement.salaire
     champs = (salaire.salaire_brut, salaire.cotisation_inps_salarie, salaire.cotisation_inps_employeur,

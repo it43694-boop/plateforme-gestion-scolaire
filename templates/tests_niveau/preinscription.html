@@ -1,0 +1,30 @@
+{% extends "base_auth.html" %}
+{% block titre %}Pré-inscription{% endblock %}
+{% block auth_sous_titre %}{{ campagne.titre }}{% endblock %}
+{% block contenu %}
+{% if campagne.message_accueil %}<p class="mb-3">{{ campagne.message_accueil }}</p>{% endif %}
+<p class="text-muted small">Année scolaire {{ campagne.annee_scolaire.libelle }}. Cette demande n'inscrit pas votre enfant : l'établissement vous répondra.</p>
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% for erreur in formulaire.non_field_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+    {% for champ in formulaire %}
+        {% if champ.name == "site_web" %}
+        <div class="piege-robot" aria-hidden="true">{{ champ }}</div>
+        {% elif champ.name == "consentement" %}
+        <div class="mb-3">
+            <div class="form-check">{{ champ }} <label class="form-check-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label></div>
+            {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+        </div>
+        {% else %}
+        <div class="mb-3">
+            <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+            {{ champ }}
+            {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+            {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+        </div>
+        {% endif %}
+    {% endfor %}
+    <button type="submit" class="btn btn-primary w-100">Envoyer la demande</button>
+</form>
+<p class="mt-3 text-center small"><a href="{% url 'vitrine:confidentialite' %}">Comment vos informations sont utilisées</a></p>
+{% endblock %}

@@ -577,15 +577,12 @@ class AideScolarite(models.Model):
             raise ValidationError("L'aide et l'inscription doivent appartenir au même établissement.")
 
 
-def calculer_total_du(inscription, aides_actives=None):
+def calculer_scolarite_nette(inscription, aides_actives=None):
     """
-    Calcule le net dû en tenant compte des aides actives de l'inscription.
+    Le net dû pour la scolarité seule (inscription + versements), après les aides actives de l'inscription.
 
-    `aides_actives` : liste déjà chargée des aides actives de CETTE
-    inscription, à fournir quand l'appelant boucle sur plusieurs
-    inscriptions (ex. finances.views.suivi_paiements,
-    assistant.alertes._familles_impayees) pour éviter une requête par
-    élève - sans ce paramètre, comportement inchangé (une requête ici).
+    `aides_actives` : liste déjà chargée des aides actives de CETTE inscription, à fournir quand l'appelant boucle sur plusieurs inscriptions
+    (ex. finances.views.suivi_paiements, assistant.alertes._familles_impayees) pour éviter une requête par élève.
     """
     echeancier = getattr(inscription.classe, "echeancier", None)
     brut = echeancier.total_annuel if echeancier else 0
@@ -594,6 +591,29 @@ def calculer_total_du(inscription, aides_actives=None):
     for aide in aides:
         remise += aide.montant or round(brut * aide.pourcentage / 100)
     return max(brut - remise, 0)
+
+
+def total_frais_annexes(inscription) -> int:
+    """La somme des frais annexes (de la classe et de toute l'école, pour l'année de l'inscription) que cette inscription doit en plus."""
+    from django.db.models import Q, Sum
+
+    from finances.models import FraisAnnexe
+
+    classe = inscription.classe
+    return FraisAnnexe.objects.filter(annee_scolaire_id=classe.annee_scolaire_id).filter(
+        Q(classe__isnull=True) | Q(classe_id=classe.pk),
+    ).aggregate(total=Sum("montant"))["total"] or 0
+
+
+def calculer_total_du(inscription, aides_actives=None, annexes=None):
+    """
+    Le total dû par l'élève pour cette inscription : la scolarité nette des aides actives, plus les frais annexes (que les aides ne réduisent
+    jamais).
+
+    `aides_actives` et `annexes` : valeurs déjà chargées (liste des aides ; total des frais annexes), à fournir quand l'appelant boucle sur
+    plusieurs inscriptions ; sans elles, une requête de plus est faite ici.
+    """
+    return calculer_scolarite_nette(inscription, aides_actives) + (total_frais_annexes(inscription) if annexes is None else annexes)
 
 
 class TransfertEleve(models.Model):
@@ -675,6 +695,10 @@ def cloturer_inscription(*, inscription, decision, acteur, motif, date_evenement
 
 class TypeDocumentVerifiable(models.TextChoices):
     ATTESTATION_SCOLARITE = "attestation_scolarite", "Attestation de scolarité"
+    CARTE_ELEVE = "carte_eleve", "Carte d'élève"
+    CERTIFICAT_SCOLARITE = "certificat_scolarite", "Certificat de scolarité"
+    ATTESTATION_FREQUENTATION = "attestation_frequentation", "Attestation de fréquentation"
+    CERTIFICAT_RADIATION = "certificat_radiation", "Certificat de radiation"
 
 
 class VerificationDocument(models.Model):
@@ -694,6 +718,10 @@ class VerificationDocument(models.Model):
     )
     inscription = models.ForeignKey(Inscription, on_delete=models.PROTECT, related_name="verifications_document")
     jeton = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    numero = models.CharField(
+        "numéro du document", max_length=40, blank=True,
+        help_text="Numéro d'ordre des documents officiels (exemple : 003/CSE/CERT/2026), attribué à la première émission.",
+    )
     cree_le = models.DateTimeField(auto_now_add=True)
     actif = models.BooleanField(default=True)
 
@@ -704,8 +732,81 @@ class VerificationDocument(models.Model):
 
 
 # ---------------------------------------------------------------------------
+# Calendrier scolaire
+# ---------------------------------------------------------------------------
+
+class TypeEvenement(models.TextChoices):
+    RENTREE = "rentree", "Rentrée scolaire"
+    VACANCES = "vacances", "Vacances"
+    FERIE = "ferie", "Jour férié"
+    EXAMEN = "examen", "Examen"
+    REUNION = "reunion", "Réunion"
+    AUTRE = "autre", "Autre"
+
+
+class EvenementCalendrier(models.Model):
+    """
+    Une date (ou une période) du calendrier de l'école : rentrée, vacances, jours fériés, examens, réunions. Lisible par tous les comptes de
+    l'école ; les dates « réservées au personnel » (conseil de classe, journée pédagogique...) ne le sont ni des parents ni des élèves.
+    """
+
+    etablissement = models.ForeignKey("etablissement.Etablissement", on_delete=models.CASCADE, related_name="evenements_calendrier")
+    titre = models.CharField(max_length=200)
+    type_evenement = models.CharField("type", max_length=10, choices=TypeEvenement.choices, default=TypeEvenement.AUTRE)
+    date_debut = models.DateField("du")
+    date_fin = models.DateField("au", null=True, blank=True, help_text="Laissez vide pour une seule journée.")
+    description = models.CharField(max_length=255, blank=True)
+    reserve_au_personnel = models.BooleanField("réservé au personnel", default=False, help_text="Invisible pour les parents et les élèves.")
+    cree_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.SET_NULL, null=True, blank=True, related_name="evenements_crees")
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "évènement du calendrier"
+        verbose_name_plural = "évènements du calendrier"
+        ordering = ["date_debut", "date_fin", "pk"]
+        indexes = [models.Index(fields=["etablissement", "date_debut"], name="calendrier_ecole_debut")]
+
+    def __str__(self):
+        return f"{self.titre} ({self.date_debut})"
+
+    @property
+    def fin(self):
+        return self.date_fin or self.date_debut
+
+    @property
+    def est_une_periode(self) -> bool:
+        return self.fin != self.date_debut
+
+    def clean(self):
+        super().clean()
+        if self.date_debut and self.date_fin and self.date_fin < self.date_debut:
+            raise ValidationError("La date de fin ne peut pas précéder la date de début.")
+        if self.date_debut and self.date_fin and (self.date_fin - self.date_debut).days > 366:
+            raise ValidationError("Un évènement ne peut pas durer plus d'un an.")
+
+
+# ---------------------------------------------------------------------------
 # Fonctions utilitaires - cloisonnement par cycle et dossier élève
 # ---------------------------------------------------------------------------
+
+def evenements_visibles_pour(utilisateur):
+    """Les évènements du calendrier de l'école du compte ; sans ceux réservés au personnel pour un parent ou un élève."""
+    evenements = EvenementCalendrier.objects.filter(etablissement_id=utilisateur.etablissement_id)
+    if utilisateur.role in {Role.PARENT, Role.ELEVE}:
+        evenements = evenements.filter(reserve_au_personnel=False)
+    return evenements
+
+
+def prochains_evenements(utilisateur, nombre=5, aujourdhui=None):
+    """Les prochaines dates (en cours ou à venir), les plus proches d'abord."""
+    import datetime
+
+    from django.db.models import Q
+
+    aujourdhui = aujourdhui or datetime.date.today()
+    en_cours_ou_a_venir = Q(date_fin__gte=aujourdhui) | Q(date_fin__isnull=True, date_debut__gte=aujourdhui)
+    return list(evenements_visibles_pour(utilisateur).filter(en_cours_ou_a_venir).order_by("date_debut", "pk")[:nombre])
+
 
 def classes_visibles_pour(utilisateur):
     """

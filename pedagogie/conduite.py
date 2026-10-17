@@ -127,6 +127,9 @@ def enregistrer_conduite(*, classe, trimestre, valeurs, par):
         raise ValidationError("Cette année scolaire est archivée : elle ne reçoit plus de nouvelles notes.")
     if trimestre not in dict(Trimestre.choices):
         raise ValidationError("Trimestre inconnu.")
+    from pedagogie.clotures import verifier_periode_ouverte
+
+    verifier_periode_ouverte(classe, trimestre)
     presents = {eleve.pk for eleve in eleves_de_la_classe(classe)}
     existantes = {n.eleve_id: n for n in NoteConduite.objects.filter(classe=classe, trimestre=trimestre)}
     enregistrees = effacees = 0

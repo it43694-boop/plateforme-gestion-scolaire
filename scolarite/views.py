@@ -19,7 +19,7 @@ from scolarite.models import (
     Affectation, AnneeScolaire, Classe, Inscription, ParentEnAttente, TypeDocumentVerifiable, VerificationDocument,
     classes_visibles_pour, cloturer_inscription, dossier_complet, eleve_visible_pour, lier_parent_a_eleve, passer_eleve,
     NIVEAUX_PAR_CYCLE, Examen, Niveau, ResultatExamen, eleve_de_l_etablissement_ou_404, examens_pour_classe,
-    peut_voir_etat_civil_eleve, peut_corriger_dossier_eleve, lier_parents_en_attente,
+    peut_voir_etat_civil_eleve, peut_corriger_dossier_eleve, lier_parents_en_attente, ROLES_ETAT_CIVIL_ELEVE,
     calculer_total_du,
 )
 
@@ -49,7 +49,7 @@ def inscrire_eleve(request):
 
     classes_disponibles = classes_visibles_pour(request.user)
     formulaire = InscrireEleveForm(
-        request.POST or None, classes_disponibles=classes_disponibles, etablissement=request.user.etablissement,
+        request.POST or None, request.FILES or None, classes_disponibles=classes_disponibles, etablissement=request.user.etablissement,
     )
 
     if request.method == "POST" and formulaire.is_valid():
@@ -79,6 +79,21 @@ def inscrire_eleve(request):
         return redirect("scolarite:inscrire_eleve")
 
     return render(request, "scolarite/inscrire_eleve.html", {"formulaire": formulaire})
+
+
+def _documents_possibles(utilisateur, inscriptions) -> list:
+    """Les documents officiels qu'on peut éditer pour cet élève (selon l'état de ses inscriptions) : [(code, titre)]. Vide pour qui n'y a pas droit."""
+    if utilisateur.role not in ROLES_ETAT_CIVIL_ELEVE:
+        return []
+    statuts = {inscription.statut for inscription in inscriptions}
+    documents = []
+    if statuts & {Inscription.Statut.EN_COURS, Inscription.Statut.ADMIS, Inscription.Statut.REDOUBLE}:
+        documents.append(("certificat-scolarite", "Certificat de scolarité"))
+    if Inscription.Statut.EN_COURS in statuts:
+        documents.append(("attestation-frequentation", "Attestation de fréquentation"))
+    if statuts & {Inscription.Statut.TRANSFERE, Inscription.Statut.ABANDON}:
+        documents.append(("certificat-radiation", "Certificat de radiation"))
+    return documents
 
 
 @module_requis(Module.ELEVES)
@@ -114,6 +129,11 @@ def dossier_eleve(request, matricule):
         "peut_voir_notes": peut_voir_notes, "peut_voir_absences": peut_voir_absences, "peut_voir_finances": peut_voir_finances,
         "peut_cloturer_inscription": request.user.role not in ROLES_INSCRIPTION_ELEVE_INTERDITE,
         "peut_corriger_dossier": peut_corriger_dossier_eleve(request.user, eleve),
+        "peut_imprimer_carte": request.user.role in ROLES_ETAT_CIVIL_ELEVE,
+        "peut_reintegrer": request.user.role in ROLES_ETAT_CIVIL_ELEVE and not inscription_active and any(
+            i.statut in ("transfere", "abandon") for i in inscriptions
+        ),
+        "documents_possibles": _documents_possibles(request.user, inscriptions),
         "peut_retirer_eleve": request.user.role == Role.DEVELOPPEUR.value,
         "peut_mot_de_passe_provisoire": request.user.role in ROLES_MOT_DE_PASSE_PROVISOIRE_ELEVE,
     }
@@ -339,8 +359,10 @@ def generer_attestation_scolarite(request, matricule):
     except ImportError:
         pass
 
+    from scolarite.documents import logo_en_donnees
+
     html = render_to_string("scolarite/attestation_scolarite_pdf.html", {
-        "eleve": eleve, "inscription": inscription, "verification": verification,
+        "logo": logo_en_donnees(eleve.etablissement), "eleve": eleve, "inscription": inscription, "verification": verification,
         "verification_url": verification_url, "qr_code": qr_code,
     }, request=request)
 
@@ -370,7 +392,7 @@ def verifier_document(request, jeton):
         VerificationDocument.objects.select_related("eleve", "inscription__classe__annee_scolaire__etablissement"),
         jeton=jeton, actif=True,
     )
-    return JsonResponse({
+    reponse = {
         "valide": True,
         "type_document": verification.get_type_document_display(),
         "eleve": verification.eleve.nom_complet,
@@ -378,7 +400,10 @@ def verifier_document(request, jeton):
         "classe": str(verification.inscription.classe),
         "etablissement": verification.inscription.classe.annee_scolaire.etablissement.nom,
         "emis_le": verification.cree_le.isoformat(),
-    })
+    }
+    if verification.numero:  # les documents numérotés (certificats, attestations de fréquentation, radiations) donnent leur numéro
+        reponse["numero"] = verification.numero
+    return JsonResponse(reponse)
 
 
 @module_requis(Module.CLASSES)
@@ -425,6 +450,7 @@ def liste_eleves(request):
         "peut_voir_bulletin": PermissionMatrix.a_acces(request.user.role, "notes_bulletins", etablissement=request.user.etablissement),
         "peut_voir_absences": PermissionMatrix.a_acces(request.user.role, "absences", etablissement=request.user.etablissement),
         "peut_inscrire": request.user.role not in ROLES_INSCRIPTION_ELEVE_INTERDITE,
+        "peut_importer_photos": request.user.role in ROLES_ETAT_CIVIL_ELEVE,
         "classe_exportable": (
             classes.filter(id=classe_id).first()
             if classe_id and str(classe_id).isdigit() and droits_export_listes(request.user)["peut_exporter_liste"] else None
@@ -623,6 +649,7 @@ def supprimer_classe(request, classe_id):
 def liste_classes(request):
     classes = list(classes_visibles_pour(request.user).select_related("annee_scolaire").prefetch_related("affectations"))
     from pedagogie.conduite import ROLES_SAISIE_CONDUITE
+    from pedagogie.discipline import ROLES_SAISIE_DISCIPLINE
     from pedagogie.models import classe_note_la_conduite
     from permissions_matrix.models import PermissionMatrix
 
@@ -631,6 +658,9 @@ def liste_classes(request):
     return render(request, "scolarite/liste_classes.html", {
         "classes": classes,
         "peut_saisir_conduite": request.user.role in ROLES_SAISIE_CONDUITE and PermissionMatrix.a_acces(
+            request.user.role, "absences", etablissement=request.user.etablissement,
+        ),
+        "peut_saisir_discipline": request.user.role in ROLES_SAISIE_DISCIPLINE and request.user.role != "enseignant" and PermissionMatrix.a_acces(
             request.user.role, "absences", etablissement=request.user.etablissement,
         ),
         "peut_voir_emploi_du_temps": PermissionMatrix.a_acces(request.user.role, "emploi_du_temps", etablissement=request.user.etablissement),

@@ -4,7 +4,11 @@
 {% block contenu %}
 <div class="page-header">
     <div class="page-header-titre">
+        {% if eleve.photo %}
+        <img src="{% url 'scolarite:photo_eleve' eleve.matricule %}" alt="Photo de {{ eleve.nom_complet }}" class="photo-eleve" width="72" height="72">
+        {% else %}
         <div class="page-header-icone bleu">{% icone "eleves" 24 %}</div>
+        {% endif %}
         <div>
             <h1>{{ eleve.nom_complet }}</h1>
             <p>Matricule {{ eleve.matricule }} - {{ eleve.get_sexe_display|default:"Sexe non renseigné" }}</p>
@@ -71,8 +75,10 @@
 <div class="d-flex gap-2 mb-3 mt-2">
     {% if peut_corriger_dossier %}<a href="{% url 'scolarite:corriger_dossier_eleve' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Corriger le dossier</a>{% endif %}
     {% if peut_voir_notes %}<a href="{% url 'pedagogie:bulletin_eleve' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Voir le bulletin</a>{% endif %}
-    {% if peut_voir_absences %}<a href="{% url 'pedagogie:historique_absences' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Historique des absences</a>{% endif %}
+    {% if peut_voir_absences %}<a href="{% url 'pedagogie:historique_absences' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Historique des absences</a>
+    <a href="{% url 'pedagogie:historique_discipline' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Discipline</a>{% endif %}
     {% if inscription_active %}<a href="{% url 'scolarite:generer_attestation_scolarite' eleve.matricule %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Attestation de scolarité</a>{% endif %}
+    {% if inscription_active and peut_imprimer_carte %}<a href="{% url 'scolarite:carte_eleve_pdf' eleve.matricule %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Carte d'élève (PDF)</a>{% endif %}
     {% if peut_mot_de_passe_provisoire %}
     <form method="post" action="{% url 'scolarite:mot_de_passe_provisoire' eleve.matricule %}" class="d-inline"
           data-confirmer="Générer un nouveau mot de passe provisoire ? L'ancien mot de passe de cet élève ne fonctionnera plus.">
@@ -81,10 +87,61 @@
     </form>
     {% endif %}
     {% if peut_retirer_eleve %}<a href="{% url 'espace_developpeur:retirer_eleve' eleve.matricule %}" class="btn btn-sm btn-outline-danger">Supprimer / anonymiser</a>{% endif %}
+    {% if peut_reintegrer %}<a href="{% url 'scolarite:reintegrer_eleve' eleve.matricule %}" class="btn btn-sm btn-outline-primary">Réintégrer</a>{% endif %}
     {% if inscription_active and peut_cloturer_inscription %}<a href="{% url 'scolarite:cloturer_inscription' eleve.matricule %}" class="btn btn-sm btn-outline-danger">Clôturer l'inscription (abandon/transfert)</a>{% endif %}
 </div>
 
+{% if documents_possibles %}
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="titre-section">Documents officiels</h2>
+        <form method="get" class="d-flex flex-wrap gap-3 align-items-center">
+            <label class="form-check-label"><input type="checkbox" name="bilingue" value="1" class="form-check-input"> Français et arabe</label>
+            <label class="form-check-label"><input type="checkbox" name="signature" value="1" class="form-check-input"{% if not etablissement.signature %} disabled{% endif %}> Signature</label>
+            <label class="form-check-label"><input type="checkbox" name="cachet" value="1" class="form-check-input"{% if not etablissement.cachet %} disabled{% endif %}> Cachet</label>
+            <div class="d-flex flex-wrap gap-2">
+                {% for code, titre in documents_possibles %}
+                <button type="submit" formaction="{% url 'scolarite:document_officiel' eleve.matricule code %}" class="btn btn-sm btn-outline-secondary">{{ titre }}</button>
+                {% endfor %}
+            </div>
+        </form>
+        {% if not etablissement.signature or not etablissement.cachet %}
+        <p class="text-muted small mt-2 mb-0">La signature et le cachet se téléversent dans l'identité de l'établissement.</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
 {% if peut_voir_etat_civil %}
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="titre-section">Renseignements complémentaires</h2>
+        <dl class="row mb-0">
+            <dt class="col-sm-4">Père</dt><dd class="col-sm-8">{{ eleve.nom_pere|default:"Non renseigné" }}</dd>
+            <dt class="col-sm-4">Mère</dt><dd class="col-sm-8">{{ eleve.nom_mere|default:"Non renseignée" }}</dd>
+            <dt class="col-sm-4">Adresse</dt><dd class="col-sm-8">{{ eleve.adresse|default:"Non renseignée" }}</dd>
+            <dt class="col-sm-4">Personne à prévenir en cas d'urgence</dt>
+            <dd class="col-sm-8">{% if eleve.contact_urgence_nom or eleve.contact_urgence_telephone %}{{ eleve.contact_urgence_nom }}{% if eleve.contact_urgence_nom and eleve.contact_urgence_telephone %} - {% endif %}{{ eleve.contact_urgence_telephone }}{% else %}Non renseignée{% endif %}</dd>
+            <dt class="col-sm-4">École d'origine</dt><dd class="col-sm-8">{{ eleve.ecole_origine|default:"Non renseignée" }}</dd>
+        </dl>
+        {% if peut_corriger_dossier %}
+        <hr>
+        <form method="post" action="{% url 'scolarite:envoyer_photo_eleve' eleve.matricule %}" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center">
+            {% csrf_token %}
+            <label class="form-label mb-0" for="photo-eleve">Photo</label>
+            <input type="file" name="photo" id="photo-eleve" accept="image/jpeg,image/png,image/webp" class="form-control form-control-sm w-auto" required>
+            <button class="btn btn-sm btn-outline-secondary">{% if eleve.photo %}Remplacer la photo{% else %}Ajouter la photo{% endif %}</button>
+        </form>
+        {% if eleve.photo %}
+        <form method="post" action="{% url 'scolarite:supprimer_photo_eleve' eleve.matricule %}" class="mt-2" data-confirmer="Supprimer la photo de cet élève ?">
+            {% csrf_token %}
+            <button class="btn btn-sm btn-outline-danger">Supprimer la photo</button>
+        </form>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
 <div class="card mb-3">
     <div class="card-body">
         <h2 class="titre-section">Résultats aux examens</h2>

@@ -40,8 +40,8 @@
     <table class="entete">
         <tr>
             <td style="width: 66px;">
-                {% if etablissement.logo %}
-                <img src="{{ etablissement.logo.url }}" alt="{{ etablissement.nom }}" class="logo" />
+                {% if logo %}
+                <img src="{{ logo }}" alt="{{ etablissement.nom }}" class="logo" />
                 {% else %}
                 <div class="logo-emblème">{{ etablissement.initiale|default:"É" }}</div>
                 {% endif %}

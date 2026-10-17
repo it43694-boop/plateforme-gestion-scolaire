@@ -490,6 +490,8 @@ def redirection_tableau_de_bord(request):
         graphiques["effectifs"] = [(nom, n) for _, nom, n in lignes]
 
     from assistant.alertes import construire_alertes
+    from scolarite.models import prochains_evenements
+
     alertes = construire_alertes(request.user)
     synthese_alertes = _synthese_alertes_en_cache(request.user, alertes, getattr(request, "LANGUAGE_CODE", "fr")) if alertes else ""
 
@@ -498,6 +500,7 @@ def redirection_tableau_de_bord(request):
         "aucun_module": not valeurs_autorisees,
         "alertes": alertes, "synthese_alertes": synthese_alertes,
         "notifications": notifications_visibles_pour(request.user).filter(lue_le__isnull=True)[:5],
+        "prochaines_dates": prochains_evenements(request.user) if request.user.etablissement_id else [],
     })
 
 
@@ -587,6 +590,9 @@ def portail_parent(request):
         )
     }
 
+    from finances.annexes import arrieres_des_eleves
+
+    arrieres = arrieres_des_eleves(enfants, request.user) if enfants else {}
     dossiers = []
     for enfant in enfants:
         inscription = inscriptions_par_eleve.get(enfant.id)
@@ -598,8 +604,11 @@ def portail_parent(request):
             "absences": absences_par_eleve.get(enfant.id, 0),
             "moyenne": moyennes_par_eleve.get(enfant.id) if inscription else None,
             "solde": max(total_du - total_paye, 0),
+            "arrieres": arrieres.get(enfant.id, 0),
         })
-    return render(request, "comptes/portail_parent.html", {"dossiers": dossiers})
+    from scolarite.models import prochains_evenements
+
+    return render(request, "comptes/portail_parent.html", {"dossiers": dossiers, "prochaines_dates": prochains_evenements(request.user)})
 
 
 @login_required
@@ -719,7 +728,9 @@ def activer_2fa(request):
     else:
         request.session["secret_2fa_en_attente"] = request.user.generer_secret_2fa()
 
-    secret = request.session["secret_2fa_en_attente"]
+    secret = request.session.get("secret_2fa_en_attente")
+    if not secret:  # un envoi direct, sans être passé par la page : on prépare une nouvelle clé plutôt que d'échouer
+        secret = request.session["secret_2fa_en_attente"] = request.user.generer_secret_2fa()
     qr_code = ""
     try:
         import base64

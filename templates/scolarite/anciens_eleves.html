@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Anciens élèves{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "eleves" 24 %}</div>
+        <div>
+            <h1>Anciens élèves</h1>
+            <p>Les élèves qui ont quitté l'établissement (transfert ou abandon) et n'ont plus d'inscription en cours. Vous pouvez les réintégrer dans une classe.</p>
+        </div>
+    </div>
+</div>
+
+<form method="get" class="d-flex flex-wrap gap-2 mb-3">
+    <input type="search" name="q" value="{{ recherche }}" class="form-control form-control-sm w-auto" placeholder="Nom ou matricule" aria-label="Rechercher un élève">
+    <select name="annee" class="form-select form-select-sm w-auto" aria-label="Année scolaire">
+        <option value="">Toutes les années</option>
+        {% for a in annees %}<option value="{{ a.id }}"{% if annee_id == a.id|stringformat:"s" %} selected{% endif %}>{{ a.libelle }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-outline-secondary btn-sm">Filtrer</button>
+</form>
+
+<div class="card"><div class="card-body">
+    {% if lignes %}
+    <div class="table-responsive">
+        <table class="table">
+            <thead><tr><th>Élève</th><th>Dernière classe</th><th>Sortie</th><th>Date</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td><a href="{% url 'scolarite:dossier_eleve' ligne.eleve.matricule %}">{{ ligne.eleve.nom_complet }}</a> <span class="text-muted">({{ ligne.eleve.matricule }})</span></td>
+                    <td>{{ ligne.inscription.classe }}</td>
+                    <td>{{ ligne.type }}{% if ligne.destination %}<div class="text-muted small">{{ ligne.destination }}</div>{% endif %}</td>
+                    <td>{% if ligne.date %}{{ ligne.date|date:"d/m/Y" }}{% else %}-{% endif %}</td>
+                    <td class="text-end"><a href="{% url 'scolarite:reintegrer_eleve' ligne.eleve.matricule %}" class="btn btn-sm btn-outline-primary">Réintégrer</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "_pagination.html" %}
+    {% else %}
+    <div class="etat-vide"><p>Aucun ancien élève.</p></div>
+    {% endif %}
+</div></div>
+{% endblock %}

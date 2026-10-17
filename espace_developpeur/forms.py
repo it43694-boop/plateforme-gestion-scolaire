@@ -162,6 +162,18 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
             raise forms.ValidationError("Numéro invalide : 8 chiffres (Mali) ou un numéro international, par exemple +223 70 00 00 00.")
         return valeur
 
+    def clean_sigle(self):
+        import re
+
+        sigle = (self.cleaned_data.get("sigle") or "").strip().upper()
+        if sigle and not re.fullmatch(r"[A-Z0-9]{1,15}", sigle):
+            raise forms.ValidationError("Le sigle ne contient que des lettres sans accent et des chiffres (exemple : CSE).")
+        return sigle
+
+    def clean_nom_signataire(self):
+        valeur = " ".join((self.cleaned_data.get("nom_signataire") or "").split())
+        return valeur
+
     def clean_code_etablissement(self):
         return " ".join(self.cleaned_data.get("code_etablissement", "").split()).upper()
 
@@ -171,6 +183,7 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
             "nom", "nom_ar", "devise", "devise_ar", "logo", "code_devise", "pas_montant", "coefficient_conduite", "email_facturation", "telephone_facturation", "langue_par_defaut",
             "code_etablissement", "statut_juridique", "region", "cercle", "commune", "milieu",
             "rattachement_administratif", "numero_agrement",
+            "sigle", "nom_signataire", "fonction_signataire", "signature", "cachet",
             "situation_fonctionnement", "motif_fermeture", "date_situation",
             "taux_inps_salarie", "taux_inps_employeur", "taux_amo_salarie", "taux_amo_employeur",
         ]

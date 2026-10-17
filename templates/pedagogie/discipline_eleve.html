@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Discipline - {{ eleve.nom_complet }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone rouge">{% icone "alerte" 24 %}</div>
+        <div>
+            <h1>{{ eleve.nom_complet }}</h1>
+            <p>Historique de discipline</p>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-1">
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body mini-stat">
+            <div class="mini-stat-label">Total</div>
+            <div class="mini-stat-valeur">{{ total }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body mini-stat">
+            <div class="mini-stat-label">Retards ce mois-ci</div>
+            <div class="mini-stat-valeur{% if retards_ce_mois >= seuil_de_retards %} danger{% endif %}">{{ retards_ce_mois }}</div>
+        </div></div>
+    </div>
+    {% for libelle, nombre in totaux %}{% if libelle != "Retard" %}
+    <div class="col-6 col-md-3">
+        <div class="card"><div class="card-body mini-stat">
+            <div class="mini-stat-label">{{ libelle }}</div>
+            <div class="mini-stat-valeur">{{ nombre }}</div>
+        </div></div>
+    </div>
+    {% endif %}{% endfor %}
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        {% if mesures %}
+        <div class="table-responsive">
+            <table class="table">
+                <thead><tr><th>Date</th><th>Classe</th><th>Mesure</th><th>Motif</th>{% if peut_supprimer %}<th><span class="visually-hidden">Actions</span></th>{% endif %}</tr></thead>
+                <tbody>
+                    {% for mesure in mesures %}
+                    <tr>
+                        <td>{{ mesure.date_mesure|date:"d/m/Y" }}</td>
+                        <td>{{ mesure.classe.nom }}</td>
+                        <td>{{ mesure.get_type_mesure_display }}</td>
+                        <td>{{ mesure.motif|default:"-" }}</td>
+                        {% if peut_supprimer %}
+                        <td>
+                            <form method="post" action="{% url 'pedagogie:supprimer_mesure_discipline' mesure.pk %}" data-confirmer="Supprimer cette mesure ?">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-outline-danger">Supprimer</button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% include "_pagination.html" %}
+        {% else %}
+        <div class="etat-vide"><p>Aucune mesure de discipline enregistrée.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

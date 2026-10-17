@@ -75,6 +75,19 @@
 </div>
 {% endif %}
 
+{% if prochaines_dates %}
+<div class="card mb-4"><div class="card-body">
+    <h2 class="h5">Prochaines dates</h2>
+    {% for e in prochaines_dates %}
+    <div class="border-bottom py-2 d-flex justify-content-between gap-3">
+        <span><strong>{{ e.titre }}</strong>{% if e.reserve_au_personnel %} <span class="badge bg-warning">Personnel</span>{% endif %}</span>
+        <span class="text-muted small">{% if e.est_une_periode %}Du {{ e.date_debut|date:"d/m/Y" }} au {{ e.fin|date:"d/m/Y" }}{% else %}{{ e.date_debut|date:"d/m/Y" }}{% endif %}</span>
+    </div>
+    {% endfor %}
+    <a href="{% url 'scolarite:calendrier' %}" class="small">Voir tout le calendrier</a>
+</div></div>
+{% endif %}
+
 {% if notifications %}
 <div class="card mb-4"><div class="card-body">
     <h2 class="h5">Notifications</h2>

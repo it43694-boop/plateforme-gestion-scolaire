@@ -544,6 +544,8 @@ body, .topbar, table, th, td {
   width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
 }
+.piege-robot { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+.photo-eleve { width: 72px; height: 72px; border-radius: 16px; object-fit: cover; flex-shrink: 0; }
 
 /* -------------------------------------------------------------------- */
 /* Emploi du temps - grille hebdomadaire (une colonne par jour)          */

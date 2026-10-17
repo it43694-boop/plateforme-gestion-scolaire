@@ -41,7 +41,8 @@
                     <td>{{ ligne.inscription.classe }}</td>
                     <td class="text-end montant-val">{{ ligne.total_du|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
                     <td class="text-end montant-val">{{ ligne.total_paye|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
-                    <td class="text-end montant-val{% if ligne.solde > 0 %} negatif{% endif %}">{{ ligne.solde|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td class="text-end montant-val{% if ligne.solde > 0 %} negatif{% endif %}">{{ ligne.solde|montant }} {{ etablissement.code_devise|default:"FCFA" }}
+                        {% if ligne.arrieres %}<div class="small text-danger">Arriérés : {{ ligne.arrieres|montant }} {{ etablissement.code_devise|default:"FCFA" }}</div>{% endif %}</td>
                     <td>
                         <span class="badge {% if ligne.statut == 'paye' %}bg-success{% elif ligne.statut == 'partiel' %}bg-warning{% else %}bg-danger{% endif %}">
                             {% if ligne.statut == 'paye' %}Payé{% elif ligne.statut == 'partiel' %}Partiel{% else %}Impayé{% endif %}

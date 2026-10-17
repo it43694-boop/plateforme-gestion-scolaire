@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Devoirs{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "livre" 24 %}</div>
+        <div>
+            <h1>Devoirs et cahier de textes</h1>
+            <p>Le travail à faire et ce qui a été étudié ces deux dernières semaines.</p>
+        </div>
+    </div>
+</div>
+{% for famille in familles %}
+<div class="card mb-3"><div class="card-body">
+    <h2 class="titre-section">{{ famille.eleve.nom_complet }} - {{ famille.classe.nom }}</h2>
+    <p class="fw-bold mb-1">À rendre</p>
+    {% if famille.a_rendre %}
+    <ul class="list-group mb-3">
+        {% for seance in famille.a_rendre %}
+        <li class="list-group-item d-flex justify-content-between gap-3">
+            <span><strong>{{ seance.affectation.matiere|default:"Titulaire" }}</strong> : {{ seance.travail_a_faire }}</span>
+            <span class="text-muted small text-nowrap">Pour le {{ seance.date_remise|date:"d/m/Y" }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-muted">Aucun devoir à rendre.</p>
+    {% endif %}
+    <p class="fw-bold mb-1">Dernières séances</p>
+    {% if famille.recentes %}
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Date</th><th>Matière</th><th>Séance</th></tr></thead>
+            <tbody>
+                {% for seance in famille.recentes %}
+                <tr><td>{{ seance.date_seance|date:"d/m/Y" }}</td><td>{{ seance.affectation.matiere|default:"Titulaire" }}</td><td>{{ seance.contenu }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-muted mb-0">Aucune séance notée ces deux dernières semaines.</p>
+    {% endif %}
+</div></div>
+{% empty %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Aucun élève inscrit en cours : pas de cahier de textes à afficher.</p></div></div></div>
+{% endfor %}
+{% endblock %}

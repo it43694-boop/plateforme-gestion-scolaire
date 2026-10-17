@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+    @page { size: A4 portrait; margin: 1.8cm; }
+    body { font-family: Helvetica, sans-serif; font-size: 11px; color: #12203D; }
+
+    .entete { width: 100%; margin-bottom: 6px; }
+    .entete td { vertical-align: middle; padding: 0; border: none; }
+    .logo { width: 56px; height: 56px; }
+    .logo-emblème {
+        width: 52px; height: 52px; border: 1.5px solid #B98B2E; border-radius: 50%;
+        text-align: center; color: #9A7423; font-size: 22px; font-weight: bold;
+    }
+    h1 { font-size: 17px; color: #12203D; margin: 0 0 2px; }
+    p.sous-titre { color: #55607A; margin: 0 0 2px; font-size: 10px; }
+    hr.separateur { border: none; border-top: 1.5px solid #B98B2E; margin: 10px 0 16px; }
+
+    h2.titre-document { text-align: center; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; margin: 26px 0 8px; }
+    p.numero { text-align: center; font-size: 11px; color: #55607A; margin: 0 0 22px; }
+    p.corps { font-size: 12.5px; line-height: 1.8; margin: 0 0 12px; }
+
+    table.fiche { width: 100%; margin: 6px 0 14px; }
+    table.fiche td { padding: 4px 8px; font-size: 12px; border-bottom: 1px solid #DEE1E6; }
+    table.fiche td.etiquette { width: 34%; color: #55607A; }
+    table.fiche td.valeur { font-weight: bold; }
+
+    .signatures { width: 100%; margin-top: 36px; }
+    .signatures td { vertical-align: top; padding: 0; border: none; font-size: 11px; color: #12203D; }
+    .fonction { margin-bottom: 4px; }
+    .images-signature { height: 86px; }
+    img.signature { width: 120px; height: 60px; }
+    img.cachet { width: 80px; height: 80px; }
+    .ligne-signature { border-top: 1px solid #8993A8; width: 190px; margin-top: 6px; padding-top: 4px; color: #55607A; font-size: 10px; }
+
+    .pied { margin-top: 26px; padding-top: 8px; border-top: 1px solid #DEE1E6; font-size: 8px; color: #8993A8; }
+</style>
+</head>
+<body>
+    <table class="entete">
+        <tr>
+            <td style="width: 66px;">
+                {% if logo %}
+                <img src="{{ logo }}" alt="{{ etablissement.nom }}" class="logo" />
+                {% else %}
+                <div class="logo-emblème">{{ etablissement.initiale|default:"É" }}</div>
+                {% endif %}
+            </td>
+            <td>
+                <h1>{{ etablissement.nom|default:"Établissement" }}</h1>
+                {% if etablissement.devise %}<p class="sous-titre">{{ etablissement.devise }}</p>{% endif %}
+                {% if etablissement.numero_agrement %}<p class="sous-titre">Agrément n° {{ etablissement.numero_agrement }}</p>{% endif %}
+            </td>
+        </tr>
+    </table>
+    <hr class="separateur">
+
+    <h2 class="titre-document">{{ type_document.titre }}</h2>
+    <p class="numero">N° {{ verification.numero }}</p>
+
+    {% if type_document.abreviation == "CERT" and en_cours %}
+    <p class="corps">Je soussigné(e), responsable de l'établissement {{ etablissement.nom }}, certifie que l'élève désigné ci-dessous est régulièrement inscrit(e) :</p>
+    {% elif type_document.abreviation == "CERT" %}
+    <p class="corps">Je soussigné(e), responsable de l'établissement {{ etablissement.nom }}, certifie que l'élève désigné ci-dessous a été régulièrement inscrit(e) et a suivi les cours dans l'établissement :</p>
+    {% elif type_document.abreviation == "ATTEST" %}
+    <p class="corps">Je soussigné(e), responsable de l'établissement {{ etablissement.nom }}, atteste que l'élève désigné ci-dessous fréquente régulièrement l'établissement :</p>
+    {% else %}
+    <p class="corps">Je soussigné(e), responsable de l'établissement {{ etablissement.nom }}, certifie que l'élève désigné ci-dessous a été radié(e) des effectifs de l'établissement :</p>
+    {% endif %}
+
+    <table class="fiche">
+        <tr><td class="etiquette">Nom et prénom :</td><td class="valeur">{{ eleve.nom_complet }}</td></tr>
+        {% if eleve.date_naissance %}<tr><td class="etiquette">Né(e) le :</td><td class="valeur">{{ eleve.date_naissance|date:"d/m/Y" }}</td></tr>{% endif %}
+        {% if eleve.lieu_naissance %}<tr><td class="etiquette">Lieu de naissance :</td><td class="valeur">{{ eleve.lieu_naissance }}</td></tr>{% endif %}
+        <tr><td class="etiquette">Matricule :</td><td class="valeur">{{ eleve.matricule }}</td></tr>
+        <tr><td class="etiquette">Classe :</td><td class="valeur">{{ classe.nom }}{% if classe.serie %} - {{ classe.get_serie_display }}{% endif %}{% if classe.filiere_professionnelle %} - {{ classe.get_filiere_professionnelle_display }}{% endif %}</td></tr>
+        <tr><td class="etiquette">Année scolaire :</td><td class="valeur">{{ annee.libelle }}</td></tr>
+        {% if type_document.abreviation == "RAD" %}
+        {% if radie_le %}<tr><td class="etiquette">Radié(e) le :</td><td class="valeur">{{ radie_le|date:"d/m/Y" }}</td></tr>{% endif %}
+        {% if transfert %}
+        <tr><td class="etiquette">Motif de la radiation :</td><td class="valeur">Transfert vers une autre école</td></tr>
+        {% if destination %}<tr><td class="etiquette">Établissement de destination :</td><td class="valeur">{{ destination }}</td></tr>{% endif %}
+        {% else %}
+        <tr><td class="etiquette">Motif de la radiation :</td><td class="valeur">Abandon de la scolarité</td></tr>
+        {% endif %}
+        {% endif %}
+    </table>
+
+    <p class="corps">La présente est délivrée à l'intéressé(e) pour servir et valoir ce que de droit.</p>
+
+    <table class="signatures">
+        <tr>
+            <td style="width: 50%;">{% if ville %}Fait à {{ ville }}, le {{ aujourdhui|date:"d/m/Y" }}{% else %}Fait le {{ aujourdhui|date:"d/m/Y" }}{% endif %}</td>
+            <td style="width: 50%; text-align: right;">
+                {% if etablissement.fonction_signataire %}<div class="fonction">{{ etablissement.fonction_signataire }}</div>{% endif %}
+                {% if signature or cachet %}
+                <div class="images-signature">
+                    {% if cachet %}<img src="{{ cachet }}" class="cachet" />{% endif %}
+                    {% if signature %}<img src="{{ signature }}" class="signature" />{% endif %}
+                </div>
+                {% endif %}
+                <div class="ligne-signature" style="margin-left: auto;">
+                    {% if etablissement.nom_signataire %}{{ etablissement.nom_signataire }}{% else %}Signature et cachet de l'établissement{% endif %}
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="pied">
+        {% if qr_code %}<img src="{{ qr_code }}" alt="QR code de vérification" style="width: 60px; height: 60px; float: left; margin-right: 8px;" />{% endif %}
+        Document vérifiable à l'adresse : {{ verification_url }}
+    </div>
+</body>
+</html>

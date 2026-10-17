@@ -25,6 +25,7 @@ LIBELLES_HISTORIQUE = (
     ("aides", "aide(s) de scolarité"),
     ("notes", "note(s)"),
     ("absences", "absence(s)"),
+    ("discipline", "mesure(s) de discipline"),
     ("resultats_examens", "résultat(s) d'examen"),
     ("documents", "document(s) officiel(s) remis (bulletins, attestations)"),
     ("sorties", "sortie(s) en cours d'année (abandon, transfert)"),
@@ -40,7 +41,7 @@ def historique_eleve(eleve) -> dict:
     """Ce que l'élève a laissé derrière lui : nombre d'éléments de chaque sorte (inscriptions comprises à part)."""
     from communication.models import Message
     from finances.models import Paiement
-    from pedagogie.models import Absence, Note, NoteConduite, VerificationBulletin
+    from pedagogie.models import Absence, MesureDiscipline, Note, NoteConduite, VerificationBulletin
     from scolarite.models import Abandon, AideScolarite, ResultatExamen, TransfertEleve, VerificationDocument
 
     return {
@@ -48,6 +49,7 @@ def historique_eleve(eleve) -> dict:
         "aides": AideScolarite.objects.filter(inscription__eleve=eleve).count(),
         "notes": Note.objects.filter(eleve=eleve).count() + NoteConduite.objects.filter(eleve=eleve).count(),
         "absences": Absence.objects.filter(eleve=eleve).count(),
+        "discipline": MesureDiscipline.objects.filter(eleve=eleve).count(),
         "resultats_examens": ResultatExamen.objects.filter(inscription__eleve=eleve).count(),
         "documents": (
             VerificationDocument.objects.filter(eleve=eleve).count()
@@ -93,16 +95,17 @@ def anonymiser_eleve(eleve) -> dict:
     """
     Efface la personne, garde les chiffres. Rend ce qui a été fait (compteurs, jamais de nom ni de numéro).
 
-    Effacé : prénom, nom, email, téléphone, matricule, lieu et n° d'acte de naissance, jour de naissance, famille en
+    Effacé : prénom, nom (et leur écriture arabe), photo, filiation, adresse, personne à prévenir, école d'origine, email,
+    téléphone, matricule, lieu et n° d'acte de naissance, jour de naissance, famille en
     attente, lien avec les parents (leurs comptes restent), messages parents-enseignants à son sujet, notifications qui
-    le nomment, motifs d'absence et de sortie, justificatif de transfert. Le compte est désactivé et sans mot de passe.
+    le nomment, motifs d'absence, de discipline et de sortie, justificatif de transfert. Le compte est désactivé et sans mot de passe.
 
     Gardé (les chiffres de l'école et des statistiques officielles) : sexe, année et mois de naissance, situation de
     handicap et de déplacement, inscriptions, notes, absences, paiements, résultats d'examen. Les documents déjà remis
     restent vérifiables (leur page de contrôle n'affiche plus que le pseudonyme).
     """
     from communication.models import Message
-    from pedagogie.models import Absence
+    from pedagogie.models import Absence, MesureDiscipline
     from scolarite.models import Abandon, ParentEnAttente, TransfertEleve
 
     ancien_nom = eleve.nom_complet.strip()
@@ -124,6 +127,7 @@ def anonymiser_eleve(eleve) -> dict:
     eleve.parents_lies.clear()
 
     Absence.objects.filter(eleve=eleve).update(motif="")
+    MesureDiscipline.objects.filter(eleve=eleve).update(motif="")  # le motif est un texte libre : il peut nommer l'élève ou d'autres enfants
     Abandon.objects.filter(inscription__eleve=eleve).update(motif="Anonymisé")
     for transfert in TransfertEleve.objects.filter(inscription__eleve=eleve):
         if transfert.justificatif:
@@ -139,6 +143,12 @@ def anonymiser_eleve(eleve) -> dict:
     eleve.matricule = f"{PREFIXE_MATRICULE_ANONYME}{eleve.pk}"
     eleve.lieu_naissance = ""
     eleve.numero_acte_naissance = ""
+    eleve.nom_pere = eleve.nom_mere = eleve.adresse = eleve.ecole_origine = ""
+    eleve.contact_urgence_nom = eleve.contact_urgence_telephone = ""
+    if eleve.photo:
+        eleve.photo.delete(save=False)  # la photo d'un enfant ne reste jamais dans le stockage après anonymisation
+    eleve.photo = None
+    eleve.prenom_ar = eleve.nom_ar = ""
     eleve.date_naissance = _mois_de_naissance(eleve.date_naissance)
     eleve.profession = ""
     eleve.statut = StatutCompte.DESACTIVE

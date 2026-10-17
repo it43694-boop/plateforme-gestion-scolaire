@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block titre %}Convoquer {{ candidat.nom_complet }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Convoquer {{ candidat.nom_complet }}</h1>
+        <p>Classe visée : {{ candidat.classe_visee }}. La famille reçoit la date du test par email{% if not candidat.email_contact %} (pas d'adresse donnée : appelez la famille){% endif %}.</p>
+    </div>
+</div>
+<div class="card mw-480">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for champ in formulaire %}
+            <div class="mb-3">
+                <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                {{ champ }}
+                {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary">Convoquer</button>
+                <a href="{% url 'tests_niveau:liste_candidats' %}" class="btn btn-outline-secondary">Annuler</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

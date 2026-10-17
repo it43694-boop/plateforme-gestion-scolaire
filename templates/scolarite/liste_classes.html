@@ -28,14 +28,19 @@
                     <td class="montant-val">{{ classe.effectif }}</td>
                     {% if peut_exporter_liste or peut_exporter_notes or peut_exporter_absences %}
                     <td>
-                        {% if peut_exporter_liste %}<a href="{% url 'scolarite:exporter_liste_classe_xlsx' classe.id %}" data-telechargement>Liste</a>{% endif %}
-                        {% if peut_exporter_notes %}<a href="{% url 'pedagogie:exporter_releve_notes_xlsx' classe.id %}" data-telechargement>Notes</a>{% endif %}
+                        {% if peut_exporter_liste %}<a href="{% url 'scolarite:exporter_liste_classe_xlsx' classe.id %}" data-telechargement>Liste</a>
+                        <a href="{% url 'scolarite:exporter_liste_classe_pdf' classe.id %}" data-telechargement>Liste (PDF)</a>{% endif %}
+                        {% if peut_exporter_notes %}<a href="{% url 'pedagogie:exporter_releve_notes_xlsx' classe.id %}" data-telechargement>Notes</a>
+                        <a href="{% url 'pedagogie:exporter_bulletins_classe_pdf' classe.id %}" data-telechargement>Bulletins (PDF)</a>{% endif %}
                         {% if peut_exporter_absences %}<a href="{% url 'pedagogie:exporter_absences_xlsx' classe.id %}" data-telechargement>Absences</a>{% endif %}
                     </td>
                     {% endif %}
                     <td class="text-end">
                         {% if peut_saisir_conduite and classe.note_la_conduite %}
                         <a href="{% url 'pedagogie:saisir_conduite' classe.id %}" class="btn btn-sm btn-outline-secondary">Conduite</a>
+                        {% endif %}
+                        {% if peut_saisir_discipline %}
+                        <a href="{% url 'pedagogie:registre_discipline' classe.id %}" class="btn btn-sm btn-outline-secondary">Discipline</a>
                         {% endif %}
                         {% if peut_voir_emploi_du_temps %}
                         <a href="{% url 'pedagogie:gerer_emploi_du_temps' classe.id %}" class="btn btn-sm btn-outline-secondary">Emploi du temps</a>

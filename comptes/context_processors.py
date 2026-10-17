@@ -1,6 +1,6 @@
 from django.conf import settings
 
-from comptes.roles import ROLES_VALIDATION_COMPTES, Role
+from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, ROLES_VALIDATION_COMPTES, Role
 
 
 def etablissement_actif(request):
@@ -44,14 +44,21 @@ def etablissement_actif(request):
 ICONES_DES_LIENS = {
     "comptes:liste_notifications": "cloche",
     "scolarite:liste_eleves": "eleves",
+    "scolarite:anciens_eleves": "eleves",
     "scolarite:inscrire_eleve": "ajout-utilisateur",
     "scolarite:liste_classes": "classes",
     "scolarite:liste_matieres": "livre",
+    "scolarite:calendrier": "calendrier",
     "tests_niveau:liste_candidats": "test",
     "pedagogie:mes_classes": "classes",
     "pedagogie:suivi_des_cours": "suivi",
+    "pedagogie:clotures_notes": "cadenas",
+    "pedagogie:avancement_programmes": "suivi",
+    "pedagogie:devoirs": "livre",
     "finances:suivi_paiements": "tendance",
     "finances:liste_paiements": "carte",
+    "finances:frais_annexes": "carte",
+    "finances:arrieres": "alerte",
     "finances:registre_caisse": "caisse",
     "comptabilite:accueil": "journal",
     "finances:liste_salaires": "mallette",
@@ -95,6 +102,7 @@ def navigation(request):
 
     from comptes.middleware import est_proprietaire_sans_etablissement
     from permissions_matrix.models import PermissionMatrix
+    from scolarite.models import ROLES_ETAT_CIVIL_ELEVE
 
     if est_proprietaire_sans_etablissement(request.user):
         # Aucune école : seuls le compte personnel et la gestion des
@@ -126,6 +134,8 @@ def navigation(request):
         eleves_classes.append({"label": "Élèves", "url": "scolarite:liste_eleves"})
         if role not in {Role.PARENT.value, Role.ELEVE.value}:
             eleves_classes.append({"label": "Inscrire un élève", "url": "scolarite:inscrire_eleve"})
+        if role in ROLES_ETAT_CIVIL_ELEVE:
+            eleves_classes.append({"label": "Anciens élèves", "url": "scolarite:anciens_eleves"})
     if "classes" in modules_autorises:
         eleves_classes.append({"label": "Classes", "url": "scolarite:liste_classes"})
         eleves_classes.append({"label": "Matières", "url": "scolarite:liste_matieres"})
@@ -139,6 +149,11 @@ def navigation(request):
         pedagogie.append({"label": "Mes classes", "url": "pedagogie:mes_classes"})
     if "suivi_des_cours" in modules_autorises:
         pedagogie.append({"label": "Suivi des cours", "url": "pedagogie:suivi_des_cours"})
+        pedagogie.append({"label": "Avancement des programmes", "url": "pedagogie:avancement_programmes"})
+    if role in {Role.PARENT.value, Role.ELEVE.value} and "notes_bulletins" in modules_autorises:
+        pedagogie.append({"label": "Devoirs", "url": "pedagogie:devoirs"})
+    if request.user.etablissement_id and role in {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL}:
+        pedagogie.append({"label": "Clôture des notes", "url": "pedagogie:clotures_notes"})
     if pedagogie:
         sections.append({"titre": "Pédagogie", "icone": "pedagogie", "liens": pedagogie})
 
@@ -146,6 +161,9 @@ def navigation(request):
     if "finances" in modules_autorises:
         finances.append({"label": "Suivi des paiements", "url": "finances:suivi_paiements"})
         finances.append({"label": "Paiements", "url": "finances:liste_paiements"})
+        if role == Role.COMPTABLE.value or role in {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL}:
+            finances.append({"label": "Frais annexes", "url": "finances:frais_annexes"})
+            finances.append({"label": "Arriérés", "url": "finances:arrieres"})
     if "caisse" in modules_autorises:
         finances.append({"label": "Caisse", "url": "finances:registre_caisse"})
         if request.user.etablissement_id:
@@ -156,6 +174,8 @@ def navigation(request):
         sections.append({"titre": "Finances", "icone": "finances", "liens": finances})
 
     ressources = []
+    if request.user.etablissement_id:
+        ressources.append({"label": "Calendrier", "url": "scolarite:calendrier"})
     if "bibliotheque" in modules_autorises:
         ressources.append({"label": "Bibliothèque", "url": "bibliotheque:liste_documents"})
     if "communication" in modules_autorises:

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Pré-inscription en ligne{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "administration" 24 %}</div>
+        <div>
+            <h1>Pré-inscription en ligne</h1>
+            <p>Ouvrez une campagne, partagez son lien avec les familles : leurs demandes arrivent dans la liste des tests de niveau, où le secrétariat les convoque ou les refuse.</p>
+        </div>
+    </div>
+    <a href="{% url 'tests_niveau:liste_candidats' %}" class="btn btn-outline-secondary btn-sm">Tests de niveau</a>
+</div>
+<div class="row">
+    <div class="col-lg-4">
+        <div class="card mb-3"><div class="card-body">
+            <p class="titre-section">Ouvrir une campagne</p>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% for erreur in formulaire.non_field_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+                {% for champ in formulaire %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <button class="btn btn-primary w-100">Créer la campagne</button>
+            </form>
+        </div></div>
+    </div>
+    <div class="col-lg-8">
+        {% for ligne in liste %}
+        <div class="card mb-3"><div class="card-body">
+            <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                    <h2 class="h5 mb-1">{{ ligne.campagne.titre }}</h2>
+                    <p class="text-muted small mb-2">Année scolaire {{ ligne.campagne.annee_scolaire.libelle }} - {{ ligne.demandes }} demande(s)</p>
+                </div>
+                <span class="badge {% if ligne.ouverte %}bg-success{% else %}bg-secondary{% endif %}">{% if ligne.ouverte %}Ouverte{% else %}Fermée{% endif %}</span>
+            </div>
+            <label class="form-label small" for="lien-{{ ligne.campagne.id }}">Lien à partager avec les familles</label>
+            <input type="text" id="lien-{{ ligne.campagne.id }}" class="form-control form-control-sm mb-2" value="{{ ligne.lien }}" readonly translate="no">
+            <form method="post" action="{% url 'tests_niveau:basculer_campagne' ligne.campagne.id %}" class="d-inline">
+                {% csrf_token %}<button class="btn btn-sm {% if ligne.campagne.active %}btn-outline-danger{% else %}btn-outline-success{% endif %}">{% if ligne.campagne.active %}Fermer la campagne{% else %}Rouvrir la campagne{% endif %}</button>
+            </form>
+            <a href="{% url 'tests_niveau:liste_candidats' %}?demande=recue" class="btn btn-sm btn-outline-secondary">Voir les demandes</a>
+        </div></div>
+        {% empty %}
+        <div class="card"><div class="card-body"><div class="etat-vide"><p>Aucune campagne pour le moment.</p></div></div></div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -6,7 +6,7 @@ from comptes.forms import BootstrapFormMixin
 from comptes.models import Utilisateur
 from comptes.roles import Role
 from finances.models import (
-    ModePaiement, Salaire, StatutConge, TypeConge, TypeContrat, TypeTranche, contrat_actif_pour,
+    FraisAnnexe, ModePaiement, Salaire, StatutConge, TypeConge, TypeContrat, TypeTranche, contrat_actif_pour,
 )
 from scolarite.models import Inscription
 
@@ -29,6 +29,11 @@ class EnregistrerPaiementForm(BootstrapFormMixin, forms.Form):
     tranche = forms.ChoiceField(label="Tranche", choices=TypeTranche.choices)
     montant = forms.IntegerField(label="Montant", min_value=1)
     mode_paiement = forms.ChoiceField(label="Mode de paiement", choices=ModePaiement.choices)
+    frais_annexe = forms.ModelChoiceField(
+        label="Frais annexe", queryset=FraisAnnexe.objects.none(), required=False,
+        help_text="À choisir seulement si la tranche est « Frais annexe ».",
+    )
+    inscription_visee = forms.IntegerField(required=False, widget=forms.HiddenInput())  # un arriéré : l'inscription d'une année passée
     periodes = ChoixLibreMultiple(
         label="Mois couverts", required=False, widget=forms.CheckboxSelectMultiple,
         help_text="Cochez les mois (ou trimestres) exacts réglés par ce versement - inutile pour "
@@ -38,7 +43,15 @@ class EnregistrerPaiementForm(BootstrapFormMixin, forms.Form):
     def __init__(self, *args, etablissement=None, **kwargs):
         self.etablissement = etablissement
         super().__init__(*args, **kwargs)
-        self.fields["montant"].label = f"Montant ({getattr(etablissement, 'code_devise', 'FCFA')})"
+        self.devise = getattr(etablissement, "code_devise", "FCFA")
+        self.fields["montant"].label = f"Montant ({self.devise})"
+        champ = self.fields["frais_annexe"]
+        champ.queryset = FraisAnnexe.objects.filter(etablissement=etablissement).select_related("annee_scolaire", "classe") if etablissement else FraisAnnexe.objects.none()
+        champ.label_from_instance = self._libelle_du_frais
+
+    def _libelle_du_frais(self, frais):
+        portee = frais.classe.nom if frais.classe_id else "toute l'école"
+        return f"{frais.libelle} - {frais.montant} {self.devise} ({portee}, {frais.annee_scolaire.libelle})"
 
     def clean(self):
         cleaned = super().clean()
@@ -51,17 +64,45 @@ class EnregistrerPaiementForm(BootstrapFormMixin, forms.Form):
             self.add_error("matricule_eleve", "Aucun élève trouvé avec ce matricule.")
             return cleaned
 
-        inscription = Inscription.objects.filter(
-            eleve=eleve, statut=Inscription.Statut.EN_COURS,
-        ).order_by("-date_inscription").first()
-        if not inscription:
-            self.add_error("matricule_eleve", "Cet élève n'a pas d'inscription en cours.")
-            return cleaned
+        visee = cleaned.get("inscription_visee")
+        if visee:  # le règlement d'un arriéré : l'inscription d'une année passée de CET élève
+            inscription = Inscription.objects.filter(pk=visee, eleve=eleve).select_related("classe__annee_scolaire").first()
+            if inscription is None:
+                self.add_error("matricule_eleve", "Cette inscription n'appartient pas à cet élève.")
+                return cleaned
+        else:
+            inscription = Inscription.objects.filter(
+                eleve=eleve, statut=Inscription.Statut.EN_COURS,
+            ).order_by("-date_inscription").first()
+            if not inscription:
+                self.add_error("matricule_eleve", "Cet élève n'a pas d'inscription en cours.")
+                return cleaned
 
         cleaned["eleve"] = eleve
         cleaned["inscription"] = inscription
 
+        tranche, frais = cleaned.get("tranche"), cleaned.get("frais_annexe")
+        if tranche == TypeTranche.ANNEXE:
+            if frais is None:
+                self.add_error("frais_annexe", "Choisissez le frais annexe réglé.")
+            elif not frais.concerne(inscription):
+                self.add_error("frais_annexe", "Ce frais annexe ne concerne pas cet élève.")
+        elif frais is not None:
+            self.add_error("frais_annexe", "Un frais annexe se règle avec la tranche « Frais annexe ».")
+            frais = None
+
+        montant = cleaned.get("montant")
+        if montant and tranche and not self.errors.get("frais_annexe"):
+            from finances.annexes import limite_de_paiement
+
+            limite = limite_de_paiement(inscription, tranche, frais)
+            if limite is not None and montant > limite:
+                self.add_error("montant", f"Le montant dépasse le reste dû ({limite} {self.devise}).")
+
         periodes = cleaned.get("periodes") or []
+        if periodes and tranche == TypeTranche.ANNEXE:
+            self.add_error("periodes", "Un frais annexe n'a pas de mois couverts.")
+            periodes = []
         if periodes:
             echeancier = getattr(inscription.classe, "echeancier", None)
             valides = set(echeancier.libelles_periodes()) if echeancier else set()

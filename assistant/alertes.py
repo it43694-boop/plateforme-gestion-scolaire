@@ -150,9 +150,12 @@ def _familles_impayees(utilisateur):
         ).values_list("inscription_id").annotate(total=Sum("montant")),
     )
 
+    from finances.annexes import totaux_annexes
+
+    annexes_de = totaux_annexes(candidates)  # une seule requête pour les frais annexes de tous les élèves
     impayees = []
     for inscription in candidates:
-        total_du = calculer_total_du(inscription, aides_actives=inscription.aides_actives_prefetchees)
+        total_du = calculer_total_du(inscription, aides_actives=inscription.aides_actives_prefetchees, annexes=annexes_de(inscription))
         total_paye = totaux_payes.get(inscription.id, 0)
         solde = total_du - total_paye
         if solde > 0:

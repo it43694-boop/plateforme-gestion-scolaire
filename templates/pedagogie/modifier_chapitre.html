@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block titre %}Modifier un chapitre{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Modifier un chapitre</h1>
+        <p>{{ chapitre.affectation.classe }} - {{ chapitre.affectation.matiere|default:"Titulaire" }}</p>
+    </div>
+</div>
+<div class="card mw-560">
+    <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for erreur in formulaire.non_field_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+            {% for champ in formulaire %}
+            <div class="mb-3">
+                <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                {{ champ }}
+                {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary">Enregistrer</button>
+                <a href="{% url 'pedagogie:programme_affectation' chapitre.affectation_id %}" class="btn btn-outline-secondary">Annuler</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

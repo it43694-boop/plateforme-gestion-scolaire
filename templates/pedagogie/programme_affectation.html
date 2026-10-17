@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Programme - {{ affectation.classe.nom }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone vert">{% icone "suivi" 24 %}</div>
+        <div>
+            <h1>Programme</h1>
+            <p>{{ affectation.classe }} - {{ affectation.matiere|default:"Titulaire" }}. Notez où vous en êtes, chapitre par chapitre.</p>
+        </div>
+    </div>
+    <a href="{% url 'pedagogie:cahier_affectation' affectation.id %}" class="btn btn-outline-secondary btn-sm">Cahier de textes</a>
+</div>
+
+{% if resume.nombre %}
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-4"><div class="card"><div class="card-body mini-stat">
+        <div class="mini-stat-label">Avancement</div><div class="mini-stat-valeur">{{ resume.avancement }} %</div>
+    </div></div></div>
+    <div class="col-6 col-md-4"><div class="card"><div class="card-body mini-stat">
+        <div class="mini-stat-label">Chapitres</div><div class="mini-stat-valeur">{{ resume.nombre }}</div>
+    </div></div></div>
+    <div class="col-12 col-md-4"><div class="card"><div class="card-body mini-stat">
+        <div class="mini-stat-label">En retard</div><div class="mini-stat-valeur{% if resume.en_retard %} danger{% endif %}">{{ resume.en_retard }}</div>
+    </div></div></div>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-5">
+        <div class="card"><div class="card-body">
+            {% if lecture_seule %}
+            <div class="alert alert-info mb-0">Cette année scolaire est archivée : le programme est en lecture seule.</div>
+            {% elif not modifiable %}
+            <div class="alert alert-info mb-0">Vous consultez ce programme : il est tenu par l'enseignant de la matière.</div>
+            {% else %}
+            <p class="titre-section">Ajouter un chapitre</p>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% for erreur in formulaire.non_field_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+                {% for champ in formulaire %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <button class="btn btn-primary w-100">Ajouter</button>
+            </form>
+            {% endif %}
+        </div></div>
+    </div>
+    <div class="col-md-7">
+        <div class="card"><div class="card-body">
+            {% if chapitres %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead><tr><th>Chapitre</th><th class="text-end">Avancement</th><th>À terminer pour le</th>{% if modifiable %}<th><span class="visually-hidden">Actions</span></th>{% endif %}</tr></thead>
+                    <tbody>
+                        {% for chapitre in chapitres %}
+                        <tr>
+                            <td>
+                                <strong>{{ chapitre.titre }}</strong>
+                                {% if chapitre.en_retard %}<span class="badge bg-danger">En retard</span>{% endif %}
+                                {% if chapitre.difficultes %}<div class="text-muted small">Difficultés : {{ chapitre.difficultes }}</div>{% endif %}
+                            </td>
+                            <td class="text-end montant-val">{{ chapitre.pourcentage }} %</td>
+                            <td>{% if chapitre.date_prevue %}{{ chapitre.date_prevue|date:"d/m/Y" }}{% else %}-{% endif %}</td>
+                            {% if modifiable %}
+                            <td class="text-end">
+                                <a href="{% url 'pedagogie:modifier_chapitre' chapitre.id %}" class="btn btn-sm btn-outline-secondary">Modifier</a>
+                                <form method="post" action="{% url 'pedagogie:supprimer_chapitre' chapitre.id %}" class="d-inline" data-confirmer="Supprimer ce chapitre ?">
+                                    {% csrf_token %}<button class="btn btn-sm btn-outline-danger">Supprimer</button>
+                                </form>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="etat-vide"><p>Aucun chapitre pour le moment.</p></div>
+            {% endif %}
+        </div></div>
+    </div>
+</div>
+{% endblock %}

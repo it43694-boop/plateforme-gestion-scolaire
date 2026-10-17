@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Photos de la classe {{ classe.nom }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "eleves" 24 %}</div>
+        <div>
+            <h1>Photos de la classe {{ classe.nom }}</h1>
+            <p>Envoyez toutes les photos d'un coup : chaque fichier est rattaché à l'élève dont il porte le matricule ou le nom.</p>
+        </div>
+    </div>
+    <a href="{% url 'scolarite:liste_eleves' %}?classe={{ classe.id }}" class="btn btn-outline-secondary btn-sm">Retour à la liste</a>
+</div>
+
+{% if bilan %}
+<div class="card mb-3">
+    <div class="card-body">
+        <p class="titre-section-large">{{ bilan.importees|length }} photo{{ bilan.importees|length|pluralize }} enregistrée{{ bilan.importees|length|pluralize }}</p>
+        {% if bilan.ignorees %}
+        <div class="alert alert-warning">{{ bilan.ignorees|length }} fichier{{ bilan.ignorees|length|pluralize }} non utilisé{{ bilan.ignorees|length|pluralize }}.</div>
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead><tr><th>Fichier</th><th>Raison</th></tr></thead>
+                <tbody>
+                    {% for nom, raison in bilan.ignorees %}<tr><td>{{ nom }}</td><td>{{ raison }}</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% elif bilan.importees %}
+        <div class="alert alert-success mb-0">Toutes les photos ont été rattachées.</div>
+        {% else %}
+        <div class="alert alert-info mb-0">L'archive ne contient aucune image.</div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+            {% for erreur in formulaire.non_field_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+            {% for champ in formulaire %}
+            <div class="mb-3">
+                <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                {{ champ }}
+                {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+            <p class="text-muted small">Une photo déjà enregistrée pour un élève est remplacée. Les photos sont redressées et réduites automatiquement.</p>
+            <button class="btn btn-primary">Importer les photos</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

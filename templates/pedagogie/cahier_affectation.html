@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Cahier de textes - {{ affectation.classe.nom }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "livre" 24 %}</div>
+        <div>
+            <h1>Cahier de textes</h1>
+            <p>{{ affectation.classe }} - {{ affectation.matiere|default:"Titulaire" }}. Les parents et les élèves de la classe voient les devoirs.</p>
+        </div>
+    </div>
+    <a href="{% url 'pedagogie:programme_affectation' affectation.id %}" class="btn btn-outline-secondary btn-sm">Programme</a>
+</div>
+<div class="row">
+    <div class="col-md-5">
+        <div class="card"><div class="card-body">
+            {% if lecture_seule %}
+            <div class="alert alert-info mb-0">Cette année scolaire est archivée : le cahier est en lecture seule.</div>
+            {% else %}
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% for erreur in formulaire.non_field_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+                {% for champ in formulaire %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                    {{ champ }}
+                    {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                    {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+                <button class="btn btn-primary w-100">Ajouter la séance</button>
+            </form>
+            {% endif %}
+        </div></div>
+    </div>
+    <div class="col-md-7">
+        <div class="card"><div class="card-body">
+            <p class="titre-section">Dernières séances</p>
+            {% if seances %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead><tr><th>Date</th><th>Séance</th><th>Travail à faire</th>{% if not lecture_seule %}<th><span class="visually-hidden">Actions</span></th>{% endif %}</tr></thead>
+                    <tbody>
+                        {% for seance in seances %}
+                        <tr>
+                            <td>{{ seance.date_seance|date:"d/m/Y" }}</td>
+                            <td>{{ seance.contenu }}</td>
+                            <td>{% if seance.travail_a_faire %}{{ seance.travail_a_faire }}{% if seance.date_remise %}<div class="text-muted small">À rendre pour le {{ seance.date_remise|date:"d/m/Y" }}</div>{% endif %}{% else %}-{% endif %}</td>
+                            {% if not lecture_seule %}
+                            <td class="text-end">
+                                <a href="{% url 'pedagogie:modifier_seance' seance.id %}" class="btn btn-sm btn-outline-secondary">Modifier</a>
+                                <form method="post" action="{% url 'pedagogie:supprimer_seance' seance.id %}" class="d-inline" data-confirmer="Supprimer cette séance ?">
+                                    {% csrf_token %}<button class="btn btn-sm btn-outline-danger">Supprimer</button>
+                                </form>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% include "_pagination.html" %}
+            {% else %}
+            <div class="etat-vide"><p>Aucune séance notée pour le moment.</p></div>
+            {% endif %}
+        </div></div>
+    </div>
+</div>
+{% endblock %}
