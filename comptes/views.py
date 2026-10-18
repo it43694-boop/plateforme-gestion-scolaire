@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
@@ -24,6 +26,8 @@ from comptes.forms import (
 )
 from comptes.models import CodeVerificationEmail, Notification, Utilisateur, notifications_visibles_pour
 from comptes.roles import ROLES_DIRECTION_GENERALE, ROLES_VALIDATION_COMPTES, Role, StatutCompte
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +163,7 @@ def verifier_email(request):
                 messages.success(
                     request,
                     "Email vérifié. Votre demande de compte a été transmise au secrétariat "
-                    "pour validation. Vous recevrez une notification dès son activation.",
+                    "pour validation. Vous recevrez un email dès son activation.",
                 )
                 return redirect("comptes:connexion")
             else:
@@ -885,6 +889,26 @@ def comptes_en_attente(request):
     return render(request, "comptes/comptes_en_attente.html", {"comptes": en_attente})
 
 
+def _prevenir_la_personne(utilisateur, sujet, phrases) -> bool:
+    """
+    Un courriel à la personne dont la demande de compte vient d'être traitée, dans sa langue (celle de son compte, sinon celle de l'école).
+    Elle ne peut pas lire une notification dans l'application : son compte n'est pas encore actif. Ne lève jamais d'erreur, l'action du
+    secrétariat est déjà faite.
+    """
+    try:
+        nom_etablissement = utilisateur.etablissement.nom if utilisateur.etablissement_id else settings.NOM_PLATEFORME
+        envoyer_email(
+            sujet=f"{nom_etablissement} - {sujet}",
+            contenu="\n\n".join([f"Bonjour {utilisateur.prenom},", *phrases, nom_etablissement]),
+            expediteur=settings.DEFAULT_FROM_EMAIL, destinataires=[utilisateur.email],
+            langue=langue_du_compte(utilisateur), etablissement_id=utilisateur.etablissement_id,
+        )
+        return True
+    except Exception:  # noqa: BLE001
+        logger.exception("Courriel non envoyé à la personne dont le compte a été traité (compte %s)", getattr(utilisateur, "pk", None))
+        return False
+
+
 @role_requis(*ROLES_VALIDATION_COMPTES)
 @require_http_methods(["POST"])
 def valider_compte(request, utilisateur_id):
@@ -899,6 +923,10 @@ def valider_compte(request, utilisateur_id):
         acteur=request.user, action="validation_compte",
         cible=utilisateur.email, request=request,
     )
+    _prevenir_la_personne(utilisateur, "Votre compte est activé", [
+        "Votre compte a été validé par l'établissement. Vous pouvez maintenant vous connecter avec votre email et votre mot de passe :",
+        request.build_absolute_uri(reverse("comptes:connexion")),
+    ])
     messages.success(request, f"Le compte de {utilisateur.nom_complet} a été activé.")
     return redirect("comptes:comptes_en_attente")
 
@@ -916,5 +944,9 @@ def refuser_compte(request, utilisateur_id):
         acteur=request.user, action="refus_compte",
         cible=utilisateur.email, request=request,
     )
+    _prevenir_la_personne(utilisateur, "Votre demande de compte", [
+        "Votre demande de compte n'a pas pu être acceptée pour le moment.",
+        "Pour plus d'informations, merci de contacter l'établissement.",
+    ])
     messages.info(request, f"La demande de {utilisateur.nom_complet} a été refusée.")
     return redirect("comptes:comptes_en_attente")

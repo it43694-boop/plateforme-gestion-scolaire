@@ -564,6 +564,7 @@ class ParcoursInscriptionTests(TestCase):
         self.assertFalse(reponse.wsgi_request.user.is_authenticated)
 
 
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", EMAIL_ASYNC=False)
 class ValidationCompteTests(TestCase):
     def setUp(self):
         self.secretaire = creer_utilisateur_actif("secretaire@example.com", Role.SECRETAIRE)
@@ -581,6 +582,51 @@ class ValidationCompteTests(TestCase):
         self.en_attente.refresh_from_db()
         self.assertEqual(self.en_attente.statut, StatutCompte.ACTIF)
         self.assertTrue(self.en_attente.is_active)
+
+    def test_la_personne_recoit_un_courriel_quand_son_compte_est_valide(self):
+        self.client.force_login(self.secretaire)
+        self.client.post(reverse("comptes:valider_compte", args=[self.en_attente.id]))
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertEqual(message.to, ["futur@example.com"])  # elle seule, jamais le secrétariat
+        self.assertIn("Votre compte est activé", message.subject)
+        self.assertIn("Bonjour Futur", message.body)
+        self.assertIn(reverse("comptes:connexion"), message.body)  # le lien pour se connecter
+
+    def test_un_refus_previent_aussi_la_personne(self):
+        self.client.force_login(self.secretaire)
+        self.client.post(reverse("comptes:refuser_compte", args=[self.en_attente.id]))
+        self.en_attente.refresh_from_db()
+        self.assertEqual(self.en_attente.statut, StatutCompte.DESACTIVE)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["futur@example.com"])
+        self.assertIn("Votre demande de compte", mail.outbox[0].subject)
+        self.assertNotIn(reverse("comptes:connexion"), mail.outbox[0].body)
+
+    def test_un_courriel_qui_echoue_ne_bloque_pas_la_validation(self):
+        self.client.force_login(self.secretaire)
+        with patch("comptes.views.envoyer_email", side_effect=RuntimeError("serveur de courriel en panne")):
+            reponse = self.client.post(reverse("comptes:valider_compte", args=[self.en_attente.id]))
+        self.assertEqual(reponse.status_code, 302)
+        self.en_attente.refresh_from_db()
+        self.assertEqual(self.en_attente.statut, StatutCompte.ACTIF)
+
+    def test_le_courriel_est_ecrit_en_arabe_pour_un_compte_en_arabe(self):
+        Utilisateur.objects.filter(pk=self.en_attente.pk).update(langue="ar")
+        self.client.force_login(self.secretaire)
+        self.client.post(reverse("comptes:valider_compte", args=[self.en_attente.id]))
+        message = mail.outbox[0]
+        self.assertIn("تم تفعيل حسابك", message.subject)
+        self.assertIn("صادقت المؤسسة على حسابك", message.body)
+        self.assertNotIn("Votre compte", message.body)
+
+    def test_un_compte_deja_actif_ou_d_une_autre_ecole_ne_declenche_aucun_courriel(self):
+        self.client.force_login(self.secretaire)
+        self.client.post(reverse("comptes:valider_compte", args=[self.en_attente.id]))
+        mail.outbox.clear()
+        reponse = self.client.post(reverse("comptes:valider_compte", args=[self.en_attente.id]))  # déjà actif : introuvable
+        self.assertEqual(reponse.status_code, 404)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_enseignant_ne_peut_pas_valider_un_compte(self):
         enseignant = creer_utilisateur_actif("prof2@example.com", Role.ENSEIGNANT)
