@@ -1,4 +1,4 @@
-"""Cartes d'élève en PDF (planche A4, recto puis verso) : une classe entière ou un seul élève."""
+"""Cartes d'élève en PDF (pièces à plier, recto et verso côte à côte, quatre par feuille A4) : une classe entière ou un seul élève."""
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
@@ -11,7 +11,8 @@ from comptes.decorators import module_requis
 from comptes.excel import nom_fichier_sur
 from comptes.pdf import creer_pdf
 from permissions_matrix.modules import Module
-from scolarite.cartes import construire_cartes, logo_en_donnees, planches
+from scolarite.cartes import construire_cartes, pages
+from scolarite.documents import image_en_donnees, logo_en_donnees, ville_de_l_ecole
 from scolarite.models import (
     ROLES_ETAT_CIVIL_ELEVE, Inscription, classes_visibles_pour, eleve_de_l_etablissement_ou_404, eleve_visible_pour,
 )
@@ -24,13 +25,15 @@ def _verifier_droit(utilisateur):
 
 
 def _reponse_pdf(request, inscriptions, nom_fichier, cible):
-    cartes = construire_cartes(
-        inscriptions, lambda jeton: request.build_absolute_uri(reverse("scolarite:verifier_document", kwargs={"jeton": jeton})),
-    )
+    page_de_verification = reverse("vitrine:verifier")
+    cartes = construire_cartes(inscriptions, lambda code: request.build_absolute_uri(page_de_verification) + f"?code={code}")
     if not cartes:
         return None
+    etablissement = request.user.etablissement
     html = render_to_string("scolarite/cartes_eleves_pdf.html", {
-        "planches": planches(cartes), "logo": logo_en_donnees(request.user.etablissement),
+        "pages": pages(cartes), "etablissement": etablissement, "logo": logo_en_donnees(etablissement),
+        "signature": image_en_donnees(etablissement.signature), "ville": ville_de_l_ecole(etablissement),
+        "adresse_verification": request.get_host() + page_de_verification.rstrip("/"),  # ce que la carte imprime, sans « https:// »
         "arabe": getattr(request, "LANGUAGE_CODE", "fr") == "ar",
     }, request=request)
     reponse = HttpResponse(content_type="application/pdf")

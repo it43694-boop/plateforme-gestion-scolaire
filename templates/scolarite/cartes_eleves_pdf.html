@@ -3,99 +3,118 @@
 <head>
 <meta charset="UTF-8">
 <style>
-    @page { size: A4 portrait; margin: 8mm 10mm; }
-    body { font-family: Helvetica, sans-serif; font-size: 8px; color: #12203D; }
-    table.planche { width: 177.2mm; }
-    td.case { width: 85.6mm; height: 58mm; padding: 0; vertical-align: top; }
-    td.espace { width: 6mm; padding: 0; }
-    div.carte { width: 85.6mm; border: 0.3mm solid #8993A8; }
-    table.bande, table.corps, table.bas { width: 85.6mm; }
-    table.bande { border-bottom: 0.8mm solid #B98B2E; }
-    td { padding: 0; vertical-align: middle; }
-    td.bandeau { background-color: #12203D; color: #FFFFFF; height: 12mm; padding: 1mm 2mm; font-size: 9px; font-weight: bold; text-align: center; }
-    td.bandeau-logo { background-color: #12203D; width: 12mm; height: 12mm; padding: 1mm; }
+    @page { size: A4 portrait; margin: 9mm 19mm 8mm 19mm; }
+    body { font-family: Helvetica, sans-serif; font-size: 8px; color: #1F2937; }
+    td { padding: 0; vertical-align: top; }
+    table.piece { width: 172mm; margin-bottom: 5mm; border: 0.3mm solid #9AA7BA; }
+    td.recto { width: 86mm; padding: 0; }
+    td.verso { width: 86mm; padding: 0; border-left: 0.35mm dashed #7C879B; }
+    table.demi { width: 86mm; }
+    td.tete { height: 13mm; padding: 1.5mm 3mm 0 3mm; vertical-align: middle; border-bottom: 0.5mm solid #0E5EA6; }
+    td.cellule-logo { width: 13mm; vertical-align: middle; }
     img.logo { width: 10mm; height: 10mm; }
-    td.photo { width: 24mm; height: 34mm; padding: 1.5mm; text-align: center; }
-    img.photo { width: 21mm; height: 28mm; border: 0.2mm solid #DEE1E6; }
-    div.sans-photo { width: 21mm; height: 28mm; border: 0.2mm solid #DEE1E6; background-color: #F3F4F7; }
-    td.infos { padding: 1.5mm 2mm; height: 34mm; font-size: 8.5px; line-height: 1.5; text-align: left; }
+    td.ecole { vertical-align: middle; }
+    span.ecole-nom { font-size: 10px; font-weight: bold; color: #0E5EA6; }
+    span.ville { font-size: 7px; color: #6B7280; }
+    td.cellule-photo { width: 25mm; height: 36mm; padding: 1.5mm 1.5mm 0 3mm; }
+    img.photo { width: 21mm; height: 27mm; border: 0.2mm solid #C9D0DC; }
+    table.sans-photo { width: 21mm; }
+    td.sans-photo { width: 21mm; height: 27mm; border: 0.2mm solid #C9D0DC; background-color: #F3F4F7; }
+    td.infos { padding: 1.5mm 3mm 0 1mm; line-height: 1.2; }
+    span.titre-carte { font-size: 9.5px; font-weight: bold; }
+    span.annee-badge { background-color: #0AA394; color: #FFFFFF; font-size: 8.5px; font-weight: bold; }
+    div.nom-eleve { margin-top: 1.5mm; margin-bottom: 0.5mm; }
+    span.info { font-size: 8.5px; }
     span.nom { font-size: 11px; font-weight: bold; }
-    span.etiquette { color: #55607A; }
-    td.pied { height: 7mm; padding: 1mm 2mm; background-color: #F3F4F7; font-size: 8px; color: #55607A; text-align: center; }
-    td.titre-verso { height: 10mm; padding: 1mm 2mm; background-color: #12203D; color: #FFFFFF; font-size: 10px; font-weight: bold; text-align: center; }
-    td.qr { width: 28mm; height: 36mm; padding: 2mm; text-align: center; }
-    img.qr { width: 24mm; height: 24mm; }
-    td.texte-verso { padding: 2mm; height: 36mm; font-size: 8px; line-height: 1.5; text-align: left; }
+    span.nom-long { font-size: 9px; font-weight: bold; }
+    div.signataire { text-align: right; font-size: 7.5px; }
+    span.fonction { font-weight: bold; }
+    img.signature { height: 4.5mm; }
+    td.matricule { padding: 0 3mm; height: 4.5mm; font-size: 7.5px; font-weight: bold; vertical-align: middle; }
+    td.bande { background-color: #0E5EA6; color: #FFFFFF; height: 5.5mm; font-size: 7.5px; text-align: center; vertical-align: middle; }
+    td.titre-verso { background-color: #0E5EA6; color: #FFFFFF; height: 8mm; font-size: 10px; font-weight: bold; text-align: center; vertical-align: middle; }
+    td.cellule-qr { width: 33mm; height: 41mm; padding: 2mm 1mm 0 3mm; text-align: center; }
+    img.qr { width: 23mm; height: 23mm; }
+    span.code { font-size: 8.5px; font-weight: bold; }
+    span.legende { font-size: 6px; color: #6B7280; }
+    td.texte-verso { padding: 2.5mm 3mm 0 1mm; font-size: 7.5px; line-height: 1.35; }
+    span.urgence { font-size: 8px; font-weight: bold; color: #0E5EA6; }
+    span.telephone { font-size: 9.5px; font-weight: bold; }
+    span.reglement { font-size: 6.5px; color: #6B7280; }
+    td.identite { padding: 0 3mm; height: 4.5mm; font-size: 7.5px; font-weight: bold; text-align: center; vertical-align: middle; }
     td.arabe { text-align: right; }
+    p.consigne { font-size: 7px; color: #6B7280; text-align: center; margin-top: 2mm; }
 </style>
+{% if arabe %}<style>
+    span.titre-carte { font-size: 11px; }
+    span.annee-badge { font-size: 10px; }
+    span.info { font-size: 10px; }
+    div.signataire { font-size: 9px; }
+    td.matricule { font-size: 9px; }
+    td.identite { font-size: 9px; }
+    span.legende { font-size: 7.5px; }
+    span.reglement { font-size: 7.5px; }
+    span.ville { font-size: 8.5px; }
+</style>{% endif %}
 </head>
 <body>
-{% for page in planches %}
-    <table class="planche">
-        {% for ligne in page.recto %}
-        <tr>
-            {% for carte in ligne %}
-            {% if not forloop.first %}<td class="espace"> </td>{% endif %}
-            <td class="case">
-                {% if carte %}
-                <div class="carte">
-                    <table class="bande">
-                        <tr>
-                            {% if logo %}<td class="bandeau-logo"><img src="{{ logo }}" class="logo"></td>{% endif %}
-                            <td class="bandeau">{{ etablissement.nom }}</td>
-                        </tr>
-                    </table>
-                    <table class="corps">
-                        <tr>
-                            <td class="photo">{% if carte.photo %}<img src="{{ carte.photo }}" class="photo">{% else %}<div class="sans-photo"> </div>{% endif %}</td>
-                            <td class="infos{% if arabe %} arabe{% endif %}">
-                                <span class="nom">{{ carte.eleve.nom }}</span><br>
-                                <span class="nom">{{ carte.eleve.prenom }}</span><br>
-                                <span class="etiquette">Classe :</span> {{ carte.classe.nom }}<br>
-                                {% if carte.eleve.date_naissance %}<span class="etiquette">Né(e) le :</span> {{ carte.eleve.date_naissance|date:"d/m/Y" }}<br>{% endif %}
-                                <span class="etiquette">Matricule :</span> {{ carte.eleve.matricule }}
-                            </td>
-                        </tr>
-                    </table>
-                    <table class="bas"><tr><td class="pied">Carte d'élève - Année scolaire {{ carte.annee.libelle }}</td></tr></table>
-                </div>
-                {% endif %}
-            </td>
-            {% endfor %}
-        </tr>
-        {% endfor %}
-    </table>
-
-    <pdf:nextpage />
-
-    <table class="planche">
-        {% for ligne in page.verso %}
-        <tr>
-            {% for carte in ligne %}
-            {% if not forloop.first %}<td class="espace"> </td>{% endif %}
-            <td class="case">
-                {% if carte %}
-                <div class="carte">
-                    <table class="bande"><tr><td class="titre-verso">{{ etablissement.nom }}</td></tr></table>
-                    <table class="corps">
-                        <tr>
-                            <td class="qr">{% if carte.qr %}<img src="{{ carte.qr }}" class="qr">{% endif %}</td>
-                            <td class="texte-verso{% if arabe %} arabe{% endif %}">
-                                <strong>Élève :</strong> {{ carte.eleve.prenom }} {{ carte.eleve.nom }}<br>
-                                {% if carte.eleve.contact_urgence_nom or carte.eleve.contact_urgence_telephone %}<strong>En cas d'urgence :</strong> {{ carte.eleve.contact_urgence_nom }} {{ carte.eleve.contact_urgence_telephone }}<br>{% endif %}
-                                Cette carte est strictement personnelle. En cas de perte ou de découverte, merci de la rapporter à l'établissement.<br>
-                                Scannez le QR code pour vérifier cette carte.
-                            </td>
-                        </tr>
-                    </table>
-                    <table class="bas"><tr><td class="pied">Valable pour l'année scolaire {{ carte.annee.libelle }}</td></tr></table>
-                </div>
-                {% endif %}
-            </td>
-            {% endfor %}
-        </tr>
-        {% endfor %}
-    </table>
+{% for page in pages %}
+    {% for carte in page %}
+    <table class="piece"><tr>
+        <td class="recto">
+            <table class="demi">
+                <tr><td class="tete{% if arabe %} arabe{% endif %}">
+                    <table><tr>
+                        {% if logo %}<td class="cellule-logo"><img src="{{ logo }}" class="logo"></td>{% endif %}
+                        <td class="ecole"><span class="ecole-nom">{{ etablissement.nom }}</span>{% if ville %}<br><span class="ville">{{ ville }}</span>{% endif %}</td>
+                    </tr></table>
+                </td></tr>
+                <tr><td>
+                    <table><tr>
+                        <td class="cellule-photo">{% if carte.photo %}<img src="{{ carte.photo }}" class="photo">{% else %}<table class="sans-photo"><tr><td class="sans-photo"> </td></tr></table>{% endif %}</td>
+                        <td class="infos{% if arabe %} arabe{% endif %}">
+                            <span class="titre-carte">CARTE D'ÉLÈVE</span> &nbsp;&nbsp;<span class="annee-badge">&nbsp;{{ carte.annee.libelle }}&nbsp;</span><br>
+                            <div class="nom-eleve"><span class="{% if carte.nom_long %}nom-long{% else %}nom{% endif %}">{{ carte.eleve.nom }}</span> <span class="{% if carte.nom_long %}nom-long{% else %}nom{% endif %}">{{ carte.eleve.prenom }}</span></div>
+                            {% if carte.eleve.date_naissance %}<span class="info"><span>{% if carte.eleve.sexe == "F" %}Née le{% elif carte.eleve.sexe == "M" %}Né le{% else %}Né(e) le{% endif %}</span> {{ carte.eleve.date_naissance|date:"d/m/Y" }}{% if carte.eleve.lieu_naissance %} <span>à</span> {{ carte.eleve.lieu_naissance }}{% endif %}</span><br>{% endif %}
+                            <span class="info"><span>Classe :</span> {{ carte.classe.nom }}</span>
+                            {% if etablissement.nom_signataire or etablissement.fonction_signataire %}
+                            <div class="signataire">
+                                <span class="fonction">{% if etablissement.fonction_signataire %}{{ etablissement.fonction_signataire }}{% else %}Le Directeur{% endif %}</span><br>
+                                {% if signature %}<img src="{{ signature }}" class="signature"><br>{% endif %}
+                                {{ etablissement.nom_signataire }}
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr></table>
+                </td></tr>
+                <tr><td class="matricule{% if arabe %} arabe{% endif %}"><span>Mat :</span> {{ carte.eleve.matricule }}</td></tr>
+                <tr><td class="bande">{% if etablissement.devise %}{{ etablissement.devise }}{% else %}Carte d'élève{% endif %}</td></tr>
+            </table>
+        </td>
+        <td class="verso">
+            <table class="demi">
+                <tr><td class="titre-verso">{{ etablissement.nom }}</td></tr>
+                <tr><td>
+                    <table><tr>
+                        <td class="cellule-qr">{% if carte.qr %}<img src="{{ carte.qr }}" class="qr"><br>{% endif %}<span class="code" translate="no" dir="ltr">{{ carte.code }}</span><br><span class="legende">Vérifier cette carte sur</span><br><span class="legende" translate="no" dir="ltr">{{ adresse_verification }}</span></td>
+                        <td class="texte-verso{% if arabe %} arabe{% endif %}">
+                            {% if carte.eleve.contact_urgence_nom or carte.eleve.contact_urgence_telephone %}
+                            <span class="urgence">En cas d'urgence, prévenir :</span><br>
+                            {% if carte.eleve.contact_urgence_nom %}{{ carte.eleve.contact_urgence_nom }}<br>{% endif %}
+                            {% if carte.eleve.contact_urgence_telephone %}<span class="telephone">{{ carte.eleve.contact_urgence_telephone }}</span><br>{% endif %}
+                            <br>
+                            {% endif %}
+                            <span class="reglement">Cette carte est strictement personnelle. Elle doit être présentée à toute demande. En cas de perte, merci de la rapporter à l'école</span>{% if ville %} <span class="reglement">(</span><span class="reglement">{{ ville }}</span><span class="reglement">)</span>{% endif %}<span class="reglement">.</span>
+                        </td>
+                    </tr></table>
+                </td></tr>
+                <tr><td class="identite">{{ carte.eleve.nom }} {{ carte.eleve.prenom }} - {{ carte.eleve.matricule }}</td></tr>
+                <tr><td class="bande">Valable pour l'année scolaire {{ carte.annee.libelle }}</td></tr>
+            </table>
+        </td>
+    </tr></table>
+    {% endfor %}
+    <p class="consigne">Imprimer à 100 % (sans « ajuster à la page »). Découper le recto et le verso d'un seul tenant, plier sur le trait en pointillé, puis plastifier.</p>
     {% if not forloop.last %}<pdf:nextpage />{% endif %}
 {% endfor %}
 </body>

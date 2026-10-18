@@ -1,0 +1,33 @@
+{% extends "base_auth.html" %}
+{% block titre %}Vérifier un document{% endblock %}
+{% block auth_titre %}Vérifier un document{% endblock %}
+{% block auth_sous_titre %}Saisissez le code imprimé sous le QR code de la carte.{% endblock %}
+{% block contenu %}
+{% if resultat %}
+<div class="alert alert-success" role="status"><strong>Document authentique.</strong> Il a bien été émis par la plateforme.</div>
+<dl class="row mb-3">
+    <dt class="col-5">Document</dt><dd class="col-7">{{ resultat.type_document }}</dd>
+    <dt class="col-5">Élève</dt><dd class="col-7" translate="no">{{ resultat.eleve }}</dd>
+    <dt class="col-5">Matricule</dt><dd class="col-7" translate="no">{{ resultat.matricule }}</dd>
+    <dt class="col-5">Classe</dt><dd class="col-7" translate="no">{{ resultat.classe.nom }}</dd>
+    <dt class="col-5">Année scolaire</dt><dd class="col-7">{{ resultat.classe.annee_scolaire.libelle }}</dd>
+    <dt class="col-5">École</dt><dd class="col-7">{{ resultat.etablissement }}</dd>
+    <dt class="col-5">Émis le</dt><dd class="col-7">{{ resultat.emis_le|date:"d/m/Y" }}</dd>
+    <dt class="col-5">Code</dt><dd class="col-7" translate="no" dir="ltr">{{ resultat.code }}</dd>
+</dl>
+<p class="small text-muted">Comparez ces informations avec la carte ou le document que vous avez en main.</p>
+{% elif refus == "limite" %}
+<div class="alert alert-danger" role="alert">Trop de tentatives. Réessayez dans une minute.</div>
+{% elif refus == "inconnu" %}
+<div class="alert alert-danger" role="alert"><strong>Code inconnu.</strong> Aucun document ne correspond à ce code : vérifiez que vous l'avez bien recopié, ou contactez l'école.</div>
+{% endif %}
+<form method="post" novalidate>
+    {% csrf_token %}
+    <div class="mb-3">
+        <label class="form-label" for="code">Code de vérification</label>
+        <input type="text" name="code" id="code" value="{{ code_saisi }}" maxlength="40" class="form-control" autocomplete="off" autocapitalize="characters" spellcheck="false" dir="ltr" required>
+        <div class="form-text">Le code compte douze lettres et chiffres. Majuscules ou minuscules, avec ou sans tirets. Exemple : <span translate="no" dir="ltr">A2B3-C4D5-E6F7</span></div>
+    </div>
+    <button type="submit" class="btn btn-primary w-100">Vérifier</button>
+</form>
+{% endblock %}

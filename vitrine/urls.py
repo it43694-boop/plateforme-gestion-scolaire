@@ -1,5 +1,6 @@
 from django.urls import path
 
+from scolarite import views_verification
 from vitrine import views
 
 app_name = "vitrine"
@@ -10,4 +11,5 @@ urlpatterns = [
     path("mentions-legales/", views.mentions_legales, name="mentions_legales"),
     path("conditions-d-utilisation/", views.conditions_utilisation, name="conditions"),
     path("confidentialite/", views.confidentialite, name="confidentialite"),
+    path("verifier/", views_verification.verifier, name="verifier"),
 ]

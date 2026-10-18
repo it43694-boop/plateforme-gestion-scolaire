@@ -1,19 +1,17 @@
 """
-Cartes d'élève : données d'une planche A4 de 8 cartes (2 colonnes, 4 lignes), recto puis verso.
-
-Au verso, les deux cartes de chaque ligne sont permutées : une fois la feuille retournée sur son grand côté, le verso d'une carte tombe
-exactement derrière son recto. Chaque carte porte un QR code qui ouvre la page publique de vérification (`scolarite.views.verifier_document`).
+Cartes d'élève : chaque carte est une pièce d'un seul tenant, le recto à gauche et le verso à droite, que l'on découpe, plie sur le trait en
+pointillé et plastifie. Quatre pièces par feuille A4. Chaque carte porte un QR code et un code court (XXXX-XXXX-XXXX) qui mènent à la page
+publique « Vérifier un document » (`scolarite.views_verification`) ; les anciennes cartes, dont le QR code ouvre `scolarite.views.verifier_document`,
+continuent de fonctionner.
 """
 import base64
 from io import BytesIO
 
 from scolarite.documents import logo_en_donnees  # noqa: F401 (réexporté : les cartes et les documents lisent le logo de la même façon)
-from scolarite.models import Inscription, TypeDocumentVerifiable, VerificationDocument
+from scolarite.models import Inscription, TypeDocumentVerifiable, VerificationDocument, nouveau_code_verification
 from scolarite.photos import photo_en_donnees
 
-CARTES_PAR_LIGNE = 2
-LIGNES_PAR_PAGE = 4
-CARTES_PAR_PAGE = CARTES_PAR_LIGNE * LIGNES_PAR_PAGE
+CARTES_PAR_PAGE = 4
 
 
 def qr_en_donnees(adresse: str) -> str:
@@ -27,15 +25,23 @@ def qr_en_donnees(adresse: str) -> str:
 
 
 def _verifications(inscriptions):
-    """Un jeton de vérification par carte : celui qui existe déjà, sinon un nouveau (créés en une seule requête)."""
+    """Une vérification (jeton et code court) par carte : celle qui existe déjà, sinon une nouvelle (créées en une seule requête)."""
     existantes = {
         verification.inscription_id: verification
         for verification in VerificationDocument.objects.filter(
             type_document=TypeDocumentVerifiable.CARTE_ELEVE, inscription__in=inscriptions, actif=True,
         )
     }
+    # Une carte imprimée avant l'arrivée du code court en reçoit un maintenant : son QR code, lui, ne change pas.
+    sans_code = [verification for verification in existantes.values() if not verification.code]
+    for verification in sans_code:
+        verification.code = nouveau_code_verification()
+    if sans_code:
+        VerificationDocument.objects.bulk_update(sans_code, ["code"])
     manquantes = [
-        VerificationDocument(type_document=TypeDocumentVerifiable.CARTE_ELEVE, eleve=inscription.eleve, inscription=inscription)
+        VerificationDocument(
+            type_document=TypeDocumentVerifiable.CARTE_ELEVE, eleve=inscription.eleve, inscription=inscription, code=nouveau_code_verification(),
+        )
         for inscription in inscriptions if inscription.pk not in existantes
     ]
     for verification in VerificationDocument.objects.bulk_create(manquantes):
@@ -45,7 +51,7 @@ def _verifications(inscriptions):
 
 def construire_cartes(inscriptions, adresse_de_verification) -> list[dict]:
     """
-    Les cartes (dictionnaires prêts pour le gabarit) des inscriptions en cours données. `adresse_de_verification(jeton)` rend l'adresse
+    Les cartes (dictionnaires prêts pour le gabarit) des inscriptions en cours données. `adresse_de_verification(code)` rend l'adresse
     complète que le QR code ouvre.
     """
     inscriptions = [i for i in inscriptions if i.statut == Inscription.Statut.EN_COURS]
@@ -53,20 +59,15 @@ def construire_cartes(inscriptions, adresse_de_verification) -> list[dict]:
     cartes = []
     for inscription in inscriptions:
         eleve = inscription.eleve
+        code = verifications[inscription.pk].code
         cartes.append({
             "eleve": eleve, "inscription": inscription, "classe": inscription.classe, "annee": inscription.classe.annee_scolaire,
-            "photo": photo_en_donnees(eleve),
-            "qr": qr_en_donnees(adresse_de_verification(verifications[inscription.pk].jeton)),
+            "photo": photo_en_donnees(eleve), "code": code, "qr": qr_en_donnees(adresse_de_verification(code)),
+            "nom_long": len(eleve.nom) + len(eleve.prenom) > 24,  # un nom très long s'écrit plus petit plutôt que de passer sur deux lignes
         })
     return cartes
 
 
-def planches(cartes: list[dict]) -> list[dict]:
-    """Les cartes rangées en pages de 8 : {"recto": [[carte, carte], ...], "verso": [[carte, carte], ...]} (verso permuté ligne par ligne)."""
-    pages = []
-    for debut in range(0, len(cartes), CARTES_PAR_PAGE):
-        lot = cartes[debut:debut + CARTES_PAR_PAGE]
-        lignes = [lot[i:i + CARTES_PAR_LIGNE] for i in range(0, len(lot), CARTES_PAR_LIGNE)]
-        lignes = [ligne + [None] * (CARTES_PAR_LIGNE - len(ligne)) for ligne in lignes]
-        pages.append({"recto": lignes, "verso": [list(reversed(ligne)) for ligne in lignes]})
-    return pages
+def pages(cartes: list[dict]) -> list[list[dict]]:
+    """Les cartes rangées en feuilles de quatre pièces."""
+    return [cartes[debut:debut + CARTES_PAR_PAGE] for debut in range(0, len(cartes), CARTES_PAR_PAGE)]

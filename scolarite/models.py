@@ -1,3 +1,5 @@
+import re
+import secrets
 import uuid
 
 from django.core.exceptions import ValidationError
@@ -701,6 +703,24 @@ class TypeDocumentVerifiable(models.TextChoices):
     CERTIFICAT_RADIATION = "certificat_radiation", "Certificat de radiation"
 
 
+# Sans I, O, 0 ni 1 : un code recopié à la main depuis une carte imprimée ne se confond pas avec un autre.
+ALPHABET_CODE_VERIFICATION = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def nouveau_code_verification() -> str:
+    """Un code court qui se recopie à la main, de la forme XXXX-XXXX-XXXX (douze signes sur trente-deux : environ 60 bits, impossible à deviner)."""
+    signes = "".join(secrets.choice(ALPHABET_CODE_VERIFICATION) for _ in range(12))
+    return "-".join(signes[debut:debut + 4] for debut in (0, 4, 8))
+
+
+def normaliser_code_verification(texte) -> str:
+    """Le code tel qu'il est enregistré, depuis ce que la personne a tapé (minuscules, espaces ou tirets en trop) ; vide si ce n'est pas un code."""
+    signes = re.sub(r"[^A-Z0-9]", "", (texte or "").upper())
+    if len(signes) != 12 or any(signe not in ALPHABET_CODE_VERIFICATION for signe in signes):
+        return ""
+    return "-".join(signes[debut:debut + 4] for debut in (0, 4, 8))
+
+
 class VerificationDocument(models.Model):
     """
     Jeton de vérification publique pour un document officiel généré par la
@@ -722,6 +742,11 @@ class VerificationDocument(models.Model):
         "numéro du document", max_length=40, blank=True,
         help_text="Numéro d'ordre des documents officiels (exemple : 003/CSE/CERT/2026), attribué à la première émission.",
     )
+    code = models.CharField(
+        "code court", max_length=14, unique=True, null=True, blank=True, editable=False,
+        help_text="Code imprimé sous le QR code (XXXX-XXXX-XXXX) : il se tape sur la page « Vérifier une carte » quand on ne peut pas scanner. "
+                  "Vide pour les documents émis avant son introduction.",
+    )
     cree_le = models.DateTimeField(auto_now_add=True)
     actif = models.BooleanField(default=True)
 
@@ -729,6 +754,11 @@ class VerificationDocument(models.Model):
         verbose_name = "document vérifiable"
         verbose_name_plural = "documents vérifiables"
         ordering = ["-cree_le"]
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = nouveau_code_verification()
+        super().save(*args, **kwargs)
 
 
 # ---------------------------------------------------------------------------
