@@ -399,3 +399,36 @@ class FactureAbonnement(models.Model):
     @property
     def jours_de_retard(self) -> int:
         return (timezone.localdate() - self.date_echeance).days if self.en_retard else 0
+
+
+class TarifCycle(models.Model):
+    """
+    Ce que le propriétaire de la plateforme facture à une école pour un cycle : un montant par élève et par an, ou un forfait par an pour le cycle
+    (le choix dépend de l'école). Sert à proposer le montant d'une facture d'après les effectifs (espace_plateforme.effectifs) ; le propriétaire
+    garde la main sur le montant qu'il émet.
+    """
+
+    class Mode(models.TextChoices):
+        PAR_ELEVE = "par_eleve", "Par élève et par an"
+        FORFAIT = "forfait", "Forfait par an"
+
+    etablissement = models.ForeignKey(Etablissement, on_delete=models.CASCADE, related_name="tarifs_cycle")
+    cycle = models.CharField(max_length=20, help_text="Un cycle de scolarite.models.Cycle (préscolaire, 1er cycle, 2ème cycle, lycée, professionnel).")
+    mode = models.CharField(max_length=10, choices=Mode.choices)
+    montant = models.PositiveIntegerField("montant (FCFA)", validators=[MinValueValidator(1), MaxValueValidator(2_000_000_000)])
+
+    class Meta:
+        verbose_name = "tarif par cycle"
+        verbose_name_plural = "tarifs par cycle"
+        ordering = ["etablissement", "cycle"]
+        constraints = [models.UniqueConstraint(fields=["etablissement", "cycle"], name="un_tarif_par_cycle_et_par_ecole")]
+
+    def __str__(self):
+        return f"{self.etablissement} - {self.cycle} : {self.montant} ({self.get_mode_display()})"
+
+    def clean(self):
+        super().clean()
+        from scolarite.models import Cycle
+
+        if self.cycle not in Cycle.values:
+            raise ValidationError({"cycle": "Cycle inconnu."})

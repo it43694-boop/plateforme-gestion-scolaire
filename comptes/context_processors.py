@@ -85,6 +85,7 @@ ICONES_DES_LIENS = {
     "espace_developpeur:journal_audit": "oeil",
     "espace_plateforme:liste_etablissements": "accueil",
     "espace_plateforme:abonnements": "carte",
+    "espace_plateforme:effectifs": "classes",
 }
 
 
@@ -131,6 +132,7 @@ def navigation(request):
                 }]},
                 {"titre": "Plateforme", "icone": "plateforme", "liens": [
                     {"label": "Établissements", "url": "espace_plateforme:liste_etablissements"},
+                    {"label": "Effectifs par cycle", "url": "espace_plateforme:effectifs"},
                     {"label": "Abonnements", "url": "espace_plateforme:abonnements"},
                 ]},
             ], non_lues),
@@ -250,6 +252,7 @@ def navigation(request):
             "icone": "plateforme",
             "liens": [
                 {"label": "Établissements", "url": "espace_plateforme:liste_etablissements"},
+                {"label": "Effectifs par cycle", "url": "espace_plateforme:effectifs"},
                 {"label": "Abonnements", "url": "espace_plateforme:abonnements"},
             ],
         })

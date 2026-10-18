@@ -51,7 +51,7 @@ class IconesDuMenuTests(EducationBase):
         reponse = self.client.get(reverse("espace_plateforme:liste_etablissements"))
         liens = [lien for section in reponse.context["sections_navigation"] for lien in section["liens"]]
         self.assertEqual({lien["url"] for lien in liens}, {
-            "comptes:liste_notifications", "espace_plateforme:liste_etablissements", "espace_plateforme:abonnements",
+            "comptes:liste_notifications", "espace_plateforme:liste_etablissements", "espace_plateforme:effectifs", "espace_plateforme:abonnements",
         })
         self.assertTrue(all(lien["icone"] in _TRACES and lien["icone"] != "point" for lien in liens))
 

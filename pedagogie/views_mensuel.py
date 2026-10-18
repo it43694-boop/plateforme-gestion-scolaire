@@ -166,7 +166,8 @@ def grille(request, classe_id, annee, mois):
             raise PermissionDenied("Vous ne remplissez pas les notes de cette classe.")
         saisies, observations = {}, {}
         for ligne in resultat.lignes:
-            observations[ligne.eleve.pk] = request.POST.get(f"o_{ligne.eleve.pk}", "")
+            if f"o_{ligne.eleve.pk}" in request.POST:  # une observation absente de l'envoi n'est pas touchée (comme une note) ; présente et vide, elle s'efface
+                observations[ligne.eleve.pk] = request.POST[f"o_{ligne.eleve.pk}"]
             for discipline in resultat.disciplines:
                 nom = f"n_{ligne.eleve.pk}_{discipline.pk}"
                 if nom in request.POST:

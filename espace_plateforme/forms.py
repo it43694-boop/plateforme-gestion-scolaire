@@ -70,6 +70,56 @@ class EmettreFactureForm(BootstrapFormMixin, forms.Form):
     )
 
 
+class TarifsCycleForm(BootstrapFormMixin, forms.Form):
+    """Le tarif de chaque cycle pour UNE école : par élève et par an, ou au forfait par an. Un cycle sans mode ni montant n'a pas de tarif."""
+
+    def __init__(self, *args, etablissement, **kwargs):
+        from etablissement.models import TarifCycle
+        from scolarite.models import Cycle
+
+        super().__init__(*args, **kwargs)
+        self.etablissement = etablissement
+        self.cycles = list(Cycle.choices)
+        existants = {tarif.cycle: tarif for tarif in TarifCycle.objects.filter(etablissement=etablissement)}
+        for cycle, libelle in self.cycles:
+            tarif = existants.get(cycle)
+            self.fields[f"mode_{cycle}"] = forms.ChoiceField(
+                label="Mode de facturation", required=False, choices=[("", "Pas de tarif")] + list(TarifCycle.Mode.choices),
+                initial=tarif.mode if tarif else "", widget=forms.Select(attrs={"aria-label": "Mode de facturation"}),
+            )
+            self.fields[f"montant_{cycle}"] = forms.IntegerField(
+                label="Montant (FCFA)", required=False, min_value=1, max_value=2_000_000_000, initial=tarif.montant if tarif else None,
+                widget=forms.NumberInput(attrs={"aria-label": "Montant (FCFA)"}),
+            )
+
+    def lignes(self):
+        """Pour la page : (libellé du cycle, champ du mode, champ du montant) pour chaque cycle."""
+        return [(libelle, self[f"mode_{cycle}"], self[f"montant_{cycle}"]) for cycle, libelle in self.cycles]
+
+    def clean(self):
+        donnees = super().clean()
+        for cycle, _ in self.cycles:
+            mode, montant = donnees.get(f"mode_{cycle}"), donnees.get(f"montant_{cycle}")
+            if mode and not montant:
+                self.add_error(f"montant_{cycle}", "Indiquez le montant.")
+            elif montant and not mode:
+                self.add_error(f"mode_{cycle}", "Choisissez le mode de facturation.")
+        return donnees
+
+    def enregistrer(self) -> dict:
+        from etablissement.models import TarifCycle
+
+        resume = {"enregistres": 0, "supprimes": 0}
+        for cycle, _ in self.cycles:
+            mode, montant = self.cleaned_data.get(f"mode_{cycle}"), self.cleaned_data.get(f"montant_{cycle}")
+            if mode and montant:
+                TarifCycle.objects.update_or_create(etablissement=self.etablissement, cycle=cycle, defaults={"mode": mode, "montant": montant})
+                resume["enregistres"] += 1
+            else:
+                resume["supprimes"] += TarifCycle.objects.filter(etablissement=self.etablissement, cycle=cycle).delete()[0]
+        return resume
+
+
 class ReglementFactureForm(BootstrapFormMixin, forms.Form):
     date_paiement = forms.DateField(
         label="Date du règlement", widget=forms.DateInput(attrs={"type": "date"}), initial=timezone.localdate,

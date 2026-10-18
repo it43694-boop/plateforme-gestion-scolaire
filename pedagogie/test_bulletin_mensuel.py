@@ -478,6 +478,21 @@ class ParcoursDuMaitreTests(MensuelBase):
         self.assertEqual((ligne["total"], ligne["moyenne"], ligne["rang"], ligne["observation"]), (D2("17"), D2("8.5"), 1, "Bon travail"))
         self.assertTrue(JournalAudit.objects.filter(action="saisie_notes_mensuelles", acteur=self.t1).exists())
 
+    def test_un_envoi_sans_champ_d_observation_ne_touche_pas_aux_observations(self):
+        """Seules les observations présentes dans l'envoi changent : un envoi partiel (autre outil, page incomplète) n'efface rien."""
+        ObservationMensuelle.objects.create(eleve=self.e1, classe=self.c6a, mois=OCT, observation="A garder")
+        reponse = self.client.post(self.adresse, self.donnees({(self.e2, "Dictée"): "8"}))  # aucun champ « o_ »
+        self.assertRedirects(reponse, self.adresse, fetch_redirect_response=False)
+        self.assertEqual(ObservationMensuelle.objects.get(eleve=self.e1, classe=self.c6a, mois=OCT).observation, "A garder")
+        self.assertEqual(NoteMensuelle.objects.count(), 1)
+
+    def test_une_observation_videe_dans_la_page_est_effacee(self):
+        ObservationMensuelle.objects.create(eleve=self.e1, classe=self.c6a, mois=OCT, observation="A effacer")
+        ObservationMensuelle.objects.create(eleve=self.e2, classe=self.c6a, mois=OCT, observation="A garder")
+        self.client.post(self.adresse, {f"o_{self.e1.pk}": ""})  # le champ est présent mais vide : la personne a effacé le texte
+        self.assertFalse(ObservationMensuelle.objects.filter(eleve=self.e1, classe=self.c6a, mois=OCT).exists())
+        self.assertEqual(ObservationMensuelle.objects.get(eleve=self.e2, classe=self.c6a, mois=OCT).observation, "A garder")
+
     def test_une_note_fausse_affiche_l_erreur_garde_la_saisie_et_n_enregistre_rien(self):
         reponse = self.client.post(self.adresse, self.donnees({(self.e1, "Dictée"): "9", (self.e2, "Dictée"): "12", (self.e3, "Lecture"): "abc"}))
         self.assertEqual(reponse.status_code, 200)

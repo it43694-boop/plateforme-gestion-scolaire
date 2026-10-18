@@ -1,3 +1,5 @@
+import datetime
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test
@@ -8,6 +10,7 @@ from django.utils import timezone
 from django.db.models import Count
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from comptes.audit import enregistrer_action
@@ -16,7 +19,7 @@ from comptes.roles import Role, StatutCompte
 from espace_developpeur.forms import ParametresEtablissementForm
 from espace_plateforme.forms import (
     ROLES_DIRECTION, CreerCompteDirectionForm, CreerEtablissementForm, EmettreFactureForm, ModifierPlanEtablissementForm,
-    ReglementFactureForm,
+    ReglementFactureForm, TarifsCycleForm,
 )
 from etablissement.abonnements import (
     alertes_factures, annuler_facture, emettre_facture, enregistrer_reglement, synthese_abonnements,
@@ -328,6 +331,16 @@ def emettre_facture_vue(request):
     pre_ecole = request.GET.get("etablissement", "")
     if pre_ecole.isdigit():
         initial["etablissement"] = pre_ecole
+    # Un lien de la page « Effectifs par cycle » préremplit le montant calculé, la période (l'année scolaire) et le libellé : tout reste modifiable.
+    if request.GET.get("montant", "").isdigit():
+        initial["montant"] = request.GET["montant"]
+    for champ in ("periode_debut", "periode_fin"):
+        try:
+            initial[champ] = datetime.date.fromisoformat(request.GET.get(champ, ""))
+        except ValueError:
+            pass
+    if request.GET.get("libelle"):
+        initial["libelle"] = request.GET["libelle"][:200]
     formulaire = EmettreFactureForm(request.POST or None, initial=initial)
     if request.method == "POST" and formulaire.is_valid():
         donnees = formulaire.cleaned_data
@@ -465,3 +478,78 @@ def exporter_factures_xlsx(request):
     )
     enregistrer_action(acteur=request.user, action="export_factures_abonnement", cible="factures", request=request)
     return reponse_xlsx(classeur, "factures_abonnement", request=request)
+
+
+
+@est_proprietaire_plateforme
+def effectifs_par_cycle(request):
+    """Combien d'élèves et de membres du personnel chaque école a, par cycle : la base de la facturation par cycle. Des nombres, jamais des noms."""
+    from espace_plateforme.effectifs import effectifs_de_toutes_les_ecoles, total_par_cycle
+
+    from urllib.parse import urlencode
+
+    ecoles = effectifs_de_toutes_les_ecoles(Etablissement.objects.order_by("nom"))
+    for ecole in ecoles:
+        ecole.lien_facture = ""
+        if ecole.montant_estime > 0:
+            parametres = {"etablissement": ecole.etablissement.pk, "montant": ecole.montant_estime}
+            if ecole.annee:
+                parametres.update({
+                    "periode_debut": ecole.annee.date_debut.isoformat(), "periode_fin": ecole.annee.date_fin.isoformat(),
+                    "libelle": f"Abonnement {ecole.annee.libelle} - effectifs par cycle",
+                })
+            ecole.lien_facture = reverse("espace_plateforme:emettre_facture") + "?" + urlencode(parametres)
+    return render(request, "espace_plateforme/effectifs.html", {
+        "ecoles": ecoles, "totaux": total_par_cycle(ecoles), "total_sans_cycle": sum(ecole.sans_cycle for ecole in ecoles),
+        "total_general": sum(ecole.total for ecole in ecoles), "total_montant": sum(ecole.montant_estime for ecole in ecoles),
+        "avec_tarifs": any(ecole.a_des_tarifs for ecole in ecoles),
+    })
+
+
+@est_proprietaire_plateforme
+@require_http_methods(["GET", "POST"])
+def tarifs_cycle(request, etablissement_id):
+    """Le tarif de chaque cycle pour une école (par élève et par an, ou forfait par an) : la base du montant proposé pour ses factures."""
+    from espace_plateforme.effectifs import effectifs_de_l_ecole
+
+    etablissement = get_object_or_404(Etablissement, id=etablissement_id)
+    formulaire = TarifsCycleForm(request.POST or None, etablissement=etablissement)
+    if request.method == "POST" and formulaire.is_valid():
+        resume = formulaire.enregistrer()
+        enregistrer_action(acteur=request.user, action="tarifs_cycle", cible=etablissement.nom, details=resume, request=request)
+        messages.success(request, f"Tarifs de « {etablissement.nom} » enregistrés.")
+        return redirect("espace_plateforme:effectifs")
+    effectifs = effectifs_de_l_ecole(etablissement)
+    lignes = [(ligne, champ_mode, champ_montant) for ligne, (_, champ_mode, champ_montant) in zip(effectifs.lignes, formulaire.lignes())]  # mêmes cycles, même ordre
+    return render(request, "espace_plateforme/tarifs_cycle.html", {"formulaire": formulaire, "etablissement": etablissement, "effectifs": effectifs, "lignes": lignes})
+
+
+@est_proprietaire_plateforme
+def exporter_effectifs_xlsx(request):
+    from comptes.excel import ajouter_feuille_tableau, nouveau_classeur, reponse_xlsx
+    from espace_plateforme.effectifs import effectifs_de_toutes_les_ecoles
+
+    ecoles = effectifs_de_toutes_les_ecoles(Etablissement.objects.order_by("nom"))
+    lignes = []
+    for ecole in ecoles:
+        annee = ecole.annee.libelle if ecole.annee else "Aucune année active"
+        statut = "Active" if ecole.etablissement.actif else "Suspendue"
+        for ligne in ecole.lignes_utiles:
+            lignes.append([
+                ecole.etablissement.nom, annee, statut, ecole.etablissement.get_plan_display(), ligne.libelle,
+                "Oui" if ligne.dans_la_formule else "Non", ligne.eleves, ligne.enseignants, ligne.direction, ligne.total,
+                ligne.tarif.get_mode_display() if ligne.tarif else "", ligne.tarif.montant if ligne.tarif else "", ligne.montant_estime if ligne.tarif else "",
+            ])
+        lignes.append([
+            ecole.etablissement.nom, annee, statut, ecole.etablissement.get_plan_display(), "Sans cycle (administration et services)", "", "", "", "", ecole.sans_cycle,
+            "", "", "",
+        ])
+    classeur = nouveau_classeur()
+    ajouter_feuille_tableau(
+        classeur, "Effectifs", "Effectifs par cycle", [("Édité le", timezone.localdate())],
+        ["École", "Année scolaire", "Statut de l'école", "Formule", "Cycle", "Dans la formule", "Élèves", "Enseignants", "Direction du cycle", "Total",
+         "Mode de facturation", "Tarif (FCFA)", "Montant annuel estimé (FCFA)"],
+        lignes, total=["Total", "", "", "", "", "", "", "", "", sum(ecole.total for ecole in ecoles), "", "", sum(ecole.montant_estime for ecole in ecoles)],
+    )
+    enregistrer_action(acteur=request.user, action="export_effectifs_par_cycle", cible="effectifs", request=request)
+    return reponse_xlsx(classeur, "effectifs_par_cycle", request=request)

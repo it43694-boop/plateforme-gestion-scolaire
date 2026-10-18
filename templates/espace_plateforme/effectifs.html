@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load montants %}
+{% block titre %}Effectifs par cycle{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Effectifs par cycle</h1>
+        <p>Les élèves inscrits et le personnel de chaque école, cycle par cycle, pour son année scolaire en cours. Les parents d'élèves ne sont pas comptés. Seuls des nombres sont affichés, jamais un nom.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'espace_plateforme:exporter_effectifs_xlsx' %}" class="btn btn-outline-secondary btn-sm" data-telechargement>Exporter en Excel</a>
+        <a href="{% url 'espace_plateforme:liste_etablissements' %}" class="btn btn-outline-secondary btn-sm">Établissements</a>
+    </div>
+</div>
+
+<div class="card mb-3"><div class="card-body">
+    <p class="titre-section">Toutes les écoles</p>
+    <div class="table-responsive">
+        <table class="table table-large">
+            <thead><tr><th>Cycle</th><th class="text-end">Élèves</th><th class="text-end">Enseignants</th><th class="text-end">Direction du cycle</th><th class="text-end">Total</th>{% if avec_tarifs %}<th class="text-end">Montant annuel estimé</th>{% endif %}</tr></thead>
+            <tbody>
+                {% for ligne in totaux %}
+                <tr>
+                    <td><strong>{{ ligne.libelle }}</strong></td>
+                    <td class="text-end montant-val">{{ ligne.eleves }}</td>
+                    <td class="text-end montant-val">{{ ligne.enseignants }}</td>
+                    <td class="text-end montant-val">{{ ligne.direction }}</td>
+                    <td class="text-end montant-val"><strong>{{ ligne.total }}</strong></td>
+                    {% if avec_tarifs %}<td class="text-end montant-val">{{ ligne.montant_cumule|montant }} FCFA</td>{% endif %}
+                </tr>
+                {% endfor %}
+                <tr>
+                    <td>Sans cycle (administration et services)</td>
+                    <td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td>
+                    <td class="text-end montant-val"><strong>{{ total_sans_cycle }}</strong></td>
+                    {% if avec_tarifs %}<td class="text-end">-</td>{% endif %}
+                </tr>
+            </tbody>
+            <tfoot><tr><th>Total</th><th></th><th></th><th></th><th class="text-end montant-val">{{ total_general }}</th>{% if avec_tarifs %}<th class="text-end montant-val">{{ total_montant|montant }} FCFA</th>{% endif %}</tr></tfoot>
+        </table>
+    </div>
+    <p class="text-muted small mb-0">Un enseignant qui enseigne dans deux cycles est compté dans chacun. Seuls les comptes actifs sont comptés.{% if not avec_tarifs %} Aucun tarif n'est encore saisi : ouvrez « Tarifs » sur une école pour calculer le montant de sa facture.{% endif %}</p>
+</div></div>
+
+{% for ecole in ecoles %}
+<div class="card mb-3"><div class="card-body">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+        <div>
+            <h2 class="h5 mb-1">{{ ecole.etablissement.nom }}{% if not ecole.etablissement.actif %} <span class="badge bg-secondary">Suspendue</span>{% endif %}</h2>
+            <p class="text-muted small mb-0"><span>Formule :</span> {{ ecole.etablissement.get_plan_display }}{% if ecole.etablissement.inclut_professionnel %} + <span>Professionnel</span>{% endif %}{% if ecole.etablissement.inclut_prescolaire %} + <span>Préscolaire</span>{% endif %}
+                {% if ecole.annee %} - <span>Année scolaire</span> {{ ecole.annee.libelle }}{% endif %}</p>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if ecole.a_regulariser %}<span class="badge bg-warning text-dark">Des comptes hors formule</span>{% endif %}
+            <a href="{% url 'espace_plateforme:tarifs_cycle' ecole.etablissement.pk %}" class="btn btn-outline-secondary btn-sm">Tarifs</a>
+            {% if ecole.lien_facture %}<a href="{{ ecole.lien_facture }}" class="btn btn-primary btn-sm">Émettre la facture</a>{% endif %}
+        </div>
+    </div>
+    {% if not ecole.annee %}
+    <div class="alert alert-info py-2">Aucune année scolaire active : les élèves et les enseignants ne sont pas comptés.</div>
+    {% endif %}
+    <div class="table-responsive">
+        <table class="table table-large">
+            <thead><tr><th>Cycle</th><th class="text-end">Élèves</th><th class="text-end">Enseignants</th><th class="text-end">Direction du cycle</th><th class="text-end">Total</th>{% if ecole.a_des_tarifs %}<th>Tarif</th><th class="text-end">Montant annuel estimé</th>{% endif %}</tr></thead>
+            <tbody>
+                {% for ligne in ecole.lignes_utiles %}
+                <tr>
+                    <td><strong>{{ ligne.libelle }}</strong>{% if ligne.hors_formule %} <span class="badge bg-warning text-dark">Hors formule</span>{% endif %}</td>
+                    <td class="text-end montant-val">{{ ligne.eleves }}</td>
+                    <td class="text-end montant-val">{{ ligne.enseignants }}</td>
+                    <td class="text-end montant-val">{{ ligne.direction }}</td>
+                    <td class="text-end montant-val"><strong>{{ ligne.total }}</strong></td>
+                    {% if ecole.a_des_tarifs %}
+                    <td>{% if ligne.tarif %}<span class="montant-val">{{ ligne.tarif.montant|montant }} FCFA</span> <span class="text-muted small">{{ ligne.tarif.get_mode_display }}</span>{% else %}-{% endif %}</td>
+                    <td class="text-end montant-val">{% if ligne.tarif %}<strong>{{ ligne.montant_estime|montant }} FCFA</strong>{% else %}-{% endif %}</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                <tr>
+                    <td>Sans cycle (administration et services)</td>
+                    <td class="text-end">-</td><td class="text-end">-</td><td class="text-end">-</td>
+                    <td class="text-end montant-val"><strong>{{ ecole.sans_cycle }}</strong></td>
+                    {% if ecole.a_des_tarifs %}<td>-</td><td class="text-end">-</td>{% endif %}
+                </tr>
+            </tbody>
+            <tfoot><tr><th>Total</th><th class="text-end montant-val">{{ ecole.eleves }}</th><th></th><th></th><th class="text-end montant-val">{{ ecole.total }}</th>{% if ecole.a_des_tarifs %}<th></th><th class="text-end montant-val">{{ ecole.montant_estime|montant }} FCFA</th>{% endif %}</tr></tfoot>
+        </table>
+    </div>
+</div></div>
+{% empty %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Aucun établissement pour le moment.</p></div></div></div>
+{% endfor %}
+{% endblock %}

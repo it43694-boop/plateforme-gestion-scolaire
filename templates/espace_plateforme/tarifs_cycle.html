@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load montants %}
+{% block titre %}Tarifs par cycle - {{ etablissement.nom }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Tarifs par cycle</h1>
+        <p><strong>{{ etablissement.nom }}</strong> - <span>Formule :</span> {{ etablissement.get_plan_display }}</p>
+    </div>
+    <a href="{% url 'espace_plateforme:effectifs' %}" class="btn btn-outline-secondary btn-sm">Effectifs par cycle</a>
+</div>
+<div class="card mb-3"><div class="card-body">
+    <p class="mb-2">Pour chaque cycle, choisissez comment cette école est facturée, puis le montant annuel.</p>
+    <ul class="mb-0">
+        <li><strong>Par élève et par an :</strong> <span>le montant est multiplié par le nombre d'élèves inscrits en cours.</span></li>
+        <li><strong>Forfait par an :</strong> <span>le montant s'applique une seule fois, pour chaque cycle ouvert (couvert par la formule de l'école, ou qui compte déjà des comptes).</span></li>
+        <li><span>Un cycle sans tarif n'entre pas dans le montant proposé.</span></li>
+    </ul>
+</div></div>
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% for erreur in formulaire.non_field_errors %}<div class="alert alert-danger">{{ erreur }}</div>{% endfor %}
+    <div class="card mb-3"><div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-large">
+                <thead><tr><th>Cycle</th><th class="text-end">Élèves</th><th>Mode de facturation</th><th>Montant (FCFA)</th></tr></thead>
+                <tbody>
+                    {% for ligne, champ_mode, champ_montant in lignes %}
+                    <tr>
+                        <td><strong>{{ ligne.libelle }}</strong></td>
+                        <td class="text-end montant-val">{{ ligne.eleves }}</td>
+                        <td>{{ champ_mode }}{% for erreur in champ_mode.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}</td>
+                        <td>{{ champ_montant }}{% for erreur in champ_montant.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div></div>
+    <button class="btn btn-primary">Enregistrer les tarifs</button>
+    <a href="{% url 'espace_plateforme:effectifs' %}" class="btn btn-link">Annuler</a>
+</form>
+{% endblock %}
