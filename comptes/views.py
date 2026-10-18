@@ -17,7 +17,7 @@ from django_ratelimit.decorators import ratelimit
 
 from comptes.audit import enregistrer_action
 from comptes.langue import langue_du_compte
-from comptes.langues import DUREE_COOKIE_LANGUE, NOM_COOKIE_LANGUE, langue_valide
+from comptes.langues import ANCIEN_NOM_COOKIE_LANGUE, DUREE_COOKIE_LANGUE, NOM_COOKIE_LANGUE, langue_valide
 from comptes.mail import envoyer_email
 from comptes.decorators import role_requis
 from comptes.forms import (
@@ -53,6 +53,7 @@ def changer_langue(request):
     reponse.set_cookie(
         NOM_COOKIE_LANGUE, langue, max_age=DUREE_COOKIE_LANGUE, samesite="Lax", secure=request.is_secure(), httponly=True,
     )
+    reponse.delete_cookie(ANCIEN_NOM_COOKIE_LANGUE)  # le nouveau cookie prend la place de celui de l'ancien nom
     return reponse
 
 

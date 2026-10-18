@@ -340,7 +340,7 @@ class PagesTests(AbonnementsBase):
             self.assertEqual(self.client.get(reverse(f"espace_plateforme:{nom}", args=[999999])).status_code, 404)
         self.assertEqual(self.client.post(reverse("espace_plateforme:annuler_facture", args=[999999])).status_code, 404)
 
-    @override_settings(EDITEUR_NOM="Nexora Test SARL", ABONNEMENT_INSTRUCTIONS_PAIEMENT="Orange Money : 70 00 00 00")
+    @override_settings(EDITEUR_NOM="Yelenova Test SARL", ABONNEMENT_INSTRUCTIONS_PAIEMENT="Orange Money : 70 00 00 00")
     def test_facture_pdf(self):
         facture = self.facturer()
         self.client.force_login(self.proprietaire)

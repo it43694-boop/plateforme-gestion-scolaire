@@ -321,7 +321,7 @@ class IsolationDesDonneesTests(SimpleTestCase):
 
     def test_la_ou_une_balise_est_interdite_les_isolats_sont_des_caracteres(self):
         self.assertEqual(self.brut("<select><option>6ème A</option></select>"), "<select><option>[6ème A]</option></select>")
-        self.assertEqual(self.brut("<title>Élèves · Nexora</title>"), "<title>التلاميذ · [Nexora]</title>")
+        self.assertEqual(self.brut("<title>Élèves · Yelenova</title>"), "<title>التلاميذ · [Yelenova]</title>")
         self.assertEqual(self.brut("<svg><text>CM1</text></svg>"), "<svg><text>[CM1]</text></svg>")
         self.assertNotIn("<bdi>", self.html("<svg><text>CM1</text></svg><option>6ème A</option>"))
 

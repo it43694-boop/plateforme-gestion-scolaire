@@ -34,7 +34,7 @@ PIED_DE_COURRIEL = {
     "fr": "Cet email est envoyé automatiquement, merci de ne pas y répondre directement.",
     "ar": "يُرسل هذا البريد الإلكتروني تلقائيًا، يرجى عدم الرد عليه مباشرة.",
 }
-NOM_DE_LA_PLATEFORME = {"ar": "نيكسورا"}
+NOM_DE_LA_PLATEFORME = {"ar": "يلينوفا"}
 
 
 def construire_corps_html(sujet, contenu):

@@ -1,97 +1,79 @@
 """
-Génère toutes les images de l'identité Nexora à partir du logo source (design/logo-nexora.png) :
-logo à fond transparent, favicon, icônes de l'application installable (PWA) et icône iPhone.
+Génère toutes les images de l'identité Yelenova à partir du logo source (design/logo-yelenova.png) :
+logo complet, emblème seul, favicon, icônes de l'application installable (PWA) et icône iPhone.
 
 À relancer si le logo change :
     python design/generer_identite_visuelle.py
 
-Le logo source est un aplat sur fond blanc (deux couleurs : bleu marine et turquoise). Le fond
-blanc est retiré en calculant, pour chaque pixel, la couleur d'origine et son opacité : les bords
-restent nets et propres sur n'importe quel fond, clair ou sombre (pas de liseré blanc).
+Le logo source est un dessin en dégradés (livre vert et or, soleil, carte du Mali) posé sur un fond presque blanc. Ce fond est blanchi
+(les pixels très clairs deviennent tout à fait blancs, avec une transition douce) mais n'est pas rendu transparent : les blancs du dessin
+lui-même (pages du livre, reflets) disparaîtraient avec lui. L'interface pose donc le logo sur une pastille blanche (voir toumai.css).
+
+Les zones ci-dessous (en pixels du logo source) séparent l'emblème (soleil et livre) du nom et du slogan.
 """
+import sys
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
 RACINE = Path(__file__).resolve().parent.parent
-SOURCE = RACINE / "design" / "logo-nexora.png"
+SOURCE = RACINE / "design" / "logo-yelenova.png"
 IMG = RACINE / "static" / "img"
-ICONES = IMG / "icons"
 
-BLANC = np.array([255.0, 255.0, 255.0])
-
-
-def logo_transparent() -> Image.Image:
-    """Logo recadré, fond blanc remplacé par de la transparence."""
-    pixels = np.asarray(Image.open(SOURCE).convert("RGB"), dtype=np.float64)
-
-    # Les deux couleurs pleines du logo : les plus fréquentes parmi les pixels bien colorés.
-    colores = pixels[(255 - pixels.min(axis=2)) > 120]
-    # Le vert distingue les deux couleurs : faible dans le bleu marine, élevé dans le turquoise.
-    est_turquoise = colores[:, 1] > 110
-    marine = np.median(colores[~est_turquoise], axis=0)
-    turquoise = np.median(colores[est_turquoise], axis=0)
-    print("Couleurs détectées - marine :", marine.round(), "turquoise :", turquoise.round())
-
-    sortie_rgb = np.zeros_like(pixels)
-    sortie_alpha = np.zeros(pixels.shape[:2])
-    meilleure_erreur = np.full(pixels.shape[:2], np.inf)
-    for couleur in (marine, turquoise):
-        # pixel = a * couleur + (1 - a) * blanc  ->  a estimé par moindres carrés sur les 3 canaux
-        direction = couleur - BLANC
-        a = np.clip(((pixels - BLANC) * direction).sum(axis=2) / (direction * direction).sum(), 0.0, 1.0)
-        reconstruit = BLANC + a[..., None] * direction
-        erreur = ((pixels - reconstruit) ** 2).sum(axis=2)
-        mieux = erreur < meilleure_erreur
-        meilleure_erreur = np.where(mieux, erreur, meilleure_erreur)
-        sortie_alpha = np.where(mieux, a, sortie_alpha)
-        sortie_rgb[mieux] = couleur
-
-    # Les pixels quasi blancs deviennent totalement transparents (supprime le bruit de fond).
-    sortie_alpha[sortie_alpha < 0.03] = 0.0
-    rgba = np.dstack([sortie_rgb, sortie_alpha * 255.0]).round().astype(np.uint8)
-    image = Image.fromarray(rgba, "RGBA")
-    return image.crop(image.getchannel("A").getbbox())
+ZONE_LOGO_COMPLET = (40, 110, 1210, 1070)  # emblème, nom YELENOVA et slogan (sans le filet décoratif du bas)
+ZONE_EMBLEME = (118, 112, 1138, 818)  # le soleil et le livre seuls
+BLANC = (255, 255, 255)
 
 
-def sur_toile(logo: Image.Image, cote: int, fraction_hauteur: float, fond=None) -> Image.Image:
-    """Logo centré sur une toile carrée ; fond=None -> transparent."""
-    toile = Image.new("RGBA", (cote, cote), fond or (0, 0, 0, 0))
-    hauteur = max(1, round(cote * fraction_hauteur))
-    largeur = max(1, round(logo.width * hauteur / logo.height))
-    if largeur > cote:  # logo plus large que la toile : on limite par la largeur
-        largeur = round(cote * fraction_hauteur)
-        hauteur = round(logo.height * largeur / logo.width)
-    redimensionne = logo.resize((largeur, hauteur), Image.LANCZOS)
-    toile.alpha_composite(redimensionne, ((cote - largeur) // 2, (cote - hauteur) // 2))
+def fond_blanchi(image: Image.Image) -> Image.Image:
+    """Les pixels très clairs (le fond) deviennent blancs ; une rampe de 225 à 245 évite tout liseré."""
+    pixels = np.asarray(image.convert("RGB"), dtype=np.float64)
+    clarte = pixels.min(axis=2)
+    poids = np.clip((clarte - 225.0) / 20.0, 0.0, 1.0)[..., None]
+    return Image.fromarray((pixels * (1.0 - poids) + 255.0 * poids).round().astype(np.uint8), "RGB")
+
+
+def a_la_largeur(image: Image.Image, largeur: int) -> Image.Image:
+    return image.resize((largeur, round(image.height * largeur / image.width)), Image.LANCZOS)
+
+
+def sur_toile(image: Image.Image, cote: int, fraction_largeur: float) -> Image.Image:
+    """Image centrée sur une toile carrée blanche ; elle occupe `fraction_largeur` de la largeur (ou de la hauteur si elle est plus haute)."""
+    toile = Image.new("RGB", (cote, cote), BLANC)
+    largeur = max(1, round(cote * fraction_largeur))
+    hauteur = max(1, round(image.height * largeur / image.width))
+    if hauteur > cote * fraction_largeur:
+        hauteur = max(1, round(cote * fraction_largeur))
+        largeur = max(1, round(image.width * hauteur / image.height))
+    toile.paste(image.resize((largeur, hauteur), Image.LANCZOS), ((cote - largeur) // 2, (cote - hauteur) // 2))
     return toile
 
 
-def main():
-    ICONES.mkdir(parents=True, exist_ok=True)
-    logo = logo_transparent()
-    blanc = (255, 255, 255, 255)
+def main(sortie: Path = IMG):
+    icones = sortie / "icons"
+    icones.mkdir(parents=True, exist_ok=True)
+    source = fond_blanchi(Image.open(SOURCE))
+    complet = source.crop(ZONE_LOGO_COMPLET)
+    embleme = source.crop(ZONE_EMBLEME)
 
-    # Logo de l'interface (barre latérale, connexion, accueil) : transparent, haute définition.
-    hauteur = 320
-    logo.resize((round(logo.width * hauteur / logo.height), hauteur), Image.LANCZOS).save(
-        IMG / "logo-nexora.png", optimize=True,
-    )
+    # Interface : le logo complet (connexion, accueil) et l'emblème seul (barre latérale, pages légales, annuaire).
+    a_la_largeur(complet, 720).save(sortie / "logo-yelenova.png", optimize=True)
+    a_la_largeur(embleme, 480).save(sortie / "logo-yelenova-embleme.png", optimize=True)
 
-    # Application installable : fond blanc plein, le logo reste dans la zone visible même quand
-    # le téléphone découpe l'icône en rond (« maskable » : zone de sécurité de 80 %).
-    sur_toile(logo, 512, 0.74, blanc).convert("RGB").save(ICONES / "icone-512.png", optimize=True)
-    sur_toile(logo, 192, 0.74, blanc).convert("RGB").save(ICONES / "icone-192.png", optimize=True)
-    sur_toile(logo, 512, 0.56, blanc).convert("RGB").save(ICONES / "icone-maskable-512.png", optimize=True)
-    sur_toile(logo, 180, 0.78, blanc).convert("RGB").save(ICONES / "icone-apple-touch.png", optimize=True)
+    # Application installable : l'emblème sur fond blanc ; l'icône « maskable » reste dans la zone visible quand le téléphone la découpe en
+    # rond (zone de sécurité de 80 % : la demi-diagonale de l'emblème doit tenir dans un cercle de 40 % du côté).
+    sur_toile(embleme, 512, 0.92).save(icones / "icone-512.png", optimize=True)
+    sur_toile(embleme, 192, 0.92).save(icones / "icone-192.png", optimize=True)
+    sur_toile(embleme, 512, 0.62).save(icones / "icone-maskable-512.png", optimize=True)
+    sur_toile(embleme, 180, 0.94).save(icones / "icone-apple-touch.png", optimize=True)
 
-    # Onglet du navigateur : fond transparent, logo au maximum de la place.
-    sur_toile(logo, 32, 0.96).save(IMG / "favicon-32.png", optimize=True)
-    sur_toile(logo, 256, 0.96).save(IMG / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
+    # Onglet du navigateur.
+    sur_toile(embleme, 32, 0.98).save(sortie / "favicon-32.png", optimize=True)
+    sur_toile(embleme, 256, 0.98).save(sortie / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
 
-    print("Images générées dans", IMG)
+    print("Images générées dans", sortie)
 
 
 if __name__ == "__main__":
-    main()
+    main(Path(sys.argv[1]) if len(sys.argv) > 1 else IMG)

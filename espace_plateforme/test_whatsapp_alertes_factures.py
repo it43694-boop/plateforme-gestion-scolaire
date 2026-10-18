@@ -91,7 +91,7 @@ class LienWhatsappTests(FacturesParEmailBase):
         facture = self.facturer(date_echeance=datetime.date(2030, 3, 15))
         numero, texte = decouper(ajouter_les_liens_whatsapp([facture])[0].lien_whatsapp)
         self.assertEqual(numero, "22370000001")
-        for attendu in (facture.numero, "École Alpha", "120 000 FCFA", "15/03/2030", "Orange Money : 70 00 00 00", "Nexora Test"):
+        for attendu in (facture.numero, "École Alpha", "120 000 FCFA", "15/03/2030", "Orange Money : 70 00 00 00", "Yelenova Test"):
             self.assertIn(attendu, texte)
         self.assertNotIn("rappel", texte.lower())
 

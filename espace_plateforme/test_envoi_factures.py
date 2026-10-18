@@ -43,8 +43,8 @@ def textes_des_messages(reponse):
 
 
 @override_settings(
-    EDITEUR_NOM="Nexora Test SARL", EDITEUR_EMAIL="contact@nexora-test.test", NOM_COMMERCIAL="Nexora Test",
-    ABONNEMENT_INSTRUCTIONS_PAIEMENT="Orange Money : 70 00 00 00", DEFAULT_FROM_EMAIL="facturation@nexora-test.test",
+    EDITEUR_NOM="Yelenova Test SARL", EDITEUR_EMAIL="contact@yelenova-test.test", NOM_COMMERCIAL="Yelenova Test",
+    ABONNEMENT_INSTRUCTIONS_PAIEMENT="Orange Money : 70 00 00 00", DEFAULT_FROM_EMAIL="facturation@yelenova-test.test",
 )
 class FacturesParEmailBase(TestCase):
     @classmethod
@@ -125,12 +125,12 @@ class EnvoiDUneFactureTests(FacturesParEmailBase):
         message = mail.outbox[0]
         destinataires = set(message.to) | set(message.bcc)
         self.assertIn(self.fondateur_alpha.email, destinataires)
-        self.assertEqual(message.from_email, "facturation@nexora-test.test")
-        self.assertEqual(message.reply_to, ["contact@nexora-test.test"])
+        self.assertEqual(message.from_email, "facturation@yelenova-test.test")
+        self.assertEqual(message.reply_to, ["contact@yelenova-test.test"])
         self.assertIn(facture.numero, message.subject)
         self.assertIn("120 000 FCFA", message.subject)
         self.assertIn("15/03/2030", message.subject)
-        for texte in (facture.numero, "École Alpha", "120 000 FCFA", "15/03/2030", "Orange Money : 70 00 00 00", "Nexora Test SARL"):
+        for texte in (facture.numero, "École Alpha", "120 000 FCFA", "15/03/2030", "Orange Money : 70 00 00 00", "Yelenova Test SARL"):
             self.assertIn(texte, message.body)
         self.assertEqual(len(message.attachments), 1)
         nom, contenu, type_mime = message.attachments[0]

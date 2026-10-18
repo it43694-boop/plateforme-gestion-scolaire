@@ -15,6 +15,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from openpyxl import Workbook, load_workbook
 
+from comptes.langues import NOM_COOKIE_LANGUE
 from comptes.models import JournalAudit, Utilisateur
 from comptes.roles import Role
 from scolarite import import_eleves
@@ -497,7 +498,7 @@ class ImportEnArabeTests(ImportBase):
 
     def modele_en_arabe(self):
         self.client.force_login(self.fondateur)
-        self.client.cookies["nexora_langue"] = "ar"
+        self.client.cookies[NOM_COOKIE_LANGUE] = "ar"
         reponse = self.client.get(reverse("scolarite:modele_import_eleves"), {"annee": self.annee.id})
         self.assertEqual(reponse.status_code, 200)
         return load_workbook(io.BytesIO(reponse.content))

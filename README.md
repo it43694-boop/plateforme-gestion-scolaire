@@ -1,6 +1,6 @@
-# Nexora Éducation — plateforme de gestion scolaire
+# Yelenova — plateforme de gestion scolaire
 
-**Toute votre école. Une seule vision.** Nexora est le logiciel de gestion scolaire
+**La lumière du savoir.** Yelenova est le logiciel de gestion scolaire
 multi-établissement développé ici, en Django.
 Le cahier des charges d'Omega Académie (Mali) a servi de spécification
 fonctionnelle de référence pour construire l'application, mais **le
@@ -55,7 +55,7 @@ En plus de la Phase 7, cette livraison ajoute :
   l'utilisateur : hero avec icônes flottantes, bandeau défilant des
   modules, grille de fonctionnalités, bloc sécurité — construite avec le
   système de design du logiciel, pas une copie de la maquette
-- **Nom du logiciel** : voir « Phase 49 — Identité Nexora » plus bas. Distinct
+- **Nom du logiciel** : voir « Phase 49 — Identité de la plateforme » et « Phase 71 — Yelenova » plus bas. Distinct
   du nom de chaque établissement (ancien nom : « L'éducation du Mali au
   service de l'avenir »)
 - **Deux modules du cahier des charges qui n'avaient aucune vue réelle**
@@ -1720,15 +1720,15 @@ service worker non vérifiés au navigateur : tests automatiques seulement.
 Tests : 21 (matricule, mot de passe provisoire, obligation de changement, cache, service
 worker, droits et cloisonnement du mot de passe provisoire).
 
-## État du projet : Phase 49 — Identité Nexora
+## État du projet : Phase 49 — Identité de la plateforme
 
-Changement de nom et de logo de la plateforme.
+Nom, slogan et logo de la plateforme (nommée « Nexora » à l'origine, devenue **Yelenova** en phase 71).
 
 | Élément | Valeur |
 |---|---|
-| Nom commercial | NEXORA ÉDUCATION (`settings.NOM_COMMERCIAL`) |
-| Nom du logiciel | Nexora (`settings.NOM_PLATEFORME`) |
-| Slogan | Toute votre école. Une seule vision. (`SLOGAN_PLATEFORME`) |
+| Nom commercial | YELENOVA (`settings.NOM_COMMERCIAL`) |
+| Nom du logiciel | Yelenova (`settings.NOM_PLATEFORME`) |
+| Slogan | La lumière du savoir (`SLOGAN_PLATEFORME`, celui du logo) |
 | Positionnement | La plateforme intelligente de gestion et de pilotage des établissements scolaires. (`POSITIONNEMENT_PLATEFORME`) |
 | Description | `DESCRIPTION_PLATEFORME` (page d'accueil publique) |
 
@@ -1743,22 +1743,17 @@ plateforme (barre latérale), page « aucun établissement », emails (en-tête)
 l'application installable (quand personne n'est connecté), nom affiché dans l'application
 d'authentification (2FA, pour les nouveaux enregistrements) et en-tête de l'administration
 Django. Dès qu'une école est choisie ou connectée, son propre nom et son propre logo
-remplacent ceux de Nexora, comme avant.
+remplacent ceux de Yelenova, comme avant.
 
-**Logo.** Source : `design/logo-nexora.png` (aplat bleu marine et turquoise sur fond blanc).
-`python design/generer_identite_visuelle.py` en tire : le logo à fond transparent
-(`static/img/logo-nexora.png`), le favicon (`favicon.ico`, `favicon-32.png`) et les icônes de
-l'application installable (`static/img/icons/` : 192, 512, « maskable » 512, iPhone 180). Le
-fond blanc est retiré proprement (bords nets sur tout fond) ; à relancer si le logo change.
-Le bleu marine du logo disparaît sur le bleu nuit de l'interface : il est donc toujours posé
-sur une pastille blanche dans la barre latérale, l'accueil et l'annuaire.
+**Logo.** Source : `design/logo-yelenova.png` (dessin en dégradés vert et or : livre ouvert, soleil, carte du Mali, nom et slogan « La lumière du savoir », sur fond blanc).
+`python design/generer_identite_visuelle.py` en tire : le logo complet (`static/img/logo-yelenova.png`), l'**emblème seul** (`logo-yelenova-embleme.png`, soleil et livre, utilisé dans la barre latérale, la connexion, l'accueil, l'annuaire et les pages légales), le favicon (`favicon.ico`, `favicon-32.png`) et les icônes de l'application installable (`static/img/icons/` : 192, 512, « maskable » 512, iPhone 180). Le fond n'est pas rendu transparent : les blancs du dessin (pages du livre, reflets) disparaîtraient avec lui. Il est seulement blanchi (le fond de la source est presque blanc, d'où un cadre grisâtre visible sans cela) et l'interface pose toujours le logo sur une pastille blanche (`toumai.css`, `.marque-logo-plateforme`, `.auth-logo-plateforme`...). À relancer si le logo change.
 
 Non modifié volontairement : le nom du service Render (`plateforme-gestion-scolaire`, donc
 l'adresse du site), le nom interne de la feuille de style (`toumai.css`), et les couleurs de
-l'interface (bleu nuit et or) : le logo est bleu marine et turquoise, un alignement de la
-couleur d'accent sur le turquoise est possible mais demande une décision de design.
+l'interface (bleu nuit et or) : le logo est vert et or, un alignement de la couleur d'accent sur le
+vert est possible mais demande une décision de design.
 
-À vérifier hors code avant tout usage commercial : disponibilité du nom « Nexora » (recherche
+À vérifier hors code avant tout usage commercial : disponibilité du nom « Yelenova » (recherche
 d'antériorité à l'OAPI, dont le Mali est membre), du nom de domaine et des comptes de réseaux
 sociaux. Les icônes installées sur les téléphones se mettent à jour d'elles-mêmes avec un
 certain délai, ou après une réinstallation.
@@ -2300,7 +2295,7 @@ Audit de l'interface dans un vrai navigateur (19 pages du menu, ordinateur et t�
 Des écoles du Mali enseignent uniquement en arabe : l'application peut s'afficher en **arabe** ou en **français** (langue par défaut). Première étape : écrans courants ; le reste de l'application reste en français tant qu'il n'est pas traduit (aucune page ne casse).
 - **Bouton de langue** (`templates/partials/bouton_langue.html`) en haut de chaque page : application (barre du haut), connexion, accueil public, annuaire, pages légales, page « aucun établissement ». Il propose toujours l'**autre** langue, écrite dans cette langue (« العربية » / « Français »), jamais traduite (`translate="no"`).
   Il envoie un formulaire (POST, protection CSRF) à `/comptes/langue/` (`comptes.views.changer_langue`) ; 400 si la langue est inconnue ; le retour (`next`) ne sort jamais du site (`url_has_allowed_host_and_scheme`) ; la route reste ouverte pendant l'activation 2FA et le changement de mot de passe obligatoires.
-- **Quelle langue ?** (`comptes.langue.langue_de_la_requete`) : choix enregistré sur le **compte** (`Utilisateur.langue`) → sinon **cookie** `nexora_langue` (un an, `HttpOnly`, `SameSite=Lax` ; visiteurs non connectés) → sinon **langue par défaut de l'école** (`Etablissement.langue_par_defaut`, réglée par le développeur dans les paramètres de l'école ; pour un visiteur, l'école choisie sur la page d'accueil) → sinon français.
+- **Quelle langue ?** (`comptes.langue.langue_de_la_requete`) : choix enregistré sur le **compte** (`Utilisateur.langue`) → sinon **cookie** `yelenova_langue` (l'ancien `nexora_langue` est encore lu ; un an, `HttpOnly`, `SameSite=Lax` ; visiteurs non connectés) → sinon **langue par défaut de l'école** (`Etablissement.langue_par_defaut`, réglée par le développeur dans les paramètres de l'école ; pour un visiteur, l'école choisie sur la page d'accueil) → sinon français.
 - **Traduction** : plutôt que de modifier 124 gabarits, un intergiciel (`comptes.langue.TraductionMiddleware`) traduit la **page HTML produite** quand la langue n'est pas le français (`comptes/traduction.py`). Le catalogue est le fichier `comptes/traductions/ar.csv` (colonnes `francais`, `arabe`, `note`), environ 870 textes :
   menu, connexion, tableau de bord, élèves, classes, matières, notes, bulletin à l'écran, absences, conduite, paiements, caisse, salaires, messages, bibliothèque, assistant, statistiques, comptabilité de base, accueil public, tous les libellés de listes de choix et les textes du JavaScript.
   Règles : texte exact (espaces et apostrophes normalisés) ; motifs avec valeurs `{0}` (« {0} élèves inscrits ») ; une phrase en plusieurs morceaux (« · », « — », « / ») est traduite morceau par morceau ; `translate="no"` protège un texte ; scripts, styles, zones de saisie et commentaires ne sont jamais touchés ;
@@ -2387,6 +2382,16 @@ Le premier cycle ne se note pas par trimestre : une composition par mois, chaque
 - **Laissé de côté volontairement** : en 6ème année, l'école fait aussi un bulletin trimestriel ; son rôle dans la décision de passage n'est pas encore défini (à rechercher avec l'équipe) et n'entre donc pas dans la décision calculée ici. Il n'existe pas d'examen de fin de 6ème année dans ce modèle.
 - Migrations additives : `etablissement.0021_bulletin_mensuel_premier_cycle`, `pedagogie.0011_bulletin_mensuel_premier_cycle`.
 - **Correction liée : mot de passe refusé à l'inscription** (`comptes/forms.py::InscriptionForm`). Une inscription avec un mot de passe qui ne respecte pas les règles (10 caractères, une majuscule, un chiffre, un caractère spécial, ni trop courant ni tout en chiffres) rechargeait la page **sans aucun message** : l'erreur était rattachée au formulaire entier, que le gabarit n'affichait pas. Elle est maintenant écrite sous le champ, toutes les règles manquantes d'un coup, en français et en arabe ; les règles sont aussi écrites avant la saisie. Le contrôle de ressemblance de Django (mot de passe presque identique à l'email, au prénom ou au nom) est actif sur tous les écrans (`comptes/validators.py::SimilitudeMotDePasseValidator`, `AUTH_PASSWORD_VALIDATORS`) ; il ne refuse que les quasi-copies (l'email, ou un long prénom suivi d'un chiffre). Test : `comptes/test_mot_de_passe_messages.py`.
+
+## État du projet : Phase 71 — Yelenova (changement de nom et de logo)
+
+La plateforme s'appelle **Yelenova** (nom choisi par le propriétaire le 18 octobre 2026) ; son logo est un livre ouvert devant un soleil qui porte la carte du Mali, vert et or, avec le slogan « La lumière du savoir ».
+- **Nom** : `NOM_PLATEFORME = "Yelenova"`, `NOM_COMMERCIAL = "YELENOVA"` (sans « Éducation » : le logo porte seulement le nom), description de l'accueil à jour. Partout où le nom était écrit en dur (fichiers Excel, courriels en arabe `comptes/mail.py`, double authentification, application installable, pages légales, tests) il est remplacé. Le slogan devient « La lumière du savoir » (celui du logo ; en arabe : نور المعرفة, à faire relire), à la place de « Toute votre école. Une seule vision. ».
+- **Arabe** : يلينوفا (`comptes/arabisation.py::LEXIQUE`, `comptes/mail.py`, trois entrées du catalogue). **Écriture à faire valider par un arabophone**, comme les autres termes.
+- **Noms internes** : le cookie de langue devient `yelenova_langue` ; l'ancien `nexora_langue` est encore lu (un visiteur qui avait choisi l'arabe n'a rien à refaire) et effacé au prochain changement de langue (`comptes.langues.ANCIEN_NOM_COOKIE_LANGUE`). La clé de mémoire du menu replié (`static/js/app.js`) change aussi : le menu se redéploie une fois.
+- **Images** : voir « Logo » dans la phase 49. Les anciens fichiers `logo-nexora.png` sont supprimés.
+- **Non modifié** : l'historique des migrations, le nom du service Render et la palette de l'interface (bleu nuit et or).
+- Tests : `vitrine/tests.py` (`IdentiteYelenovaTests`), `comptes/test_langue.py` (cookie de l'ancien nom).
 
 ## Sauvegardes locales (base de données et médias)
 

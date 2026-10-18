@@ -92,13 +92,13 @@ class ContenuTests(TestCase):
             self.assertNotContains(self.client.get(reverse(nom)), "Version provisoire")
 
     @override_settings(
-        EDITEUR_NOM="Nexora Test SARL", EDITEUR_STATUT="société à responsabilité limitée", EDITEUR_ADRESSE="Bamako, ACI 2000",
+        EDITEUR_NOM="Yelenova Test SARL", EDITEUR_STATUT="société à responsabilité limitée", EDITEUR_ADRESSE="Bamako, ACI 2000",
         EDITEUR_EMAIL="contact@exemple.test", EDITEUR_TELEPHONE="+223 70 00 00 00", EDITEUR_IMMATRICULATION="RCCM-ML-BKO-0000",
         DIRECTEUR_PUBLICATION="Awa Test",
     )
     def test_identite_de_l_editeur_affichee_quand_elle_est_configuree(self):
         mentions = self.client.get(reverse("vitrine:mentions_legales"))
-        for texte in ("Nexora Test SARL", "Bamako, ACI 2000", "RCCM-ML-BKO-0000", "+223 70 00 00 00", "Awa Test",
+        for texte in ("Yelenova Test SARL", "Bamako, ACI 2000", "RCCM-ML-BKO-0000", "+223 70 00 00 00", "Awa Test",
                       "mailto:contact@exemple.test"):
             self.assertContains(mentions, texte)
         self.assertContains(self.client.get(reverse("vitrine:confidentialite")), "mailto:contact@exemple.test")

@@ -16,6 +16,7 @@ import csv
 from django.core.management.base import BaseCommand, CommandError
 from django.test import Client, override_settings
 
+from comptes.langues import NOM_COOKIE_LANGUE
 from comptes.models import Utilisateur
 from comptes.traduction import catalogue_pour, chaines_non_traduites, restes_latins
 
@@ -33,7 +34,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         catalogue = catalogue_pour(options["langue"])
         client = Client(HTTP_HOST="localhost")
-        client.cookies["nexora_langue"] = "ar" if options["arabe_pur"] else "fr"  # sinon : le texte d'origine, quelle que soit la langue du compte
+        client.cookies[NOM_COOKIE_LANGUE] = "ar" if options["arabe_pur"] else "fr"  # sinon : le texte d'origine, quelle que soit la langue du compte
         if options["email"]:
             try:
                 client.force_login(Utilisateur.objects.get(email=options["email"]))

@@ -71,7 +71,7 @@ def _mettre_en_forme(feuille, numero, ligne, rang, premiere_rubrique):
 
 def classeur_fiche(fiche) -> Workbook:
     classeur = Workbook()
-    classeur.properties.creator = getattr(settings, "NOM_PLATEFORME", "Nexora Éducation")
+    classeur.properties.creator = getattr(settings, "NOM_PLATEFORME", "Yelenova")
     feuille = classeur.active
     feuille.title = "Fiche statistique"
 

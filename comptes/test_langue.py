@@ -12,7 +12,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from comptes.langues import NOM_COOKIE_LANGUE
+from comptes.langues import ANCIEN_NOM_COOKIE_LANGUE, NOM_COOKIE_LANGUE
 from comptes.models import Utilisateur
 from comptes.roles import Role
 from comptes.traduction import catalogue_pour, chaines_non_traduites
@@ -46,6 +46,20 @@ class ResolutionDeLaLangueTests(EducationBase):
         page = self.page(cookie="ar")
         self.assertRegex(page.content.decode(), LANGUE_AR)
         self.assertEqual(page["Content-Language"], "ar")
+
+    def test_le_cookie_de_l_ancien_nom_est_encore_lu(self):
+        """Un visiteur qui avait choisi l'arabe avant le changement de nom de la plateforme n'a pas à le refaire."""
+        client = Client()
+        client.cookies[ANCIEN_NOM_COOKIE_LANGUE] = "ar"
+        self.assertRegex(client.get(reverse("comptes:connexion")).content.decode(), LANGUE_AR)
+
+    def test_le_nouveau_cookie_passe_avant_l_ancien(self):
+        client = Client()
+        client.cookies[ANCIEN_NOM_COOKIE_LANGUE] = "ar"
+        client.cookies[NOM_COOKIE_LANGUE] = "fr"
+        self.assertRegex(client.get(reverse("comptes:connexion")).content.decode(), LANGUE_FR)
+        client.cookies[NOM_COOKIE_LANGUE] = "de"  # invalide : l'ancien prend le relais
+        self.assertRegex(client.get(reverse("comptes:connexion")).content.decode(), LANGUE_AR)
 
     def test_un_cookie_invalide_est_ignore(self):
         for valeur in ("de", "", "AR", "ar;fr", "<script>"):
@@ -148,6 +162,13 @@ class ChangementDeLangueTests(EducationBase):
         self.assertEqual(cookie["max-age"], 365 * 24 * 3600)
         self.assertEqual(cookie["samesite"], "Lax")
         self.assertTrue(cookie["httponly"])
+
+    def test_le_changement_de_langue_remplace_le_cookie_de_l_ancien_nom(self):
+        client = Client()
+        client.cookies[ANCIEN_NOM_COOKIE_LANGUE] = "ar"
+        reponse = self.changer(client, "fr", "/comptes/connexion/")
+        self.assertEqual(reponse.cookies[NOM_COOKIE_LANGUE].value, "fr")
+        self.assertEqual(reponse.cookies[ANCIEN_NOM_COOKIE_LANGUE]["max-age"], 0)  # l'ancien cookie est effacé
 
     def test_un_compte_connecte_garde_son_choix_et_les_autres_comptes_ne_changent_pas(self):
         client = Client()
@@ -386,7 +407,7 @@ class CouvertureDuCatalogueTests(EducationBase):
 class MenuDeChaqueRoleTests(EducationBase):
     """Le menu latéral est entièrement traduit pour chacun des rôles (seul le nom du compte, une donnée, reste tel quel)."""
 
-    MARQUE = "Nexora"
+    MARQUE = "Yelenova"
 
     def restes_du_menu(self, menu, compte):
         """Textes du menu sans traduction, hors données : nom du compte, nom de l'école (et sa première lettre) et nom de la marque."""

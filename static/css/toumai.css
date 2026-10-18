@@ -1265,12 +1265,13 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
   font-size: 0.9rem;
 }
 
-/* Identité Nexora : le logo (bleu marine et turquoise) se pose sur une pastille blanche, pour rester lisible
-   sur les fonds sombres (barre latérale, accueil, annuaire) comme dans le thème sombre. */
-.marque-logo-plateforme { padding: 4px; border-radius: 8px; }
-.auth-logo-plateforme { background: #fff; padding: 6px; border-radius: 12px; border: 1px solid var(--ink-100, #E3E6EC); }
-.annuaire-marque-logo { width: 30px; height: 30px; object-fit: contain; background: #fff; border-radius: 7px; padding: 4px; flex-shrink: 0; }
-.aucun-etablissement-logo { display: block; width: 72px; height: 72px; object-fit: contain; background: #fff; border-radius: 14px; padding: 8px; margin: 0 auto 1rem; }
+/* Identité Yelenova : l'emblème (soleil et livre, vert et or) se pose sur une pastille blanche, pour rester lisible
+   sur les fonds sombres (barre latérale, accueil, annuaire) comme dans le thème sombre. Il est plus large que haut
+   (environ 1,45 pour 1) : les cadres sont élargis en conséquence. */
+.marque-logo-plateforme { width: 52px; height: 36px; padding: 3px; border-radius: 8px; }
+.auth-logo-plateforme { width: 124px; height: 86px; background: #fff; padding: 6px; border-radius: 12px; border: 1px solid var(--ink-100, #E3E6EC); }
+.annuaire-marque-logo { width: 46px; height: 32px; object-fit: contain; background: #fff; border-radius: 7px; padding: 3px; flex-shrink: 0; }
+.aucun-etablissement-logo { display: block; width: 132px; height: 92px; object-fit: contain; background: #fff; border-radius: 14px; padding: 8px; margin: 0 auto 1rem; }
 .vitrine-slogan { font-weight: 600; color: var(--gold-400); margin-bottom: 0.6rem; }
 
 
@@ -1280,7 +1281,7 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
   padding: 0.9rem 1.5rem; background: var(--ink-900); color: #fff;
 }
 .legal-marque { display: flex; align-items: center; gap: 0.6rem; color: #fff; font-weight: 700; text-decoration: none; }
-.legal-logo { width: 34px; height: 34px; object-fit: contain; background: #fff; border-radius: 8px; padding: 4px; }
+.legal-logo { width: 50px; height: 34px; object-fit: contain; background: #fff; border-radius: 8px; padding: 3px; }
 .legal-nav { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.9rem; }
 .legal-nav a, .legal-pied-liens a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .legal-page { max-width: 820px; margin: 0 auto; padding: 2rem 1.25rem 3rem; line-height: 1.65; }

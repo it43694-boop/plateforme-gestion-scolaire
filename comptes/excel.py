@@ -37,7 +37,7 @@ def nom_feuille_sur(texte) -> str:
 
 def nouveau_classeur() -> Workbook:
     classeur = Workbook()
-    classeur.properties.creator = getattr(settings, "NOM_PLATEFORME", "Nexora Éducation")
+    classeur.properties.creator = getattr(settings, "NOM_PLATEFORME", "Yelenova")
     classeur.remove(classeur.active)  # on ajoute nos propres feuilles
     return classeur
 

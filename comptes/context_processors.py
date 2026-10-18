@@ -273,7 +273,7 @@ def acces_delegue(request):
 
 
 def identite_plateforme(request):
-    """Nom, slogan et description de la plateforme (Nexora), disponibles dans tous les gabarits."""
+    """Nom, slogan et description de la plateforme (Yelenova), disponibles dans tous les gabarits."""
     return {
         "nom_plateforme": settings.NOM_PLATEFORME,
         "nom_commercial": settings.NOM_COMMERCIAL,

@@ -366,12 +366,12 @@ if SENTRY_DSN:
 # séparément via etablissement.Etablissement) - page d'accueil publique, page de connexion
 # quand aucune école n'est choisie, emails, application installable, double authentification.
 # Injectée dans tous les gabarits par comptes.context_processors.identite_plateforme.
-NOM_PLATEFORME = "Nexora"
-NOM_COMMERCIAL = "NEXORA ÉDUCATION"
-SLOGAN_PLATEFORME = "Toute votre école. Une seule vision."
+NOM_PLATEFORME = "Yelenova"
+NOM_COMMERCIAL = "YELENOVA"
+SLOGAN_PLATEFORME = "La lumière du savoir"
 POSITIONNEMENT_PLATEFORME = "La plateforme intelligente de gestion et de pilotage des établissements scolaires."
 DESCRIPTION_PLATEFORME = (
-    "Nexora est une plateforme numérique de gestion scolaire qui centralise les opérations "
+    "Yelenova est une plateforme numérique de gestion scolaire qui centralise les opérations "
     "administratives, financières et pédagogiques d'un ou de plusieurs établissements. Elle permet "
     "aux directions, aux enseignants, aux équipes administratives, aux parents et aux élèves "
     "d'accéder à des espaces adaptés à leurs responsabilités, dans un environnement organisé et sécurisé."

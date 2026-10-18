@@ -16,6 +16,7 @@ from urllib.parse import quote
 from django.test import TestCase
 from django.urls import reverse
 
+from comptes.langues import NOM_COOKIE_LANGUE
 from comptes.models import JournalAudit, Utilisateur
 from comptes.roles import Role
 from finances.models import TypeTranche, enregistrer_paiement
@@ -288,7 +289,7 @@ class EnArabeTests(DiffusionBase):
 
     def en_arabe(self, **parametres):
         self.client.force_login(self.fondateur)
-        self.client.cookies["nexora_langue"] = "ar"
+        self.client.cookies[NOM_COOKIE_LANGUE] = "ar"
         return self.client.get(reverse(URL), parametres)
 
     def test_le_message_propose_est_en_arabe(self):
@@ -318,6 +319,6 @@ class EnArabeTests(DiffusionBase):
 
     def test_la_date_est_exigee_pour_le_marqueur_arabe_aussi(self):
         self.client.force_login(self.fondateur)
-        self.client.cookies["nexora_langue"] = "ar"
+        self.client.cookies[NOM_COOKIE_LANGUE] = "ar"
         reponse = self.client.get(reverse(URL), {"type": "annonce", "classe": self.c6a.pk, "texte": "موعدنا يوم {التاريخ}"})
         self.assertIn("Choisissez une date", reponse.context["erreur"])

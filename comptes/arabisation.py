@@ -41,7 +41,7 @@ def chiffres_arabes(texte: str) -> str:
 LEXIQUE = {
     "FCFA": "فرنك سيفا", "CFA": "سيفا", "EUR": "يورو", "USD": "دولار", "Excel": "إكسل", "PDF": "بي دي إف", "CSV": "سي إس في",
     "ZIP": "زيب", "zip": "زيب", "xlsx": "إكسل", "SYSCOHADA": "سيسكوهادا", "OHADA": "أوهادا", "WhatsApp": "واتساب", "SMS": "رسالة نصية",
-    "QR": "كيو آر", "Nexora": "نيكسورا", "JPEG": "جي بي إي جي", "PNG": "بي إن جي", "WebP": "ويب بي",
+    "QR": "كيو آر", "Yelenova": "يلينوفا", "YELENOVA": "يلينوفا", "JPEG": "جي بي إي جي", "PNG": "بي إن جي", "WebP": "ويب بي",
 }
 LEXIQUE_ARABE = re.compile(r"(?<![\w@])\.?(" + "|".join(re.escape(m) for m in sorted(LEXIQUE, key=len, reverse=True)) + r")(?![\w@])")
 # Préfixes des numéros (reçu REC-2026-000057, caisse CAI-..., banque BQ-..., salaire SAL-..., abonnement ABO-..., cantine CAN-..., tenues TEN-...) : un mot arabe devant les chiffres.
@@ -214,7 +214,7 @@ def nom_d_ecole_arabe(nom: str) -> str:
     return " ".join(resultat)
 
 
-MOTS_DE_MARQUE = {"nexora", "education"}  # le nom de la plateforme (« NEXORA ÉDUCATION ») est traduit par le catalogue, jamais pris pour un nom de personne
+MOTS_DE_MARQUE = {"yelenova", "education"}  # le nom de la plateforme (« YELENOVA ») est traduit par le catalogue, jamais pris pour un nom de personne
 
 
 def _ajouter(index: dict, latin, arabe, *, saisi: bool):

@@ -359,7 +359,7 @@ def modele_xlsx(utilisateur, annee, langue="fr") -> Workbook:
     """
     arabe = langue == "ar"
     classeur = Workbook()
-    classeur.properties.creator = getattr(settings, "NOM_PLATEFORME", "Nexora Éducation")
+    classeur.properties.creator = getattr(settings, "NOM_PLATEFORME", "Yelenova")
     eleves = classeur.active
     nom_eleves = "التلاميذ" if arabe else NOM_FEUILLE
     nom_classes = "الأقسام" if arabe else "Classes"

@@ -8,7 +8,7 @@ l'application, elle, est faite sur le HTML produit (voir comptes.traduction).
 """
 from django.utils import translation
 
-from comptes.langues import CODES_LANGUES, LANGUE_PAR_DEFAUT, NOM_COOKIE_LANGUE
+from comptes.langues import ANCIEN_NOM_COOKIE_LANGUE, CODES_LANGUES, LANGUE_PAR_DEFAUT, NOM_COOKIE_LANGUE
 from comptes.arabisation import chiffres_ascii, finaliser_arabe, localisateur_pour
 from comptes.traduction import catalogue_pour, traduire_html
 
@@ -74,6 +74,8 @@ def langue_de_la_requete(request) -> str:
     if est_connecte and getattr(utilisateur, "langue", "") in CODES_LANGUES:
         return utilisateur.langue
     choix = request.COOKIES.get(NOM_COOKIE_LANGUE)
+    if choix not in CODES_LANGUES:
+        choix = request.COOKIES.get(ANCIEN_NOM_COOKIE_LANGUE)
     if choix in CODES_LANGUES:
         return choix
     if est_connecte:

@@ -752,7 +752,7 @@ if ("serviceWorker" in navigator) {
 // Finition de l'interface : sections du menu repliables et mémorisées, bouton « œil » des mots de passe, libellés des
 // tableaux en cartes sur téléphone, état annoncé du menu mobile.
 document.addEventListener("DOMContentLoaded", function () {
-    var CLE_MENU = "nexora-menu-replie";
+    var CLE_MENU = "yelenova-menu-replie";
     function lireReplies() {
         try { return JSON.parse(localStorage.getItem(CLE_MENU) || "[]"); } catch (erreur) { return []; }
     }

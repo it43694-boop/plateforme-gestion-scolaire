@@ -26,7 +26,7 @@
             {% elif etablissement %}
             <div class="auth-emblème">{{ etablissement.initiale }}</div>
             {% else %}
-            <img src="{% static 'img/logo-nexora.png' %}" alt="{{ nom_plateforme }}" class="auth-logo auth-logo-plateforme">
+            <img src="{% static 'img/logo-yelenova-embleme.png' %}" alt="{{ nom_plateforme }}" class="auth-logo auth-logo-plateforme">
             {% endif %}
             </a>
             <h1 class="auth-titre">{% block auth_titre %}{{ etablissement.nom|default:nom_commercial }}{% endblock %}</h1>

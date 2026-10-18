@@ -9,7 +9,8 @@ en français : voir comptes.langue.langue_de_la_requete.
 LANGUES = (("fr", "Français"), ("ar", "العربية"))
 CODES_LANGUES = tuple(code for code, _ in LANGUES)
 LANGUE_PAR_DEFAUT = "fr"
-NOM_COOKIE_LANGUE = "nexora_langue"
+NOM_COOKIE_LANGUE = "yelenova_langue"
+ANCIEN_NOM_COOKIE_LANGUE = "nexora_langue"  # l'ancien nom de la plateforme : un visiteur qui avait déjà choisi sa langue la garde
 DUREE_COOKIE_LANGUE = 365 * 24 * 3600
 
 
