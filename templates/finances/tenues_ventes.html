@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load icones montants %}
+{% block titre %}Ventes de tenues{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone vert">{% icone "boutique" 24 %}</div>
+        <div>
+            <h1>Ventes de tenues</h1>
+            <p>L'historique des ventes avec leur reçu. Une vente annulée par la direction reste visible, marquée « annulée ».</p>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'finances:tenues_vendre' %}" class="btn btn-primary btn-sm">Vendre des tenues</a>
+        <a href="{% url 'finances:tenues' %}" class="btn btn-outline-secondary btn-sm">Stock des tenues</a>
+    </div>
+</div>
+<form method="get" class="d-flex flex-wrap gap-2 mb-3">
+    <input type="search" name="q" value="{{ recherche }}" class="form-control form-control-sm w-auto" placeholder="Reçu, nom ou matricule" aria-label="Rechercher une vente">
+    <button class="btn btn-outline-secondary btn-sm">Rechercher</button>
+</form>
+<div class="card"><div class="card-body">
+    {% if ventes %}
+    <div class="table-responsive">
+        <table class="table table-large">
+            <thead><tr><th>Reçu</th><th>Acheteur</th><th>Articles</th><th class="text-end">Total</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                {% for vente in ventes %}
+                <tr>
+                    <td>{{ vente.reference }}{% if vente.annulee %} <span class="badge bg-danger">Annulée</span>{% endif %}
+                        <div class="text-muted small">{{ vente.date_vente|date:"d/m/Y H:i" }} - {{ vente.get_mode_paiement_display }}</div>
+                        {% if vente.annulee and vente.motif_annulation %}<div class="text-muted small">{{ vente.motif_annulation }}</div>{% endif %}</td>
+                    <td>{{ vente.nom_acheteur }}{% if vente.eleve %} <span class="text-muted">({{ vente.eleve.matricule }})</span>{% endif %}</td>
+                    <td>{% for ligne in vente.lignes.all %}{{ ligne.quantite }} × {{ ligne.libelle }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+                    <td class="text-end montant-val">{{ vente.total|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'finances:tenues_recu_pdf' vente.pk %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Reçu PDF</a>
+                        {% if peut_annuler and not vente.annulee %}
+                        <form method="post" action="{% url 'finances:tenues_annuler_vente' vente.pk %}" class="d-inline-flex gap-1 mt-1" data-confirmer="Annuler cette vente ? Les articles reviennent en stock.">
+                            {% csrf_token %}
+                            <input type="text" name="motif" class="form-control form-control-sm" placeholder="Motif" aria-label="Motif de l'annulation" required maxlength="255">
+                            <button class="btn btn-sm btn-outline-danger">Annuler</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "_pagination.html" %}
+    {% else %}
+    <div class="etat-vide"><p>Aucune vente enregistrée.</p></div>
+    {% endif %}
+</div></div>
+{% endblock %}

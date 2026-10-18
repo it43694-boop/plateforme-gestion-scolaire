@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load icones montants %}
+{% block titre %}Cantine{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "cantine" 24 %}</div>
+        <div>
+            <h1>Cantine</h1>
+            <p>Les élèves inscrits à la cantine, ce qu'ils doivent et ce qu'ils ont payé.</p>
+            {% if annee %}<p class="text-muted small mb-0"><span>Année scolaire</span> <strong>{{ annee.libelle }}</strong></p>{% endif %}
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'cantine:appel' %}" class="btn btn-primary btn-sm">Appel du jour</a>
+        <a href="{% url 'cantine:inscrire_eleves' %}" class="btn btn-outline-primary btn-sm">Inscrire des élèves</a>
+        <a href="{% url 'cantine:formules' %}" class="btn btn-outline-secondary btn-sm">Formules et tarifs</a>
+    </div>
+</div>
+
+{% if not annee %}
+<div class="alert alert-warning">Aucune année scolaire active : la cantine n'a pas de liste à afficher.</div>
+{% elif not formules_actives %}
+<div class="alert alert-info">Pour commencer, <a href="{% url 'cantine:formules' %}">créez une formule</a> (un tarif au mois ou au repas), puis inscrivez les élèves.</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{{ inscrits }}</div><div class="stat-carte-label">Élèves inscrits</div>
+    </div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{{ total_du|montant }}</div><div class="stat-carte-label">Dû ({{ etablissement.code_devise|default:"FCFA" }})</div>
+    </div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{{ total_paye|montant }}</div><div class="stat-carte-label">Payé ({{ etablissement.code_devise|default:"FCFA" }})</div>
+    </div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{{ total_reste|montant }}</div><div class="stat-carte-label">Reste à payer ({{ etablissement.code_devise|default:"FCFA" }})</div>
+    </div></div></div></div>
+</div>
+
+<form method="get" class="d-flex flex-wrap gap-2 mb-3">
+    <input type="search" name="q" value="{{ recherche }}" class="form-control form-control-sm w-auto" placeholder="Nom ou matricule" aria-label="Rechercher un élève">
+    <select name="etat" class="form-select form-select-sm w-auto" aria-label="Afficher">
+        <option value="ouvertes"{% if etat == "ouvertes" %} selected{% endif %}>Inscriptions en cours</option>
+        <option value="impayes"{% if etat == "impayes" %} selected{% endif %}>Avec un reste à payer</option>
+        <option value="terminees"{% if etat == "terminees" %} selected{% endif %}>Inscriptions terminées</option>
+        <option value="toutes"{% if etat == "toutes" %} selected{% endif %}>Toutes</option>
+    </select>
+    <button class="btn btn-outline-secondary btn-sm">Filtrer</button>
+</form>
+
+<div class="card"><div class="card-body">
+    {% if lignes %}
+    <div class="table-responsive">
+        <table class="table table-large">
+            <thead><tr><th>Élève</th><th>Formule</th><th class="text-end">Dû</th><th class="text-end">Payé</th><th class="text-end">Solde</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td><a href="{% url 'cantine:fiche_inscription' ligne.pk %}">{{ ligne.eleve.nom_complet }}</a> <span class="text-muted">({{ ligne.eleve.matricule }})</span>
+                        {% if ligne.classe_nom %}<div class="text-muted small">{{ ligne.classe_nom }}</div>{% endif %}</td>
+                    <td>{{ ligne.formule.libelle }}<div class="text-muted small"><span>{{ ligne.formule.get_mode_display }}</span>
+                        {% if ligne.formule.mode == "repas" %}<span class="ms-2">Repas servis</span> <strong>{{ ligne.nb_repas }}</strong>{% endif %}
+                        {% if not ligne.ouverte %}<span class="ms-2">Terminée le</span> <strong>{{ ligne.date_fin|date:"d/m/Y" }}</strong>{% endif %}</div></td>
+                    <td class="text-end montant-val">{{ ligne.du|montant }}</td>
+                    <td class="text-end montant-val">{{ ligne.total_paye|montant }}</td>
+                    <td class="text-end montant-val">{% if ligne.solde > 0 %}<span class="text-danger">{{ ligne.solde|montant }}</span>{% elif ligne.solde < 0 %}<span class="text-success">Avance {{ ligne.avance|montant }}</span>{% else %}À jour{% endif %}</td>
+                    <td class="text-end"><a href="{% url 'cantine:paiement' ligne.pk %}" class="btn btn-sm btn-outline-primary">Encaisser</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "_pagination.html" %}
+    {% else %}
+    <div class="etat-vide"><p>Aucune inscription à afficher.</p></div>
+    {% endif %}
+</div></div>
+{% endblock %}

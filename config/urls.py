@@ -51,6 +51,7 @@ urlpatterns = [
     path("comptabilite/", include("comptabilite.urls")),
     path("pedagogie/", include("pedagogie.urls")),
     path("tests-de-niveau/", include("tests_niveau.urls")),
+    path("cantine/", include("cantine.urls")),
     path("assistant/", include("assistant.urls")),
     path("plateforme/", include("espace_plateforme.urls")),
     path("bibliotheque/", include("bibliotheque.urls")),

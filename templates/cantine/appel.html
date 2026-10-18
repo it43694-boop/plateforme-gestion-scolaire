@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Appel de la cantine{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "cantine" 24 %}</div>
+        <div>
+            <h1>Appel de la cantine</h1>
+            <p>Cochez les élèves qui ont mangé ce jour-là. Refaire l'appel le même jour corrige le précédent.</p>
+        </div>
+    </div>
+    <a href="{% url 'cantine:tableau' %}" class="btn btn-outline-secondary btn-sm">Retour à la cantine</a>
+</div>
+
+<form method="get" class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <label class="form-label mb-0" for="date-appel">Jour</label>
+    <input type="date" id="date-appel" name="date" value="{{ date|date:'Y-m-d' }}" max="{{ aujourdhui|date:'Y-m-d' }}" class="form-control form-control-sm w-auto" data-auto-submit>
+    <noscript><button class="btn btn-outline-secondary btn-sm">Afficher</button></noscript>
+</form>
+
+<div class="card"><div class="card-body">
+    {% if inscrits %}
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-cocher-tout="input[name=presents]">Tout cocher</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-cocher-tout="input[name=presents]" data-valeur="0">Tout décocher</button>
+            <span class="text-muted ms-auto">{{ presents }} sur {{ inscrits|length }} ont déjà mangé ce jour-là.</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-large">
+                <thead><tr><th><span class="visually-hidden">Présent</span></th><th>Élève</th><th>Classe</th></tr></thead>
+                <tbody>
+                    {% for inscription in inscrits %}
+                    <tr>
+                        <td><input type="checkbox" class="form-check-input" name="presents" value="{{ inscription.pk }}" id="present-{{ inscription.pk }}"{% if inscription.a_mange %} checked{% endif %} aria-label="{{ inscription.eleve.nom_complet }}"></td>
+                        <td><label for="present-{{ inscription.pk }}">{{ inscription.eleve.nom_complet }}</label> <span class="text-muted">({{ inscription.eleve.matricule }})</span></td>
+                        <td>{{ inscription.classe_nom|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button class="btn btn-primary mt-2">Enregistrer l'appel</button>
+    </form>
+    {% else %}
+    <div class="etat-vide"><p>Aucun élève n'est inscrit à la cantine ce jour-là.</p></div>
+    {% endif %}
+</div></div>
+{% endblock %}

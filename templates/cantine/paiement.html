@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load icones montants %}
+{% block titre %}Paiement de cantine{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "cantine" 24 %}</div>
+        <div>
+            <h1>Paiement de cantine</h1>
+            <p>{{ inscription.eleve.nom_complet }} - {{ inscription.formule.libelle }}</p>
+        </div>
+    </div>
+</div>
+<div class="card mw-480">
+    <div class="card-body">
+        <ul class="list-unstyled mb-3">
+            <li><span>Dû</span> : <strong>{{ du|montant }} {{ etablissement.code_devise|default:"FCFA" }}</strong></li>
+            <li><span>Payé</span> : <strong>{{ total_paye|montant }} {{ etablissement.code_devise|default:"FCFA" }}</strong></li>
+            <li>{% if solde > 0 %}<span>Reste à payer</span> : <strong>{{ solde|montant }} {{ etablissement.code_devise|default:"FCFA" }}</strong>{% elif solde < 0 %}<span>Payé d'avance</span> : <strong>{{ avance|montant }} {{ etablissement.code_devise|default:"FCFA" }}</strong>{% else %}<strong>À jour</strong>{% endif %}</li>
+        </ul>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for erreur in formulaire.non_field_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+            {% for champ in formulaire %}
+            <div class="mb-3">
+                <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                {{ champ }}
+                {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary w-100">Enregistrer le paiement</button>
+        </form>
+        <a href="{% url 'cantine:fiche_inscription' inscription.pk %}" class="btn btn-link w-100 mt-2">Retour à la fiche</a>
+    </div>
+</div>
+{% endblock %}

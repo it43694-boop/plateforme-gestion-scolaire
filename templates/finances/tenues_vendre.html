@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load icones montants %}
+{% block titre %}Vendre des tenues{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone vert">{% icone "boutique" 24 %}</div>
+        <div>
+            <h1>Vendre des tenues</h1>
+            <p>Indiquez l'acheteur, la quantité de chaque article et le mode de paiement. Seuls les articles en vente et en stock sont proposés.</p>
+        </div>
+    </div>
+    <a href="{% url 'finances:tenues' %}" class="btn btn-outline-secondary btn-sm">Stock des tenues</a>
+</div>
+<div class="card"><div class="card-body">
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% for erreur in formulaire.non_field_errors %}<div class="alert alert-danger py-2">{{ erreur }}</div>{% endfor %}
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label" for="recherche-eleve">Élève (facultatif)</label>
+                <div class="recherche-conteneur">
+                    <input type="text" id="recherche-eleve" class="form-control" autocomplete="off" placeholder="Rechercher par nom ou matricule..."
+                           data-recherche-url="{% url 'finances:rechercher_eleve_json' %}"
+                           data-recherche-cible="{{ formulaire.matricule_eleve.id_for_label }}"
+                           data-recherche-affichage="nom_complet" data-recherche-valeur="matricule">
+                    <div class="recherche-resultats" data-recherche-resultats></div>
+                </div>
+                {{ formulaire.matricule_eleve }}
+                {% for erreur in formulaire.matricule_eleve.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ formulaire.acheteur.id_for_label }}">{{ formulaire.acheteur.label }}</label>
+                {{ formulaire.acheteur }}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ formulaire.mode_paiement.id_for_label }}">{{ formulaire.mode_paiement.label }}</label>
+                {{ formulaire.mode_paiement }}
+            </div>
+        </div>
+        {% if lignes %}
+        <div class="table-responsive">
+            <table class="table table-large">
+                <thead><tr><th>Article</th><th class="text-end">Prix</th><th class="text-end">En stock</th><th class="text-end">Quantité</th></tr></thead>
+                <tbody>
+                    {% for article, champ in lignes %}
+                    <tr>
+                        <td><label for="{{ champ.id_for_label }}">{{ article.libelle }}{% if article.taille %} - {{ article.taille }}{% endif %}</label></td>
+                        <td class="text-end montant-val">{{ article.prix|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                        <td class="text-end">{{ article.stock }}</td>
+                        <td class="text-end largeur-7">{{ champ }}{% for erreur in champ.errors %}<div class="text-danger small">{{ erreur }}</div>{% endfor %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button class="btn btn-primary">Enregistrer la vente</button>
+        {% else %}
+        <div class="etat-vide"><p>Aucun article en vente et en stock. Ajoutez des articles et enregistrez un arrivage dans le <a href="{% url 'finances:tenues' %}">stock des tenues</a>.</p></div>
+        {% endif %}
+    </form>
+</div></div>
+{% endblock %}

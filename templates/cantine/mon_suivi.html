@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load icones montants %}
+{% block titre %}Cantine{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "cantine" 24 %}</div>
+        <div>
+            <h1>Cantine</h1>
+            <p>L'inscription à la cantine, les repas servis et ce qui reste à payer.</p>
+        </div>
+    </div>
+</div>
+{% for eleve, inscriptions in familles %}
+<div class="card mb-3"><div class="card-body">
+    <p class="titre-section">{{ eleve.nom_complet }}</p>
+    {% if inscriptions %}
+    <div class="table-responsive">
+        <table class="table table-large">
+            <thead><tr><th>Formule</th><th>Période</th><th>Repas</th><th class="text-end">Dû</th><th class="text-end">Payé</th><th class="text-end">Solde</th></tr></thead>
+            <tbody>
+                {% for i in inscriptions %}
+                <tr>
+                    <td>{{ i.formule.libelle }}<div class="text-muted small"><span>{{ i.formule.get_mode_display }}</span> <strong>{{ i.formule.montant|montant }} {{ etablissement.code_devise|default:"FCFA" }}</strong></div></td>
+                    <td><span>Depuis le</span> <strong>{{ i.date_debut|date:"d/m/Y" }}</strong>{% if i.date_fin %}<div class="text-muted small"><span>Jusqu'au</span> <strong>{{ i.date_fin|date:"d/m/Y" }}</strong></div>{% endif %}</td>
+                    <td>{{ i.nb_repas }}</td>
+                    <td class="text-end montant-val">{{ i.du|montant }}</td>
+                    <td class="text-end montant-val">{{ i.total_paye|montant }}</td>
+                    <td class="text-end montant-val">{% if i.solde > 0 %}<span class="text-danger">{{ i.solde|montant }}</span>{% elif i.solde < 0 %}<span class="text-success">Avance {{ i.avance|montant }}</span>{% else %}À jour{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="etat-vide"><p>Pas inscrit(e) à la cantine.</p></div>
+    {% endif %}
+</div></div>
+{% empty %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Aucun élève à afficher.</p></div></div></div>
+{% endfor %}
+{% endblock %}

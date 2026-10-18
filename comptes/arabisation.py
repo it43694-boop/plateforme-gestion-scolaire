@@ -44,9 +44,9 @@ LEXIQUE = {
     "QR": "كيو آر", "Nexora": "نيكسورا", "JPEG": "جي بي إي جي", "PNG": "بي إن جي", "WebP": "ويب بي",
 }
 LEXIQUE_ARABE = re.compile(r"(?<![\w@])\.?(" + "|".join(re.escape(m) for m in sorted(LEXIQUE, key=len, reverse=True)) + r")(?![\w@])")
-# Préfixes des numéros (reçu REC-2026-000057, caisse CAI-..., banque BQ-..., salaire SAL-..., abonnement ABO-...) : un mot arabe devant les chiffres.
+# Préfixes des numéros (reçu REC-2026-000057, caisse CAI-..., banque BQ-..., salaire SAL-..., abonnement ABO-..., cantine CAN-..., tenues TEN-...) : un mot arabe devant les chiffres.
 PREFIXES_DE_REFERENCE = {
-    "REC": "إيصال", "CAI": "صندوق", "BQ": "بنك", "OD": "عمليات", "AN": "ترحيل", "SAL": "راتب", "ABO": "اشتراك",
+    "REC": "إيصال", "CAI": "صندوق", "BQ": "بنك", "OD": "عمليات", "AN": "ترحيل", "SAL": "راتب", "ABO": "اشتراك", "CAN": "مطعم", "TEN": "زي",
 }
 REFERENCE = re.compile(r"(?<![\w])(" + "|".join(PREFIXES_DE_REFERENCE) + r")-(?=\d)")
 

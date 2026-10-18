@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+    @page { size: A5 portrait; margin: 1.5cm; }
+    body { font-family: Helvetica, sans-serif; font-size: 12px; color: #262626; }
+    h1 { font-size: 16px; color: #1F3864; margin-bottom: 2px; }
+    p.etablissement { color: #595959; margin-top: 0; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+    td, th { padding: 6px 4px; border-bottom: 1px solid #dddddd; }
+    th { text-align: left; color: #595959; font-weight: normal; }
+    td.libelle { color: #595959; width: 40%; }
+    td.valeur { font-weight: bold; }
+    td.numerique, th.numerique { text-align: right; }
+    .bloc-montant { margin-top: 12px; padding: 10px 14px; background-color: #F1E4C4; text-align: center; }
+    .bloc-montant .valeur { font-size: 20px; font-weight: bold; color: #1F3864; }
+    .annule { color: #B00020; font-weight: bold; text-align: center; margin-top: 10px; }
+    .pied { margin-top: 20px; color: #8c8c8c; font-size: 10px; }
+</style>
+</head>
+<body>
+    <h1>{{ etablissement.nom }}</h1>
+    <p class="etablissement">Reçu de vente de tenues</p>
+
+    <table>
+        <tr><td class="libelle">Référence</td><td class="valeur">{{ vente.reference }}</td></tr>
+        <tr><td class="libelle">Acheteur</td><td class="valeur">{{ vente.nom_acheteur }}{% if vente.eleve %} ({{ vente.eleve.matricule }}){% endif %}</td></tr>
+        <tr><td class="libelle">Date</td><td class="valeur">{{ vente.date_vente|date:"d/m/Y à H:i" }}</td></tr>
+        <tr><td class="libelle">Mode de paiement</td><td class="valeur">{{ vente.get_mode_paiement_display }}</td></tr>
+        <tr><td class="libelle">Enregistré par</td><td class="valeur">{{ vente.enregistre_par.nom_complet|default:"-" }}</td></tr>
+    </table>
+
+    <table>
+        <tr><th>Article</th><th class="numerique">Qté</th><th class="numerique">Prix</th><th class="numerique">Total</th></tr>
+        {% for ligne in vente.lignes.all %}
+        <tr><td>{{ ligne.libelle }}</td><td class="numerique">{{ ligne.quantite }}</td><td class="numerique">{{ ligne.prix_unitaire }}</td><td class="numerique">{{ ligne.sous_total }}</td></tr>
+        {% endfor %}
+    </table>
+
+    <div class="bloc-montant">
+        Total réglé : <span class="valeur">{{ vente.total }} {{ etablissement.code_devise|default:"FCFA" }}</span>
+    </div>
+    {% if vente.annulee %}<p class="annule">Cette vente a été annulée.</p>{% endif %}
+
+    <p class="pied">Ce reçu fait foi de paiement. Conservez-le.</p>
+</body>
+</html>

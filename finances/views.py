@@ -18,7 +18,8 @@ from finances.forms import (
     EnregistrerPaiementForm, SaisirSalaireForm,
 )
 from finances.models import (
-    COMPTE_SYSCOHADA_CAISSE, COMPTE_SYSCOHADA_CHARGES_PERSONNEL, COMPTE_SYSCOHADA_PRODUITS_SCOLARITE,
+    COMPTE_SYSCOHADA_CAISSE, COMPTE_SYSCOHADA_CHARGES_PERSONNEL, COMPTE_SYSCOHADA_PRODUITS_SCOLARITE, COMPTE_SYSCOHADA_SERVICES_VENDUS,
+    COMPTE_SYSCOHADA_VENTES_MARCHANDISES,
     Contrat, DemandeConge, MouvementCaisse, Paiement, Salaire,
     contrat_actif_pour, corriger_paiement, creer_bulletin_paie, enregistrer_paiement, marquer_salaire_paye,
     solde_conges_payes, supprimer_paiement, supprimer_salaire,
@@ -550,7 +551,7 @@ def registre_caisse(request):
     from django.db.models import Sum, Case, When, F, IntegerField
     mouvements = MouvementCaisse.objects.filter(
         etablissement=request.user.etablissement,
-    ).select_related("paiement", "salaire")
+    ).select_related("paiement", "salaire", "vente_tenue", "paiement_cantine")
     solde = mouvements.filter(annule=False).aggregate(
         solde=Sum(Case(
             When(type_mouvement=MouvementCaisse.TypeMouvement.ENTREE, then=F("montant")),
@@ -578,24 +579,31 @@ def journal_caisse_syscohada(request):
 
     mouvements = MouvementCaisse.objects.filter(
         etablissement=request.user.etablissement, annule=False,
-    ).select_related("paiement", "salaire").order_by("date_mouvement")
+    ).select_related("paiement", "salaire", "vente_tenue", "paiement_cantine").order_by("date_mouvement")
 
     total_entrees = mouvements.filter(type_mouvement=MouvementCaisse.TypeMouvement.ENTREE).aggregate(
         total=Sum("montant"))["total"] or 0
     total_sorties = mouvements.filter(type_mouvement=MouvementCaisse.TypeMouvement.SORTIE).aggregate(
         total=Sum("montant"))["total"] or 0
 
+    entrees = mouvements.filter(type_mouvement=MouvementCaisse.TypeMouvement.ENTREE)
+    total_ventes = entrees.filter(vente_tenue__isnull=False).aggregate(total=Sum("montant"))["total"] or 0
+    total_cantine = entrees.filter(paiement_cantine__isnull=False).aggregate(total=Sum("montant"))["total"] or 0
     balance = [
         {"compte": COMPTE_SYSCOHADA_CAISSE, "libelle": "Caisse", "debit": total_entrees, "credit": total_sorties},
         {
             "compte": COMPTE_SYSCOHADA_PRODUITS_SCOLARITE, "libelle": "Produits de scolarité",
-            "debit": 0, "credit": total_entrees,
-        },
-        {
-            "compte": COMPTE_SYSCOHADA_CHARGES_PERSONNEL, "libelle": "Charges de personnel",
-            "debit": total_sorties, "credit": 0,
+            "debit": 0, "credit": total_entrees - total_ventes - total_cantine,
         },
     ]
+    if total_ventes:
+        balance.append({"compte": COMPTE_SYSCOHADA_VENTES_MARCHANDISES, "libelle": "Ventes de tenues", "debit": 0, "credit": total_ventes})
+    if total_cantine:
+        balance.append({"compte": COMPTE_SYSCOHADA_SERVICES_VENDUS, "libelle": "Cantine", "debit": 0, "credit": total_cantine})
+    balance.append({
+        "compte": COMPTE_SYSCOHADA_CHARGES_PERSONNEL, "libelle": "Charges de personnel",
+        "debit": total_sorties, "credit": 0,
+    })
 
     page_obj = Paginator(mouvements, 50).get_page(request.GET.get("page"))
     return render(request, "finances/journal_caisse_syscohada.html", {

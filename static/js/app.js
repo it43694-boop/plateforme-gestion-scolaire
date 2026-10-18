@@ -47,6 +47,16 @@ document.addEventListener("DOMContentLoaded", function () {
         champ.addEventListener("change", function () { champ.form.submit(); });
     });
 
+    // Cocher ou décocher d'un coup toutes les cases d'une liste (appel de la cantine, choix des élèves à inscrire).
+    document.querySelectorAll("[data-cocher-tout]").forEach(function (bouton) {
+        bouton.addEventListener("click", function () {
+            var coche = bouton.getAttribute("data-valeur") !== "0";
+            document.querySelectorAll(bouton.getAttribute("data-cocher-tout")).forEach(function (caseACocher) {
+                if (!caseACocher.disabled) caseACocher.checked = coche;
+            });
+        });
+    });
+
     document.querySelectorAll('form[method="post"], form[method="POST"], form[data-attente]').forEach(function (formulaire) {
         formulaire.addEventListener("submit", function (evenement) {
             var confirmation = formulaire.getAttribute("data-confirmer");

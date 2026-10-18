@@ -233,6 +233,7 @@ def vecteur_attendu(mouvement) -> dict:
 
     - paiement de scolarité : débit de la trésorerie (caisse, monnaie électronique ou banque selon le mode de paiement),
       crédit du produit (droits d'inscription ou frais de scolarité) ;
+    - vente de tenues : même débit, crédit des ventes de marchandises (701) ; paiement de cantine : crédit des autres services vendus (70608) ;
     - salaire payé : avec bulletin détaillé, débit des rémunérations (brut) et des charges sociales patronales, crédit de la
       caisse (net payé), de la sécurité sociale, des organismes sociaux (AMO) et de l'État (ITS) ; sans détail (ou si le
       bulletin n'est pas équilibré), le net seulement.
@@ -246,6 +247,11 @@ def vecteur_attendu(mouvement) -> dict:
         produit = {
             "inscription": plan.DROITS_INSCRIPTION, "annexe": plan.AUTRES_SERVICES_VENDUS,
         }.get(paiement.tranche, plan.FRAIS_SCOLARITE)
+        return {tresorerie: montant, produit: -montant}
+    if mouvement.vente_tenue_id or mouvement.paiement_cantine_id:
+        origine = mouvement.vente_tenue or mouvement.paiement_cantine
+        tresorerie = MODES_TRESORERIE.get(origine.mode_paiement, plan.BANQUE)
+        produit = plan.VENTES_MARCHANDISES if mouvement.vente_tenue_id else plan.AUTRES_SERVICES_VENDUS
         return {tresorerie: montant, produit: -montant}
     salaire = mouvement.salaire
     champs = (salaire.salaire_brut, salaire.cotisation_inps_salarie, salaire.cotisation_inps_employeur,
@@ -279,7 +285,7 @@ def ecarts_caisse(etablissement) -> list:
     from finances.models import MouvementCaisse
 
     mouvements = list(
-        MouvementCaisse.objects.filter(etablissement=etablissement).select_related("paiement", "salaire").order_by("date_mouvement", "id")
+        MouvementCaisse.objects.filter(etablissement=etablissement).select_related("paiement", "salaire", "vente_tenue", "paiement_cantine").order_by("date_mouvement", "id")
     )
     passe = defaultdict(lambda: defaultdict(int))
     for ligne in LigneEcriture.objects.filter(

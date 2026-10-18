@@ -1,6 +1,6 @@
 from django.urls import path
 
-from finances import views, views_annexes
+from finances import views, views_annexes, views_tenues
 
 app_name = "finances"
 
@@ -11,6 +11,14 @@ urlpatterns = [
     path("frais-annexes/", views_annexes.frais_annexes, name="frais_annexes"),
     path("frais-annexes/<int:frais_id>/supprimer/", views_annexes.supprimer_frais_annexe, name="supprimer_frais_annexe"),
     path("arrieres/", views_annexes.arrieres, name="arrieres"),
+    path("tenues/", views_tenues.stock, name="tenues"),
+    path("tenues/vendre/", views_tenues.vendre, name="tenues_vendre"),
+    path("tenues/ventes/", views_tenues.ventes, name="tenues_ventes"),
+    path("tenues/ventes/<int:vente_id>/recu.pdf", views_tenues.recu_pdf, name="tenues_recu_pdf"),
+    path("tenues/ventes/<int:vente_id>/annuler/", views_tenues.annuler_vente, name="tenues_annuler_vente"),
+    path("tenues/articles/<int:article_id>/modifier/", views_tenues.modifier_article, name="modifier_article_tenue"),
+    path("tenues/articles/<int:article_id>/approvisionner/", views_tenues.approvisionner, name="approvisionner_tenue"),
+    path("tenues/articles/<int:article_id>/corriger-stock/", views_tenues.corriger_stock, name="corriger_stock_tenue"),
     path("paiements/rechercher-eleve.json", views.rechercher_eleve_json, name="rechercher_eleve_json"),
     path("paiements/periodes-eleve.json", views.periodes_eleve_json, name="periodes_eleve_json"),
     path("paiements/<int:paiement_id>/corriger/", views.corriger_paiement_vue, name="corriger_paiement"),

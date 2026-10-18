@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load icones montants %}
+{% block titre %}Inscrire des élèves à la cantine{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "cantine" 24 %}</div>
+        <div>
+            <h1>Inscrire des élèves à la cantine</h1>
+            <p>Choisissez une classe, cochez les élèves, indiquez la formule et la date de début.</p>
+        </div>
+    </div>
+    <a href="{% url 'cantine:tableau' %}" class="btn btn-outline-secondary btn-sm">Retour à la cantine</a>
+</div>
+
+<form method="get" class="d-flex flex-wrap gap-2 mb-3">
+    <select name="classe" class="form-select form-select-sm w-auto" aria-label="Classe" data-auto-submit>
+        <option value="">Choisir une classe...</option>
+        {% for c in classes %}<option value="{{ c.pk }}"{% if classe and classe.pk == c.pk %} selected{% endif %}>{{ c.nom }}</option>{% endfor %}
+    </select>
+    <noscript><button class="btn btn-outline-secondary btn-sm">Afficher</button></noscript>
+</form>
+
+{% if classe %}
+<div class="card"><div class="card-body">
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="classe" value="{{ classe.pk }}">
+        {% for erreur in formulaire.non_field_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <p class="form-label mb-1">{{ formulaire.formule.label }}</p>
+                {% for choix in formulaire.formule %}
+                {% with formule=choix.data.value.instance %}
+                <div class="form-check mb-1">{{ choix.tag }}
+                    <label class="form-check-label" for="{{ choix.id_for_label }}">{{ formule.libelle }} - <span>{{ formule.get_mode_display }}</span> <strong>{{ formule.montant|montant }} {{ etablissement.code_devise|default:"FCFA" }}</strong></label>
+                </div>
+                {% endwith %}
+                {% endfor %}
+                {% for erreur in formulaire.formule.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ formulaire.date_debut.id_for_label }}">{{ formulaire.date_debut.label }}</label>
+                {{ formulaire.date_debut }}
+                {% for erreur in formulaire.date_debut.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            </div>
+        </div>
+        <p class="titre-section"><span>{{ formulaire.eleves.label }}</span> - <span>{{ classe.nom }}</span></p>
+        {% if formulaire.eleves.field.queryset.exists %}
+        <div class="d-flex gap-2 mb-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-cocher-tout="input[name=eleves]">Tout cocher</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-cocher-tout="input[name=eleves]" data-valeur="0">Tout décocher</button>
+        </div>
+        <div class="row">
+            {% for choix in formulaire.eleves %}
+            <div class="col-md-6"><div class="form-check mb-1">{{ choix.tag }} <label class="form-check-label" for="{{ choix.id_for_label }}">{{ choix.choice_label }}</label></div></div>
+            {% endfor %}
+        </div>
+        {% for erreur in formulaire.eleves.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+        <button class="btn btn-primary mt-3">Inscrire les élèves cochés</button>
+        {% else %}
+        <div class="etat-vide"><p>Tous les élèves de cette classe sont déjà inscrits à la cantine, ou la classe est vide.</p></div>
+        {% endif %}
+    </form>
+    {% if deja_inscrits %}
+    <hr>
+    <p class="titre-section">Déjà inscrits</p>
+    <p class="text-muted mb-0">{% for eleve in deja_inscrits %}{{ eleve.nom_complet }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    {% endif %}
+</div></div>
+{% endif %}
+{% endblock %}

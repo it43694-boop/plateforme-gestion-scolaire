@@ -479,7 +479,7 @@ def creer_bulletin_paie(*, employe, periode, salaire_brut, its, enregistre_par):
 # MouvementCaisse.compte_contrepartie et finances.views.journal_caisse_
 # syscohada) - imputation fixe, puisque chaque mouvement de Caisse ne
 # provient que d'exactement deux origines possibles (paiement ou salaire
-# payé, voir la contrainte mouvement_caisse_origine_unique ci-dessous).
+# payé, une vente de tenues ou un paiement de cantine, voir la contrainte mouvement_caisse_origine_unique ci-dessous).
 # Ce journal de caisse reste un export simple pour un comptable externe. La
 # comptabilité en partie double complète (plan de comptes, écritures, grand
 # livre, balance, résultat, bilan, clôture) est dans l'application
@@ -487,6 +487,19 @@ def creer_bulletin_paie(*, employe, periode, salaire_brut, its, enregistre_par):
 COMPTE_SYSCOHADA_CAISSE = "571"
 COMPTE_SYSCOHADA_PRODUITS_SCOLARITE = "706"
 COMPTE_SYSCOHADA_CHARGES_PERSONNEL = "661"
+COMPTE_SYSCOHADA_VENTES_MARCHANDISES = "701"
+COMPTE_SYSCOHADA_SERVICES_VENDUS = "70608"
+
+ORIGINES_DE_CAISSE = ("paiement", "salaire", "vente_tenue", "paiement_cantine")
+
+
+def _exactement_une_origine():
+    """Condition de la contrainte : une seule des origines est renseignée, toutes les autres sont vides."""
+    cas = None
+    for retenue in ORIGINES_DE_CAISSE:
+        condition = models.Q(**{f"{origine}__isnull": origine != retenue for origine in ORIGINES_DE_CAISSE})
+        cas = condition if cas is None else cas | condition
+    return cas
 
 
 class MouvementCaisse(models.Model):
@@ -523,6 +536,12 @@ class MouvementCaisse(models.Model):
     salaire = models.OneToOneField(
         Salaire, on_delete=models.PROTECT, null=True, blank=True, related_name="mouvement_caisse",
     )
+    vente_tenue = models.OneToOneField(
+        "finances.VenteTenue", on_delete=models.PROTECT, null=True, blank=True, related_name="mouvement_caisse",
+    )
+    paiement_cantine = models.OneToOneField(
+        "cantine.PaiementCantine", on_delete=models.PROTECT, null=True, blank=True, related_name="mouvement_caisse",
+    )
 
     annule = models.BooleanField(default=False)
     annule_par = models.ForeignKey(
@@ -536,13 +555,7 @@ class MouvementCaisse(models.Model):
         verbose_name_plural = "mouvements de caisse"
         ordering = ["-date_mouvement"]
         constraints = [
-            models.CheckConstraint(
-                condition=(
-                    models.Q(paiement__isnull=False, salaire__isnull=True)
-                    | models.Q(paiement__isnull=True, salaire__isnull=False)
-                ),
-                name="mouvement_caisse_origine_unique",
-            ),
+            models.CheckConstraint(condition=_exactement_une_origine(), name="mouvement_caisse_origine_unique"),
             models.UniqueConstraint(fields=["etablissement", "reference"], name="mouvement_caisse_reference_unique_par_etablissement"),
         ]
 
@@ -555,6 +568,10 @@ class MouvementCaisse(models.Model):
     def compte_contrepartie(self):
         """Compte SYSCOHADA de contrepartie de la Caisse pour ce mouvement."""
         if self.type_mouvement == self.TypeMouvement.ENTREE:
+            if self.vente_tenue_id:
+                return COMPTE_SYSCOHADA_VENTES_MARCHANDISES
+            if self.paiement_cantine_id:
+                return COMPTE_SYSCOHADA_SERVICES_VENDUS
             return COMPTE_SYSCOHADA_PRODUITS_SCOLARITE
         return COMPTE_SYSCOHADA_CHARGES_PERSONNEL
 
@@ -568,11 +585,12 @@ class MouvementCaisse(models.Model):
 
     def clean(self):
         super().clean()
-        if bool(self.paiement_id) == bool(self.salaire_id):
+        if sum(1 for origine in ORIGINES_DE_CAISSE if getattr(self, f"{origine}_id")) != 1:
             raise ValidationError(
-                "Un mouvement de caisse doit provenir d'exactement un paiement OU un salaire."
+                "Un mouvement de caisse doit provenir d'exactement une origine : un paiement, un salaire, "
+                "une vente de tenues ou un paiement de cantine."
             )
-        origine = self.paiement or self.salaire
+        origine = self.paiement or self.salaire or self.vente_tenue or self.paiement_cantine
         if origine and self.etablissement_id != origine.etablissement_id:
             raise ValidationError("Le mouvement et son origine doivent appartenir au même établissement.")
         if self.montant <= 0:
@@ -584,6 +602,10 @@ class MouvementCaisse(models.Model):
                 self.etablissement_id = self.paiement.etablissement_id
             elif self.salaire_id:
                 self.etablissement_id = self.salaire.etablissement_id
+            elif self.vente_tenue_id:
+                self.etablissement_id = self.vente_tenue.etablissement_id
+            elif self.paiement_cantine_id:
+                self.etablissement_id = self.paiement_cantine.etablissement_id
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -697,3 +719,145 @@ def supprimer_salaire(*, salaire, acteur):
             mouvement.annule_par = acteur
             mouvement.annule_le = timezone.now()
             mouvement.save(update_fields=["annule", "annule_par", "annule_le"])
+# ---------------------------------------------------------------------------
+# Vente de tenues (uniformes) : articles en stock, ventes, mouvements de stock
+# ---------------------------------------------------------------------------
+
+class ArticleTenue(models.Model):
+    """
+    Un article vendu par l'école : une tenue dans une taille, avec son prix et son stock. Le stock ne change jamais à la main : seulement par
+    une vente, un arrivage, l'annulation d'une vente ou une correction d'inventaire, qui laissent chacun une ligne dans l'historique
+    (MouvementStockTenue). Il ne descend jamais sous zéro.
+    """
+
+    etablissement = models.ForeignKey("etablissement.Etablissement", on_delete=models.PROTECT, related_name="articles_tenue")
+    libelle = models.CharField("article", max_length=120, help_text="Le nom de l'article, tel que vous le vendez.")
+    taille = models.CharField(max_length=30, blank=True, help_text="La taille ou la pointure, si l'article en a plusieurs. Laissez vide sinon.")
+    prix = models.PositiveIntegerField("prix de vente")
+    stock = models.IntegerField("en stock", default=0, editable=False)
+    seuil_alerte = models.PositiveSmallIntegerField(
+        "seuil d'alerte", default=5, help_text="Le stock s'affiche en alerte quand il atteint ce nombre ou moins.",
+    )
+    actif = models.BooleanField("en vente", default=True, help_text="Décochez pour retirer l'article de la vente sans perdre son historique.")
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "article de tenue"
+        verbose_name_plural = "articles de tenue"
+        ordering = ["libelle", "taille", "pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["etablissement", "libelle", "taille"], name="article_tenue_unique_par_ecole"),
+            models.CheckConstraint(condition=models.Q(stock__gte=0), name="article_tenue_stock_positif"),
+        ]
+
+    def __str__(self):
+        return self.nom_complet
+
+    @property
+    def nom_complet(self) -> str:
+        return f"{self.libelle} - {self.taille}" if self.taille else self.libelle
+
+    @property
+    def en_alerte(self) -> bool:
+        return self.stock <= self.seuil_alerte
+
+    def clean(self):
+        super().clean()
+        if self.prix is not None and self.prix <= 0:
+            raise ValidationError("Le prix doit être supérieur à zéro.")
+
+
+class VenteTenue(models.Model):
+    """
+    Une vente de tenues, encaissée au comptoir : à un élève (ou à un parent qui achète pour lui) ou à une personne extérieure. Elle crée
+    sa ligne de Caisse ; une annulation (direction seulement) remet les articles en stock et annule la ligne de Caisse, sans rien effacer.
+    """
+
+    etablissement = models.ForeignKey("etablissement.Etablissement", on_delete=models.PROTECT, related_name="ventes_tenue")
+    eleve = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.PROTECT, null=True, blank=True, related_name="achats_tenue",
+        limit_choices_to={"role": Role.ELEVE},
+    )
+    acheteur = models.CharField("acheteur", max_length=120, blank=True, help_text="Nom de l'acheteur s'il n'est pas élève de l'école.")
+    mode_paiement = models.CharField(max_length=20, choices=ModePaiement.choices)
+    total = models.PositiveIntegerField()
+    reference = models.CharField(max_length=30, editable=False)
+    date_vente = models.DateTimeField(auto_now_add=True)
+    enregistre_par = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.SET_NULL, null=True, related_name="ventes_tenue_enregistrees",
+    )
+    annulee = models.BooleanField(default=False)
+    annulee_par = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.SET_NULL, null=True, blank=True, related_name="ventes_tenue_annulees",
+    )
+    annulee_le = models.DateTimeField(null=True, blank=True)
+    motif_annulation = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        verbose_name = "vente de tenues"
+        verbose_name_plural = "ventes de tenues"
+        ordering = ["-date_vente", "-pk"]
+        unique_together = ("etablissement", "reference")
+
+    def __str__(self):
+        return f"{self.reference} - {self.total}"
+
+    @property
+    def nom_acheteur(self) -> str:
+        return self.eleve.nom_complet if self.eleve_id else (self.acheteur or "-")
+
+    def clean(self):
+        super().clean()
+        if self.eleve_id:
+            if self.eleve.role != Role.ELEVE:
+                raise ValidationError("Seul un élève de l'école peut être indiqué comme acheteur.")
+            if self.eleve.etablissement_id != self.etablissement_id:
+                raise ValidationError("L'élève doit appartenir à l'établissement.")
+        if self.total is not None and self.total <= 0:
+            raise ValidationError("Le total de la vente doit être supérieur à zéro.")
+
+
+class LigneVenteTenue(models.Model):
+    """Une ligne d'une vente : l'article, la quantité et le prix du jour (conservé même si le prix change ensuite)."""
+
+    vente = models.ForeignKey(VenteTenue, on_delete=models.CASCADE, related_name="lignes")
+    article = models.ForeignKey(ArticleTenue, on_delete=models.PROTECT, related_name="lignes_vente")
+    libelle = models.CharField(max_length=160)
+    quantite = models.PositiveSmallIntegerField()
+    prix_unitaire = models.PositiveIntegerField()
+
+    class Meta:
+        verbose_name = "ligne de vente de tenues"
+        verbose_name_plural = "lignes de vente de tenues"
+        ordering = ["pk"]
+        constraints = [models.CheckConstraint(condition=models.Q(quantite__gte=1), name="ligne_vente_tenue_quantite_positive")]
+
+    @property
+    def sous_total(self) -> int:
+        return self.quantite * self.prix_unitaire
+
+
+class MotifStockTenue(models.TextChoices):
+    ARRIVAGE = "arrivage", "Arrivage"
+    VENTE = "vente", "Vente"
+    ANNULATION = "annulation", "Annulation d'une vente"
+    CORRECTION = "correction", "Correction d'inventaire"
+
+
+class MouvementStockTenue(models.Model):
+    """L'historique du stock d'un article : chaque entrée (+) ou sortie (-) avec son motif, l'auteur et le stock obtenu."""
+
+    article = models.ForeignKey(ArticleTenue, on_delete=models.PROTECT, related_name="mouvements")
+    quantite = models.IntegerField()
+    motif = models.CharField(max_length=20, choices=MotifStockTenue.choices)
+    vente = models.ForeignKey(VenteTenue, on_delete=models.PROTECT, null=True, blank=True, related_name="mouvements_stock")
+    note = models.CharField(max_length=255, blank=True)
+    stock_apres = models.IntegerField()
+    cree_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.SET_NULL, null=True, related_name="mouvements_stock_tenue")
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "mouvement de stock de tenues"
+        verbose_name_plural = "mouvements de stock de tenues"
+        ordering = ["-cree_le", "-pk"]
+        constraints = [models.CheckConstraint(condition=~models.Q(quantite=0), name="mouvement_stock_tenue_non_nul")]

@@ -22,6 +22,8 @@ PREFIXE_MATRICULE_ANONYME = "ANON-"
 # Libellés des éléments d'historique (nom de clé -> texte affiché), dans l'ordre d'affichage.
 LIBELLES_HISTORIQUE = (
     ("paiements", "paiement(s) enregistré(s)"),
+    ("cantine", "inscription(s) à la cantine"),
+    ("tenues", "achat(s) de tenues"),
     ("aides", "aide(s) de scolarité"),
     ("notes", "note(s)"),
     ("absences", "absence(s)"),
@@ -40,12 +42,15 @@ def est_anonymise(eleve) -> bool:
 def historique_eleve(eleve) -> dict:
     """Ce que l'élève a laissé derrière lui : nombre d'éléments de chaque sorte (inscriptions comprises à part)."""
     from communication.models import Message
-    from finances.models import Paiement
+    from cantine.models import InscriptionCantine
+    from finances.models import Paiement, VenteTenue
     from pedagogie.models import Absence, MesureDiscipline, Note, NoteConduite, VerificationBulletin
     from scolarite.models import Abandon, AideScolarite, ResultatExamen, TransfertEleve, VerificationDocument
 
     return {
         "paiements": Paiement.objects.filter(eleve=eleve).count(),
+        "cantine": InscriptionCantine.objects.filter(eleve=eleve).count(),
+        "tenues": VenteTenue.objects.filter(eleve=eleve).count(),
         "aides": AideScolarite.objects.filter(inscription__eleve=eleve).count(),
         "notes": Note.objects.filter(eleve=eleve).count() + NoteConduite.objects.filter(eleve=eleve).count(),
         "absences": Absence.objects.filter(eleve=eleve).count(),
@@ -90,6 +95,26 @@ def supprimer_eleve(eleve) -> None:
     eleve.delete()
 
 
+def _effacer_le_nom_des_ecritures(eleve, ancien_nom: str) -> None:
+    """
+    La Caisse et la comptabilité se conservent (obligation de l'école), mais leurs libellés (« Paiement scolarité - NOM Prénom », « Cantine -
+    NOM Prénom », « Vente de tenues - NOM Prénom ») nomment l'élève : son nom y est remplacé, le montant, la date et le numéro restent.
+    """
+    from comptabilite.models import Ecriture
+    from finances.models import MouvementCaisse
+
+    if len(ancien_nom) < 3:
+        return
+    mouvements = list(MouvementCaisse.objects.filter(
+        Q(paiement__eleve=eleve) | Q(vente_tenue__eleve=eleve) | Q(paiement_cantine__inscription__eleve=eleve)
+    ))
+    for mouvement in mouvements:
+        if ancien_nom in mouvement.description:
+            MouvementCaisse.objects.filter(pk=mouvement.pk).update(description=mouvement.description.replace(ancien_nom, "Élève anonymisé"))
+    for ecriture in Ecriture.objects.filter(mouvement_caisse__in=mouvements, libelle__contains=ancien_nom):
+        Ecriture.objects.filter(pk=ecriture.pk).update(libelle=ecriture.libelle.replace(ancien_nom, "Élève anonymisé"))
+
+
 @transaction.atomic
 def anonymiser_eleve(eleve) -> dict:
     """
@@ -98,7 +123,8 @@ def anonymiser_eleve(eleve) -> dict:
     Effacé : prénom, nom (et leur écriture arabe), photo, filiation, adresse, personne à prévenir, école d'origine, email,
     téléphone, matricule, lieu et n° d'acte de naissance, jour de naissance, famille en
     attente, lien avec les parents (leurs comptes restent), messages parents-enseignants à son sujet, notifications qui
-    le nomment, motifs d'absence, de discipline et de sortie, justificatif de transfert. Le compte est désactivé et sans mot de passe.
+    le nomment, motifs d'absence, de discipline et de sortie, justificatif de transfert, nom dans les libellés de la Caisse et de la comptabilité.
+    Le compte est désactivé et sans mot de passe.
 
     Gardé (les chiffres de l'école et des statistiques officielles) : sexe, année et mois de naissance, situation de
     handicap et de déplacement, inscriptions, notes, absences, paiements, résultats d'examen. Les documents déjà remis
@@ -125,6 +151,8 @@ def anonymiser_eleve(eleve) -> dict:
     parents_en_attente = ParentEnAttente.objects.filter(eleve=eleve).delete()[0]
     parents_delies = eleve.parents_lies.count()
     eleve.parents_lies.clear()
+
+    _effacer_le_nom_des_ecritures(eleve, ancien_nom)
 
     Absence.objects.filter(eleve=eleve).update(motif="")
     MesureDiscipline.objects.filter(eleve=eleve).update(motif="")  # le motif est un texte libre : il peut nommer l'élève ou d'autres enfants

@@ -11,11 +11,16 @@ from django.core.files.base import ContentFile
 from django.test import override_settings
 from django.urls import reverse
 
+from cantine import services as cantine
+from cantine.models import FormuleCantine, InscriptionCantine
+from comptabilite.services import assurer_plan_comptable, creer_exercice, synchroniser_caisse
+from comptabilite.models import Ecriture
 from communication.models import Message
 from comptes.models import JournalAudit, Notification, Utilisateur, generer_matricule
 from comptes.roles import Role, StatutCompte
 from espace_developpeur.retrait_eleve import mode_de_retrait, historique_eleve
-from finances.models import TypeTranche, enregistrer_paiement
+from finances import tenues
+from finances.models import ArticleTenue, MouvementCaisse, TypeTranche, enregistrer_paiement
 from pedagogie.models import Absence
 from scolarite.models import Inscription, ParentEnAttente, TransfertEleve
 from statistiques.fiche import construire_fiche
@@ -37,6 +42,9 @@ class RetraitBase(EducationBase):
         super().setUpTestData()
         cls.dev = creer_compte(Role.DEVELOPPEUR, "dev@retrait.test", cls.ecole)
         cls.dev_b = creer_compte(Role.DEVELOPPEUR, "dev-b@retrait.test", cls.ecole_b)
+        cls.formule_cantine = FormuleCantine.objects.create(etablissement=cls.ecole, libelle="Cantine", mode="mensuel", montant=5000)
+        cls.article = ArticleTenue.objects.create(etablissement=cls.ecole, libelle="Polo", taille="M", prix=4000)
+        ArticleTenue.objects.filter(pk=cls.article.pk).update(stock=50)
 
     def doublon(self):
         """Un élève inscrit par erreur : une inscription, un parent sans compte, rien d'autre."""
@@ -99,6 +107,10 @@ class ModeDeRetraitTests(RetraitBase):
             "paiement": lambda e, i: enregistrer_paiement(
                 eleve=e, inscription=i, tranche=TypeTranche.VERSEMENT, montant=1000, mode_paiement="especes",
                 enregistre_par=self.comptable),
+            "cantine": lambda e, i: InscriptionCantine.objects.create(
+                etablissement=self.ecole, eleve=e, annee_scolaire=self.annee, formule=self.formule_cantine, date_debut=datetime.date(2026, 10, 15)),
+            "achat de tenues": lambda e, i: tenues.vendre(
+                etablissement=self.ecole, quantites={self.article.pk: 1}, eleve=e, acheteur="", mode_paiement="especes", acteur=self.comptable),
         }
         for nom, creer in cas.items():
             with self.subTest(historique=nom):
@@ -278,3 +290,29 @@ class AnonymisationTests(RetraitBase):
         self.assertFalse(self.client.login(username=self.e2.email, password="n'importe"))
         reponse = self.client.get(reverse("scolarite:dossier_eleve", args=[self.e2.matricule]))
         self.assertEqual(reponse.status_code, 302)
+class NomEffaceDeLaCaisseEtDeLaComptabiliteTests(RetraitBase):
+    """La Caisse et la comptabilité se conservent, mais le nom de l'élève disparaît de leurs libellés."""
+
+    def test_le_nom_n_est_plus_dans_les_libelles_apres_anonymisation(self):
+        assurer_plan_comptable(self.ecole)
+        creer_exercice(etablissement=self.ecole, libelle="Exercice test", date_debut=datetime.date(datetime.date.today().year, 1, 1),
+                       date_fin=datetime.date(datetime.date.today().year, 12, 31))
+        inscription = cantine.inscrire(eleve=self.e1, formule=self.formule_cantine, annee=self.annee, date_debut=datetime.date(2026, 10, 15), acteur=self.dev)
+        enregistrer_paiement(eleve=self.e1, inscription=self.i["e1"], tranche=TypeTranche.VERSEMENT, montant=1000, mode_paiement="especes", enregistre_par=self.comptable)
+        cantine.enregistrer_paiement(inscription=inscription, montant=2000, mode_paiement="especes", acteur=self.dev)
+        tenues.vendre(etablissement=self.ecole, quantites={self.article.pk: 1}, eleve=self.e1, acheteur="", mode_paiement="especes", acteur=self.comptable)
+        autre = enregistrer_paiement(eleve=self.e2, inscription=self.i["e2"], tranche=TypeTranche.VERSEMENT, montant=500, mode_paiement="especes", enregistre_par=self.comptable)
+        synchroniser_caisse(self.ecole, acteur=self.comptable)
+        nom = self.e1.nom_complet
+        self.assertEqual(sum(nom in m.description for m in MouvementCaisse.objects.all()), 3)
+        self.assertEqual(sum(nom in e.libelle for e in Ecriture.objects.all()), 3)
+
+        self.connecte()
+        retirer(self.client, self.e1)
+
+        self.assertEqual(sum(nom in m.description for m in MouvementCaisse.objects.all()), 0)
+        self.assertEqual(sum(nom in e.libelle for e in Ecriture.objects.all()), 0)
+        self.assertEqual(MouvementCaisse.objects.filter(description__contains="Élève anonymisé").count(), 3)
+        self.assertEqual(sum(m.montant for m in MouvementCaisse.objects.filter(annule=False)), 1000 + 2000 + 4000 + 500)  # les chiffres restent
+        autre.refresh_from_db()
+        self.assertIn(self.e2.nom_complet, autre.mouvement_caisse.description)  # un autre élève n'est pas touché

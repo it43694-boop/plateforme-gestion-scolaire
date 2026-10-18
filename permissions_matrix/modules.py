@@ -2,7 +2,7 @@ from django.db import models
 
 
 class Module(models.TextChoices):
-    """Les 16 modules du périmètre fonctionnel (cahier des charges, section 5)."""
+    """Les modules du périmètre fonctionnel (cahier des charges, section 5, plus la cantine)."""
 
     CLASSES = "classes", "Classes"
     ELEVES = "eleves", "Élèves"
@@ -19,4 +19,5 @@ class Module(models.TextChoices):
     COMMUNICATION = "communication", "Communication"
     STATISTIQUES = "statistiques", "Statistiques"
     ASSISTANT = "assistant", "Assistant"
+    CANTINE = "cantine", "Cantine"
     ESPACE_DEVELOPPEUR = "espace_developpeur", "Espace développeur"

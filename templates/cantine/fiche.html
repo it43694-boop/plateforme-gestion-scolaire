@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load icones montants %}
+{% block titre %}Cantine - {{ inscription.eleve.nom_complet }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "cantine" 24 %}</div>
+        <div>
+            <h1>{{ inscription.eleve.nom_complet }}</h1>
+            <p class="mb-1">{{ inscription.formule.libelle }} <span class="text-muted">- {{ inscription.formule.get_mode_display }}</span> <strong>{{ inscription.formule.montant|montant }} {{ etablissement.code_devise|default:"FCFA" }}</strong></p>
+            <p class="mb-0"><span>Depuis le</span> <strong>{{ inscription.date_debut|date:"d/m/Y" }}</strong>{% if inscription.date_fin %} <span class="ms-3">Terminée le</span> <strong>{{ inscription.date_fin|date:"d/m/Y" }}</strong>{% endif %}</p>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'cantine:paiement' inscription.pk %}" class="btn btn-primary btn-sm">Encaisser un paiement</a>
+        <a href="{% url 'cantine:tableau' %}" class="btn btn-outline-secondary btn-sm">Retour à la cantine</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{{ nb_repas }}</div><div class="stat-carte-label">Repas servis</div>
+    </div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{{ du|montant }}</div><div class="stat-carte-label">Dû ({{ etablissement.code_devise|default:"FCFA" }})</div>
+    </div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{{ total_paye|montant }}</div><div class="stat-carte-label">Payé ({{ etablissement.code_devise|default:"FCFA" }})</div>
+    </div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{% if solde > 0 %}{{ solde|montant }}{% else %}0{% endif %}</div><div class="stat-carte-label">Reste à payer ({{ etablissement.code_devise|default:"FCFA" }})</div>
+    </div></div></div></div>
+</div>
+
+<div class="row">
+    <div class="col-lg-7">
+        <div class="card mb-3"><div class="card-body">
+            <p class="titre-section">Paiements</p>
+            {% if paiements %}
+            <div class="table-responsive">
+                <table class="table table-large">
+                    <thead><tr><th>Reçu</th><th>Date</th><th class="text-end">Montant</th><th>Mode</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <tbody>
+                        {% for p in paiements %}
+                        <tr>
+                            <td>{{ p.reference }}{% if p.annule %} <span class="badge bg-danger">Annulé</span>{% endif %}
+                                {% if p.annule and p.motif_annulation %}<div class="text-muted small">{{ p.motif_annulation }}</div>{% endif %}</td>
+                            <td>{{ p.date_paiement|date:"d/m/Y H:i" }}</td>
+                            <td class="text-end montant-val">{{ p.montant|montant }}</td>
+                            <td>{{ p.get_mode_paiement_display }}</td>
+                            <td class="text-end">
+                                <a href="{% url 'cantine:recu_pdf' p.pk %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Reçu PDF</a>
+                                {% if peut_annuler and not p.annule %}
+                                <form method="post" action="{% url 'cantine:annuler_paiement' p.pk %}" class="d-inline-flex gap-1 mt-1" data-confirmer="Annuler ce paiement ?">
+                                    {% csrf_token %}
+                                    <input type="text" name="motif" class="form-control form-control-sm" placeholder="Motif" aria-label="Motif de l'annulation" required maxlength="255">
+                                    <button class="btn btn-sm btn-outline-danger">Annuler</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="etat-vide"><p>Aucun paiement enregistré.</p></div>
+            {% endif %}
+        </div></div>
+    </div>
+    <div class="col-lg-5">
+        {% if inscription.ouverte and annee_ouverte %}
+        <div class="card mb-3"><div class="card-body">
+            <p class="titre-section">Mettre fin à l'inscription</p>
+            <form method="post" action="{% url 'cantine:terminer_inscription' inscription.pk %}" data-confirmer="Mettre fin à l'inscription de cet élève à la cantine ?">
+                {% csrf_token %}
+                <label class="form-label" for="{{ formulaire_fin.date_fin.id_for_label }}">{{ formulaire_fin.date_fin.label }}</label>
+                {{ formulaire_fin.date_fin }}
+                <button class="btn btn-outline-danger w-100 mt-2">Terminer l'inscription</button>
+            </form>
+        </div></div>
+        {% endif %}
+        <div class="card"><div class="card-body">
+            <p class="titre-section">Derniers repas</p>
+            {% if repas %}
+            <p class="mb-0">{% for r in repas %}{{ r.date_repas|date:"d/m" }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+            {% else %}
+            <div class="etat-vide"><p>Aucun repas enregistré.</p></div>
+            {% endif %}
+        </div></div>
+    </div>
+</div>
+{% endblock %}

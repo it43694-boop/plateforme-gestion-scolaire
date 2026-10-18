@@ -14,7 +14,8 @@ BANQUE = "521"
 # Produits de la scolarité
 DROITS_INSCRIPTION = "70601"
 FRAIS_SCOLARITE = "70602"
-AUTRES_SERVICES_VENDUS = "70608"  # frais annexes (tenue, examen, transport...)
+AUTRES_SERVICES_VENDUS = "70608"  # frais annexes (examen, transport...) et cantine
+VENTES_MARCHANDISES = "701"  # ventes de tenues (uniformes)
 # Charges et dettes de personnel
 REMUNERATIONS_PERSONNEL = "661"
 CHARGES_SOCIALES = "664"

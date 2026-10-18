@@ -59,6 +59,13 @@ ICONES_DES_LIENS = {
     "finances:liste_paiements": "carte",
     "finances:frais_annexes": "carte",
     "finances:arrieres": "alerte",
+    "finances:tenues_vendre": "boutique",
+    "finances:tenues": "boutique",
+    "cantine:tableau": "cantine",
+    "cantine:appel": "cantine",
+    "cantine:inscrire_eleves": "ajout-utilisateur",
+    "cantine:formules": "carte",
+    "cantine:mon_suivi": "cantine",
     "finances:registre_caisse": "caisse",
     "comptabilite:accueil": "journal",
     "finances:liste_salaires": "mallette",
@@ -164,6 +171,8 @@ def navigation(request):
         if role == Role.COMPTABLE.value or role in {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL}:
             finances.append({"label": "Frais annexes", "url": "finances:frais_annexes"})
             finances.append({"label": "Arriérés", "url": "finances:arrieres"})
+            finances.append({"label": "Vendre des tenues", "url": "finances:tenues_vendre"})
+            finances.append({"label": "Stock des tenues", "url": "finances:tenues"})
     if "caisse" in modules_autorises:
         finances.append({"label": "Caisse", "url": "finances:registre_caisse"})
         if request.user.etablissement_id:
@@ -173,9 +182,22 @@ def navigation(request):
     if finances:
         sections.append({"titre": "Finances", "icone": "finances", "liens": finances})
 
+    if "cantine" in modules_autorises and request.user.etablissement_id:
+        sections.append({"titre": "Cantine", "icone": "cantine", "liens": [
+            {"label": "Cantine", "url": "cantine:tableau"},
+            {"label": "Appel du jour", "url": "cantine:appel"},
+            {"label": "Inscrire des élèves", "url": "cantine:inscrire_eleves"},
+            {"label": "Formules et tarifs", "url": "cantine:formules"},
+        ]})
+
     ressources = []
     if request.user.etablissement_id:
         ressources.append({"label": "Calendrier", "url": "scolarite:calendrier"})
+    if role in {Role.PARENT.value, Role.ELEVE.value} and request.user.etablissement_id:
+        from cantine.models import FormuleCantine  # import local : évite un cycle au chargement des réglages
+
+        if FormuleCantine.objects.filter(etablissement_id=request.user.etablissement_id, active=True).exists():
+            ressources.append({"label": "Cantine", "url": "cantine:mon_suivi"})
     if "bibliotheque" in modules_autorises:
         ressources.append({"label": "Bibliothèque", "url": "bibliotheque:liste_documents"})
     if "communication" in modules_autorises:

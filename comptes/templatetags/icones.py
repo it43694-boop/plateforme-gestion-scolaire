@@ -48,6 +48,8 @@ _TRACES = {
     "menu": '<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>',
     "chevron": '<polyline points="6 9 12 15 18 9"/>',
     "point": '<circle cx="12" cy="12" r="3"/>',
+    "cantine": '<path d="M3 2v7a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V2"/><line x1="6" y1="2" x2="6" y2="22"/><path d="M18 2c-2 2-3 4.5-3 7 0 1.7 1 3 3 3v10"/>',
+    "boutique": '<path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>',
     "telecharger": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
 }
 

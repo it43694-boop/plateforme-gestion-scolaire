@@ -7,7 +7,7 @@ from django.test import Client
 from xhtml2pdf import pisa
 
 from comptes.langues import NOM_COOKIE_LANGUE
-from comptes.traduction import restes_latins
+from comptes.traduction import ADRESSES, LETTRE_OU_CHIFFRE_LATIN, restes_latins
 
 
 class CaptureHtmlDuPdf:
@@ -49,3 +49,16 @@ def client_en(compte, langue):
     client.force_login(compte)
     client.cookies[NOM_COOKIE_LANGUE] = langue
     return client
+def restes_hors_textes_saisis(contenu: str, saisis=()):
+    """
+    Les textes d'une page arabe qui contiennent encore du latin, sans ce que l'école a saisi elle-même (nom d'une formule, d'un article...) :
+    un texte qui ne doit son latin qu'à ces mots saisis est accepté, tout autre reste est signalé.
+    """
+    gardes = []
+    for texte in restes_latins(contenu):
+        reste = texte
+        for saisi in saisis:
+            reste = reste.replace(saisi, "")
+        if LETTRE_OU_CHIFFRE_LATIN.search(ADRESSES.sub("", reste)):
+            gardes.append(texte)
+    return gardes

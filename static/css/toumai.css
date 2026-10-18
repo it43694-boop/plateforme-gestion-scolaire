@@ -1158,6 +1158,10 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 .mw-440 { max-width: 440px; }
 .mw-460 { max-width: 460px; }
 .mw-480 { max-width: 480px; }
+.largeur-5 { width: 5rem; }
+.largeur-7 { width: 7rem; }
+.largeur-8 { width: 8rem; }
+.table-large { min-width: 680px; }
 .mw-520 { max-width: 520px; }
 .mw-560 { max-width: 560px; }
 

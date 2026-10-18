@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% load icones montants %}
+{% block titre %}Stock des tenues{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone vert">{% icone "boutique" 24 %}</div>
+        <div>
+            <h1>Stock des tenues</h1>
+            <p>Les articles vendus par l'école, leur prix et leur stock. Le stock change seulement par un arrivage, une vente ou une correction d'inventaire : chaque changement est gardé dans l'historique.</p>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'finances:tenues_vendre' %}" class="btn btn-primary btn-sm">Vendre des tenues</a>
+        <a href="{% url 'finances:tenues_ventes' %}" class="btn btn-outline-secondary btn-sm">Historique des ventes</a>
+    </div>
+</div>
+{% if en_alerte %}<div class="alert alert-warning">{{ en_alerte }} article(s) en stock faible ou épuisé.</div>{% endif %}
+
+<div class="card mb-3"><div class="card-body">
+    {% if articles %}
+    <div class="table-responsive">
+        <table class="table table-large">
+            <thead><tr><th>Article</th><th class="text-end">Prix</th><th class="text-end">En stock</th><th>Arrivage</th><th>Correction d'inventaire</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                {% for article in articles %}
+                <tr>
+                    <td><strong>{{ article.libelle }}</strong>{% if article.taille %} <span class="text-muted">- {{ article.taille }}</span>{% endif %}{% if not article.actif %}<div><span class="badge bg-secondary">Retiré de la vente</span></div>{% endif %}</td>
+                    <td class="text-end montant-val">{{ article.prix|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
+                    <td class="text-end">{% if article.en_alerte and article.actif %}<span class="text-danger"><strong>{{ article.stock }}</strong></span>{% else %}{{ article.stock }}{% endif %}</td>
+                    <td>
+                        <form method="post" action="{% url 'finances:approvisionner_tenue' article.pk %}" class="d-flex gap-1">
+                            {% csrf_token %}
+                            <input type="number" name="quantite" min="1" max="100000" class="form-control form-control-sm largeur-5" placeholder="Qté" aria-label="Quantité reçue" required>
+                            <button class="btn btn-sm btn-outline-primary">Arrivage</button>
+                        </form>
+                    </td>
+                    <td>
+                        <form method="post" action="{% url 'finances:corriger_stock_tenue' article.pk %}" class="d-flex gap-1">
+                            {% csrf_token %}
+                            <input type="number" name="nouveau_stock" min="0" max="100000" class="form-control form-control-sm largeur-5" placeholder="Réel" aria-label="Stock réel compté" required>
+                            <input type="text" name="note" maxlength="255" class="form-control form-control-sm largeur-8" placeholder="Motif" aria-label="Motif de la correction" required>
+                            <button class="btn btn-sm btn-outline-secondary">Corriger</button>
+                        </form>
+                    </td>
+                    <td class="text-end"><a href="{% url 'finances:modifier_article_tenue' article.pk %}" class="btn btn-sm btn-link">Modifier</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="etat-vide"><p>Aucun article pour le moment.</p></div>
+    {% endif %}
+</div></div>
+
+<div class="card mb-3"><div class="card-body">
+    <p class="titre-section">Ajouter un article</p>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% for erreur in formulaire.non_field_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+        <div class="row g-3">
+            {% for champ in formulaire %}
+            <div class="{% if champ.name == 'actif' %}col-12{% else %}col-md-6 col-lg-3{% endif %}">
+                {% if champ.name == "actif" %}
+                <div class="form-check">{{ champ }} <label class="form-check-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label></div>
+                {% else %}
+                <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                {{ champ }}
+                {% endif %}
+                {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        <button class="btn btn-primary mt-3">Ajouter</button>
+    </form>
+</div></div>
+
+<div class="card"><div class="card-body">
+    <p class="titre-section">Derniers mouvements de stock</p>
+    {% if mouvements %}
+    <div class="table-responsive">
+        <table class="table table-large">
+            <thead><tr><th>Date</th><th>Article</th><th>Motif</th><th class="text-end">Quantité</th><th class="text-end">Stock après</th><th>Par</th></tr></thead>
+            <tbody>
+                {% for m in mouvements %}
+                <tr>
+                    <td>{{ m.cree_le|date:"d/m/Y H:i" }}</td>
+                    <td>{{ m.article.nom_complet }}</td>
+                    <td>{{ m.get_motif_display }}{% if m.note %}<div class="text-muted small">{{ m.note }}</div>{% endif %}</td>
+                    <td class="text-end">{% if m.quantite > 0 %}+{% endif %}{{ m.quantite }}</td>
+                    <td class="text-end">{{ m.stock_apres }}</td>
+                    <td>{{ m.cree_par.nom_complet|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="etat-vide"><p>Aucun mouvement de stock.</p></div>
+    {% endif %}
+</div></div>
+{% endblock %}

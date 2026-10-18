@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     "permissions_matrix",
     "scolarite",
     "finances",
+    "cantine",
     "comptabilite",
     "pedagogie",
     "tests_niveau",
