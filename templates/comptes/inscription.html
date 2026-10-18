@@ -8,6 +8,7 @@
 </p>
 <form method="post" novalidate>
     {% csrf_token %}
+    {% for erreur in formulaire.non_field_errors %}<div class="alert alert-danger">{{ erreur }}</div>{% endfor %}
     {% for champ in formulaire %}
         <div class="mb-3">
             <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>

@@ -529,3 +529,73 @@ class ChapitreProgramme(models.Model):
     def en_retard(self) -> bool:
         """Un chapitre non terminé dont la date prévue est passée."""
         return bool(self.date_prevue and self.pourcentage < 100 and self.date_prevue < datetime.date.today())
+# ---------------------------------------------------------------------------
+# Premier cycle (1ère à 6ème année) : composition du mois, notes sur 10, bulletin mensuel
+# ---------------------------------------------------------------------------
+
+class DisciplineMensuelle(models.Model):
+    """
+    Une discipline notée à la composition du mois dans une classe du 1er cycle (dictée, calcul, lecture, dessin...). Le maître de la classe les
+    enseigne toutes : la liste est celle de la classe, pas celle d'un enseignant. Une discipline sans note peut être supprimée ; sinon on la
+    désactive (elle disparaît de la saisie et du bulletin, ses anciennes notes restent).
+    """
+
+    classe = models.ForeignKey(Classe, on_delete=models.CASCADE, related_name="disciplines_mensuelles")
+    libelle = models.CharField("discipline", max_length=80)
+    ordre = models.PositiveSmallIntegerField(default=0)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "discipline de la composition du mois"
+        verbose_name_plural = "disciplines de la composition du mois"
+        ordering = ["ordre", "pk"]
+        unique_together = ("classe", "libelle")
+
+    def __str__(self):
+        return self.libelle
+
+
+class NoteMensuelle(models.Model):
+    """La note sur 10 d'un élève dans une discipline pour la composition d'un mois (coefficient 1). Pas de ligne = pas noté (absent, non évalué)."""
+
+    eleve = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.CASCADE, related_name="notes_mensuelles", limit_choices_to={"role": Role.ELEVE},
+    )
+    discipline = models.ForeignKey(DisciplineMensuelle, on_delete=models.PROTECT, related_name="notes")
+    mois = models.DateField(help_text="Le premier jour du mois de la composition.")
+    valeur = models.DecimalField(max_digits=4, decimal_places=2, validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("10"))])
+    saisie_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.SET_NULL, null=True, related_name="notes_mensuelles_saisies")
+    modifie_le = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "note de la composition du mois"
+        verbose_name_plural = "notes de la composition du mois"
+        unique_together = ("eleve", "discipline", "mois")
+        indexes = [models.Index(fields=["discipline", "mois"], name="note_mensuelle_discipline_mois")]
+        constraints = [models.CheckConstraint(condition=models.Q(valeur__gte=0, valeur__lte=10), name="note_mensuelle_entre_0_et_10")]
+
+    def __str__(self):
+        return f"{self.eleve} - {self.discipline} - {self.mois:%m/%Y} : {self.valeur}/10"
+
+    def clean(self):
+        super().clean()
+        if self.eleve_id and self.eleve.role != Role.ELEVE:
+            raise ValidationError("Seul un élève peut recevoir une note.")
+        if self.mois and self.mois.day != 1:
+            raise ValidationError("Le mois de la composition est identifié par son premier jour.")
+
+
+class ObservationMensuelle(models.Model):
+    """Ce que le maître écrit sur le bulletin du mois d'un élève (en plus de l'appréciation calculée à partir de la moyenne)."""
+
+    eleve = models.ForeignKey("comptes.Utilisateur", on_delete=models.CASCADE, related_name="observations_mensuelles", limit_choices_to={"role": Role.ELEVE})
+    classe = models.ForeignKey(Classe, on_delete=models.CASCADE, related_name="observations_mensuelles")
+    mois = models.DateField()
+    observation = models.CharField(max_length=255, blank=True)
+    saisie_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.SET_NULL, null=True, related_name="observations_mensuelles_saisies")
+    modifie_le = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "observation du mois"
+        verbose_name_plural = "observations du mois"
+        unique_together = ("eleve", "classe", "mois")

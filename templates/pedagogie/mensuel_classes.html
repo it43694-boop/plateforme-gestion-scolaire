@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Bulletins mensuels{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "pedagogie" 24 %}</div>
+        <div>
+            <h1>Bulletins mensuels du premier cycle</h1>
+            <p>De la 1ère à la 6ème année : une composition par mois, chaque discipline notée sur 10 par le maître de la classe.</p>
+        </div>
+    </div>
+</div>
+<div class="card"><div class="card-body">
+    {% if lignes %}
+    <div class="table-responsive">
+        <table class="table table-large">
+            <thead><tr><th>Classe</th><th>Disciplines</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td><strong>{{ ligne.classe.nom }}</strong><div class="text-muted small">{{ ligne.classe.annee_scolaire.libelle }}</div></td>
+                    <td>{{ ligne.disciplines }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'pedagogie:mensuel_grille' ligne.classe.pk ligne.mois.year ligne.mois.month %}" class="btn btn-sm btn-primary">{% if ligne.peut_saisir %}Notes du mois{% else %}Voir les notes{% endif %}</a>
+                        <a href="{% url 'pedagogie:mensuel_resultats' ligne.classe.pk ligne.mois.year ligne.mois.month %}" class="btn btn-sm btn-outline-secondary">Résultats</a>
+                        <a href="{% url 'pedagogie:mensuel_annuel' ligne.classe.pk %}" class="btn btn-sm btn-outline-secondary">Moyenne de l'année</a>
+                        {% if ligne.peut_saisir %}<a href="{% url 'pedagogie:mensuel_disciplines' ligne.classe.pk %}" class="btn btn-sm btn-outline-secondary">Disciplines</a>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="etat-vide"><p>Aucune classe du premier cycle à afficher.</p></div>
+    {% endif %}
+</div></div>
+{% endblock %}

@@ -134,6 +134,7 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
         self.fields["situation_fonctionnement"].required = False
         # Même principe pour le coefficient de la conduite : absent ou vide, il garde la valeur actuelle.
         self.fields["coefficient_conduite"].required = False
+        self.fields["moyenne_passage_premier_cycle"].required = False  # idem : absente ou vide, elle garde la valeur actuelle
         self.fields["langue_par_defaut"].required = False
         self.fields["nom_ar"].label = "Nom de l'école en arabe"
 
@@ -143,6 +144,10 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
     def clean_coefficient_conduite(self):
         valeur = self.cleaned_data.get("coefficient_conduite")
         return self.instance.coefficient_conduite if valeur is None else valeur
+
+    def clean_moyenne_passage_premier_cycle(self):
+        valeur = self.cleaned_data.get("moyenne_passage_premier_cycle")
+        return self.instance.moyenne_passage_premier_cycle if valeur is None else valeur
 
     def clean_nom_ar(self):
         valeur = (self.cleaned_data.get("nom_ar") or "").strip()
@@ -180,7 +185,7 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Etablissement
         fields = [
-            "nom", "nom_ar", "devise", "devise_ar", "logo", "code_devise", "pas_montant", "coefficient_conduite", "email_facturation", "telephone_facturation", "langue_par_defaut",
+            "nom", "nom_ar", "devise", "devise_ar", "logo", "code_devise", "pas_montant", "coefficient_conduite", "moyenne_passage_premier_cycle", "email_facturation", "telephone_facturation", "langue_par_defaut",
             "code_etablissement", "statut_juridique", "region", "cercle", "commune", "milieu",
             "rattachement_administratif", "numero_agrement",
             "sigle", "nom_signataire", "fonction_signataire", "signature", "cachet",

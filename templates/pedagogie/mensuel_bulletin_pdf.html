@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+    @page { size: A4 portrait; margin: 1.3cm; }
+    body { font-family: Helvetica, sans-serif; font-size: 10px; color: #262626; }
+    h1 { font-size: 15px; color: #1F3864; margin: 0 0 2px 0; }
+    h2 { font-size: 13px; text-align: center; margin: 8px 0 2px 0; color: #1F3864; }
+    p.titre-mois { text-align: center; font-size: 12px; margin: 0 0 8px 0; }
+    p.petit { color: #595959; margin: 0 0 6px 0; }
+    table { width: 100%; border-collapse: collapse; }
+    table.entete td { border: none; padding: 2px 4px; vertical-align: middle; }
+    table.entete td.logo { width: 70px; }
+    table.notes td, table.notes th { border: 1px solid #7f7f7f; padding: 2px 6px; }
+    table.notes th { background-color: #EDE3C7; text-align: left; }
+    table.notes td.note { text-align: center; font-weight: bold; width: 22%; }
+    table.bilan { width: 62%; margin-top: 8px; }
+    table.bilan td { border: 1px solid #7f7f7f; padding: 2px 6px; }
+    table.bilan td.valeur { font-weight: bold; text-align: center; width: 30%; }
+    table.visas { margin-top: 10px; }
+    table.visas td { border: 1px solid #7f7f7f; height: 52px; vertical-align: top; padding: 3px 6px; width: 33%; font-size: 9px; color: #595959; }
+    .observation { border: 1px solid #7f7f7f; padding: 3px 6px; margin-top: 6px; min-height: 22px; }
+    .pied { margin-top: 6px; color: #8c8c8c; font-size: 9px; }
+</style>
+</head>
+<body>
+{% for bulletin in bulletins %}
+{% with ligne=bulletin.ligne %}
+    <table class="entete">
+        <tr>
+            <td class="logo">{% if logo %}<img src="{{ logo }}" width="56" height="56">{% endif %}</td>
+            <td><h1>{{ etablissement.nom }}</h1><p class="petit">{% if etablissement.devise %}{{ etablissement.devise }}{% endif %}</p></td>
+        </tr>
+    </table>
+    <h2>NOTES ET APPRÉCIATIONS</h2>
+    <p class="titre-mois"><span>Composition du mois de</span> <strong>{{ mois|date:"F Y" }}</strong></p>
+    <table class="entete">
+        <tr><td><strong>Élève</strong> : {{ ligne.eleve.nom_complet }}</td><td><strong>Matricule</strong> : {{ ligne.eleve.matricule }}</td></tr>
+        <tr><td><strong>Classe</strong> : {{ classe.nom }}</td><td><strong>Année scolaire</strong> : {{ annee.libelle }}</td></tr>
+    </table>
+    <br>
+    <table class="notes">
+        <tr><th>Disciplines</th><th>Notes (sur 10)</th></tr>
+        {% for discipline, note in bulletin.notes %}
+        <tr><td>{{ discipline.libelle }}</td><td class="note">{% if note is not None %}{{ note|floatformat:"-2" }}{% else %}-{% endif %}</td></tr>
+        {% endfor %}
+    </table>
+    <table class="bilan">
+        <tr><td>TOTAL</td><td class="valeur">{{ ligne.total|floatformat:"-2" }}</td></tr>
+        <tr><td>Moyenne (sur 10)</td><td class="valeur">{{ ligne.moyenne|floatformat:"2" }}</td></tr>
+        <tr><td>Rang</td><td class="valeur">{{ ligne.rang }} / {{ resultat.effectif }}</td></tr>
+        <tr><td>Plus forte moyenne (sur 10)</td><td class="valeur">{{ resultat.plus_forte|floatformat:"2" }}</td></tr>
+        <tr><td>Plus faible moyenne (sur 10)</td><td class="valeur">{{ resultat.plus_faible|floatformat:"2" }}</td></tr>
+    </table>
+    <div class="observation"><strong>Appréciation</strong> : {{ ligne.appreciation }}{% if ligne.observation %}<br>{{ ligne.observation }}{% endif %}</div>
+    <table class="visas">
+        <tr>
+            <td>Visa du Maître</td>
+            <td>Visa des Parents (date et signature)</td>
+            <td>Visa du Directeur</td>
+        </tr>
+    </table>
+    <p class="pied">Moyenne de passage : {{ seuil|floatformat:"-2" }} sur 10.</p>
+{% endwith %}
+{% if not forloop.last %}<pdf:nextpage />{% endif %}
+{% endfor %}
+</body>
+</html>

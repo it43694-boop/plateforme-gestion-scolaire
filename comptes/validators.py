@@ -2,6 +2,7 @@ import re
 import zipfile
 
 from django.conf import settings
+from django.contrib.auth.password_validation import UserAttributeSimilarityValidator
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 
@@ -34,6 +35,28 @@ class ComplexiteMotDePasseValidator:
             "Votre mot de passe doit contenir au moins 10 caractères, "
             "dont une majuscule, un chiffre et un caractère spécial."
         )
+
+
+class SimilitudeMotDePasseValidator(UserAttributeSimilarityValidator):
+    """
+    Le contrôle de ressemblance de Django (mot de passe presque identique à l'email, au prénom ou au nom), avec un message qui nomme
+    la donnée en cause en une phrase entière : le message de Django y glisse le nom du champ tel qu'il est écrit dans le modèle, ce
+    qui donne une phrase mêlant deux langues quand la page est en arabe.
+    """
+
+    MESSAGES = {
+        "adresse email": "Le mot de passe est trop semblable à votre adresse email.",
+        "prénom": "Le mot de passe est trop semblable à votre prénom.",
+        "nom": "Le mot de passe est trop semblable à votre nom.",
+    }
+    MESSAGE_PAR_DEFAUT = "Le mot de passe est trop semblable à vos informations personnelles."
+
+    def validate(self, password, user=None):
+        try:
+            super().validate(password, user)
+        except ValidationError as erreur:
+            champ = (erreur.params or {}).get("verbose_name")
+            raise ValidationError(_(self.MESSAGES.get(champ, self.MESSAGE_PAR_DEFAUT)), code="password_too_similar")
 
 
 LETTRE_LATINE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ɏ]")

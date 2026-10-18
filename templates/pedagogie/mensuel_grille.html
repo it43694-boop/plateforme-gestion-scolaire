@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Notes du mois - {{ classe.nom }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "pedagogie" 24 %}</div>
+        <div>
+            <h1><span>Composition du mois de</span> {{ mois|date:"F Y" }}</h1>
+            <p><strong>{{ classe.nom }}</strong> - <span>{{ classe.annee_scolaire.libelle }}</span> - {{ resultat.effectif }} élève(s)</p>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'pedagogie:mensuel_resultats' classe.pk mois.year mois.month %}" class="btn btn-outline-secondary btn-sm">Résultats</a>
+        <a href="{% url 'pedagogie:mensuel_annuel' classe.pk %}" class="btn btn-outline-secondary btn-sm">Moyenne de l'année</a>
+        {% if peut_saisir %}<a href="{% url 'pedagogie:mensuel_disciplines' classe.pk %}" class="btn btn-outline-secondary btn-sm">Disciplines</a>{% endif %}
+    </div>
+</div>
+
+<div class="d-flex flex-wrap align-items-center gap-1 mb-3">
+    {% if precedent %}<a href="{% url 'pedagogie:mensuel_grille' classe.pk precedent.year precedent.month %}" class="btn btn-outline-secondary btn-sm">Mois précédent</a>{% endif %}
+    {% for m, choisi in mois_de_l_annee %}
+    <a href="{% url 'pedagogie:mensuel_grille' classe.pk m.year m.month %}" class="btn btn-sm {% if choisi %}btn-primary{% else %}btn-outline-secondary{% endif %}">{{ m|date:"F" }}</a>
+    {% endfor %}
+    {% if suivant %}<a href="{% url 'pedagogie:mensuel_grille' classe.pk suivant.year suivant.month %}" class="btn btn-outline-secondary btn-sm">Mois suivant</a>{% endif %}
+</div>
+
+{% if annee_archivee %}<div class="alert alert-info">Cette année scolaire est archivée : les notes ne se modifient plus.</div>
+{% elif resultat.cloture %}<div class="alert alert-warning">Les notes de ce trimestre sont clôturées : la direction doit les rouvrir pour les modifier.</div>
+{% elif not peut_saisir %}<div class="alert alert-info">Vous consultez les notes de cette classe : seul le maître de la classe les remplit.</div>{% endif %}
+
+{% if not resultat.disciplines %}
+<div class="card"><div class="card-body"><div class="etat-vide">
+    <p>Cette classe n'a pas encore de disciplines.{% if peut_saisir %} <a href="{% url 'pedagogie:mensuel_disciplines' classe.pk %}">Ajoutez la liste habituelle ou vos disciplines</a> avant de noter.{% endif %}</p>
+</div></div></div>
+{% elif not lignes %}
+<div class="card"><div class="card-body"><div class="etat-vide"><p>Aucun élève n'est inscrit dans cette classe.</p></div></div></div>
+{% else %}
+<form method="post" novalidate>
+    {% csrf_token %}
+    <div class="card mb-3"><div class="card-body">
+        <p class="text-muted small">Chaque note est sur 10 (par exemple 9 ou 9,5). Laissez la case vide si l'élève n'a pas été noté dans cette discipline : elle n'entre alors ni dans le total ni dans la moyenne.</p>
+        <div class="table-responsive">
+            <table class="table table-grille">
+                <thead>
+                    <tr>
+                        <th>Élève</th>
+                        {% for discipline in resultat.disciplines %}<th class="text-center">{{ discipline.libelle }}</th>{% endfor %}
+                        <th class="text-end">Total</th><th class="text-end">Moyenne</th><th class="text-end">Rang</th><th>Observation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne in lignes %}
+                    <tr>
+                        <td><strong>{{ ligne.eleve.nom_complet }}</strong></td>
+                        {% for case in ligne.cases %}
+                        <td class="text-center">
+                            <input type="text" inputmode="decimal" autocomplete="off" name="n_{{ ligne.eleve.pk }}_{{ case.discipline.pk }}" value="{{ case.valeur }}"
+                                   class="form-control form-control-sm note-saisie{% if case.erreur %} is-invalid{% endif %}" maxlength="5"
+                                   aria-label="{{ case.discipline.libelle }} - {{ ligne.eleve.nom_complet }}"{% if not modifiable %} readonly{% endif %}>
+                            {% if case.erreur %}<div class="text-danger small">{{ case.erreur }}</div>{% endif %}
+                        </td>
+                        {% endfor %}
+                        <td class="text-end">{% if ligne.total is not None %}{{ ligne.total|floatformat:"-2" }}{% else %}-{% endif %}</td>
+                        <td class="text-end"><strong>{% if ligne.moyenne is not None %}{{ ligne.moyenne|floatformat:"2" }}{% else %}-{% endif %}</strong></td>
+                        <td class="text-end">{% if ligne.rang %}{{ ligne.rang }}{% else %}-{% endif %}</td>
+                        <td><input type="text" name="o_{{ ligne.eleve.pk }}" value="{{ ligne.observation }}" maxlength="255" class="form-control form-control-sm observation-saisie"
+                                   aria-label="Observation du maître - {{ ligne.eleve.nom_complet }}"{% if not modifiable %} readonly{% endif %}></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div></div>
+    {% if modifiable %}<button class="btn btn-primary">Enregistrer les notes du mois</button>{% endif %}
+</form>
+{% endif %}
+{% endblock %}

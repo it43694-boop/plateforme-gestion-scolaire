@@ -38,7 +38,11 @@ ROLES_AUTORISES_A_L_INSCRIPTION = [
 
 class InscriptionForm(BootstrapFormMixin, forms.ModelForm):
     role = forms.ChoiceField(choices=ROLES_AUTORISES_A_L_INSCRIPTION, label="Je m'inscris en tant que")
-    mot_de_passe = forms.CharField(label="Mot de passe", widget=forms.PasswordInput, strip=False)
+    mot_de_passe = forms.CharField(
+        label="Mot de passe", widget=forms.PasswordInput, strip=False,
+        help_text="10 caractères au minimum, avec au moins une majuscule, un chiffre et un caractère spécial (par exemple ! # - @). "
+                  "Évitez votre nom, votre email et les mots de passe trop courants.",
+    )
     confirmation_mot_de_passe = forms.CharField(
         label="Confirmer le mot de passe", widget=forms.PasswordInput, strip=False,
     )
@@ -70,11 +74,24 @@ class InscriptionForm(BootstrapFormMixin, forms.ModelForm):
         if mdp and confirmation and mdp != confirmation:
             self.add_error("confirmation_mot_de_passe", "Les deux mots de passe ne correspondent pas.")
         if mdp:
-            password_validation.validate_password(mdp)
+            self._verifier_mot_de_passe(mdp, cleaned)
         role = cleaned.get("role")
         if role == Role.PARENT.value and not cleaned.get("profession"):
             self.add_error("profession", "La profession est obligatoire pour un compte parent.")
         return cleaned
+
+    def _verifier_mot_de_passe(self, mdp, cleaned):
+        """
+        Les règles du mot de passe, expliquées sous le champ : une personne dont le mot de passe est refusé doit lire pourquoi (toutes les
+        règles non respectées d'un coup). Le compte n'existe pas encore : un compte provisoire sert à refuser un mot de passe trop
+        semblable à l'email, au prénom ou au nom saisis.
+        """
+        candidat = Utilisateur(email=cleaned.get("email") or "", prenom=cleaned.get("prenom") or "", nom=cleaned.get("nom") or "")
+        try:
+            password_validation.validate_password(mdp, candidat)
+        except ValidationError as erreur:
+            self.add_error("mot_de_passe", ValidationError("Ce mot de passe n'est pas accepté :"))
+            self.add_error("mot_de_passe", erreur)
 
     def save(self, commit=True):
         utilisateur = super().save(commit=False)

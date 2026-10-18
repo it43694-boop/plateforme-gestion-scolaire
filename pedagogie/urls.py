@@ -1,6 +1,6 @@
 from django.urls import path
 
-from pedagogie import views, views_cahier, views_clotures, views_discipline, views_exports, views_programmes
+from pedagogie import views, views_cahier, views_clotures, views_discipline, views_exports, views_mensuel, views_programmes
 
 app_name = "pedagogie"
 
@@ -28,6 +28,14 @@ urlpatterns = [
     path("notes/clotures/", views_clotures.clotures_notes, name="clotures_notes"),
     path("notes/clotures/<int:annee_id>/<str:trimestre>/cloturer/", views_clotures.cloturer_periode, name="cloturer_periode"),
     path("notes/clotures/<int:annee_id>/<str:trimestre>/rouvrir/", views_clotures.rouvrir_periode, name="rouvrir_periode"),
+    path("mensuel/", views_mensuel.classes, name="mensuel_classes"),
+    path("mensuel/classe/<int:classe_id>/disciplines/", views_mensuel.disciplines, name="mensuel_disciplines"),
+    path("mensuel/classe/<int:classe_id>/annee/", views_mensuel.annuel, name="mensuel_annuel"),
+    path("mensuel/classe/<int:classe_id>/<int:annee>/<int:mois>/", views_mensuel.grille, name="mensuel_grille"),
+    path("mensuel/classe/<int:classe_id>/<int:annee>/<int:mois>/resultats/", views_mensuel.resultats, name="mensuel_resultats"),
+    path("mensuel/classe/<int:classe_id>/<int:annee>/<int:mois>/bulletins.pdf", views_mensuel.bulletins_classe_pdf, name="mensuel_bulletins_classe_pdf"),
+    path("mensuel/eleve/<str:matricule>/", views_mensuel.bulletins_eleve, name="mensuel_eleve"),
+    path("mensuel/eleve/<str:matricule>/<int:annee>/<int:mois>/bulletin.pdf", views_mensuel.bulletin_pdf, name="mensuel_bulletin_pdf"),
     path("discipline/classe/<int:classe_id>/", views_discipline.registre_discipline, name="registre_discipline"),
     path("discipline/eleve/<str:matricule>/", views_discipline.historique_discipline, name="historique_discipline"),
     path("discipline/mesure/<int:mesure_id>/supprimer/", views_discipline.supprimer_mesure_discipline, name="supprimer_mesure_discipline"),

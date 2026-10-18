@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Disciplines - {{ classe.nom }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "pedagogie" 24 %}</div>
+        <div>
+            <h1>Disciplines de la composition du mois</h1>
+            <p><strong>{{ classe.nom }}</strong> - <span>{{ classe.annee_scolaire.libelle }}</span></p>
+            <p>Les disciplines que le maître note chaque mois, sur 10. Une discipline désactivée disparaît de la saisie et du bulletin ; ses anciennes notes restent.</p>
+        </div>
+    </div>
+    <a href="{% url 'pedagogie:mensuel_grille' classe.pk mois.year mois.month %}" class="btn btn-primary btn-sm">Notes du mois</a>
+</div>
+{% if lecture_seule %}<div class="alert alert-info">Cette année scolaire est archivée : les disciplines sont en lecture seule.</div>{% endif %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card mb-3"><div class="card-body">
+            {% if disciplines %}
+            <div class="table-responsive">
+                <table class="table table-large">
+                    <thead><tr><th>Nom de la discipline</th><th>État</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <tbody>
+                        {% for discipline in disciplines %}
+                        <tr>
+                            <td>
+                                {% if lecture_seule %}{{ discipline.libelle }}{% else %}
+                                <form method="post" class="d-flex gap-1">
+                                    {% csrf_token %}<input type="hidden" name="action" value="renommer"><input type="hidden" name="discipline" value="{{ discipline.pk }}">
+                                    <input type="text" name="libelle" value="{{ discipline.libelle }}" maxlength="80" class="form-control form-control-sm" aria-label="Nom de la discipline" required>
+                                    <button class="btn btn-sm btn-outline-secondary">Renommer</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                            <td>{% if discipline.active %}Active{% else %}Désactivée{% endif %}</td>
+                            <td class="text-end">
+                                {% if not lecture_seule %}
+                                <form method="post" class="d-inline">{% csrf_token %}<input type="hidden" name="action" value="basculer"><input type="hidden" name="discipline" value="{{ discipline.pk }}">
+                                    <button class="btn btn-sm btn-outline-secondary">{% if discipline.active %}Désactiver{% else %}Activer{% endif %}</button></form>
+                                <form method="post" class="d-inline" data-confirmer="Supprimer cette discipline ?">{% csrf_token %}<input type="hidden" name="action" value="supprimer"><input type="hidden" name="discipline" value="{{ discipline.pk }}">
+                                    <button class="btn btn-sm btn-outline-danger">Supprimer</button></form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="etat-vide"><p>Aucune discipline pour cette classe. Utilisez la liste habituelle ou ajoutez les vôtres.</p></div>
+            {% endif %}
+        </div></div>
+    </div>
+    <div class="col-lg-4">
+        {% if not lecture_seule %}
+        <div class="card mb-3"><div class="card-body">
+            <p class="titre-section">Ajouter une discipline</p>
+            <form method="post">
+                {% csrf_token %}<input type="hidden" name="action" value="ajouter">
+                <input type="text" name="libelle" maxlength="80" class="form-control mb-2" aria-label="Nom de la discipline" required>
+                <button class="btn btn-primary w-100">Ajouter</button>
+            </form>
+        </div></div>
+        <div class="card mb-3"><div class="card-body">
+            <p class="titre-section">Liste habituelle</p>
+            <p class="text-muted small">La liste utilisée sur les bulletins du premier cycle : quinze disciplines, de la dictée au chant.</p>
+            <form method="post">{% csrf_token %}<input type="hidden" name="action" value="habituelles"><button class="btn btn-outline-primary w-100">Ajouter la liste habituelle</button></form>
+        </div></div>
+        {% if autres_classes %}
+        <div class="card"><div class="card-body">
+            <p class="titre-section">Reprendre d'une autre classe</p>
+            <form method="post">
+                {% csrf_token %}<input type="hidden" name="action" value="copier">
+                <select name="source" class="form-select mb-2" aria-label="Classe à copier">
+                    {% for autre in autres_classes %}<option value="{{ autre.pk }}">{{ autre.nom }} - {{ autre.annee_scolaire.libelle }}</option>{% endfor %}
+                </select>
+                <button class="btn btn-outline-secondary w-100">Reprendre ses disciplines</button>
+            </form>
+        </div></div>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

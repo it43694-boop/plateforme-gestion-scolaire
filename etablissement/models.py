@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
@@ -115,6 +116,11 @@ class Etablissement(models.Model):
         "coefficient de la conduite", default=1,
         help_text="Poids de la note de conduite (de la 7ème à la 12ème année) dans la moyenne du bulletin : 1 = compte comme une "
                    "matière de coefficient 1 ; 0 = affichée sur le bulletin sans compter dans la moyenne.",
+    )
+    moyenne_passage_premier_cycle = models.DecimalField(
+        "moyenne de passage du 1er cycle (sur 10)", max_digits=4, decimal_places=2, default=Decimal("5.00"),
+        validators=[MinValueValidator(Decimal("0.50")), MaxValueValidator(Decimal("10"))],
+        help_text="Moyenne annuelle sur 10 à partir de laquelle un élève de la 1ère à la 6ème année passe dans la classe supérieure (5 en général).",
     )
     logo = models.ImageField(
         upload_to=chemin_upload_logo, blank=True, null=True,

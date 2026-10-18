@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Moyenne de l'année - {{ classe.nom }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "pedagogie" 24 %}</div>
+        <div>
+            <h1>Moyenne de l'année</h1>
+            <p><strong>{{ classe.nom }}</strong> - <span>{{ classe.annee_scolaire.libelle }}</span></p>
+            <p>La moyenne de l'année est la moyenne des moyennes mensuelles (les mois où l'élève a une moyenne). L'élève passe dans la classe supérieure à partir de la moyenne de passage de l'école.</p>
+        </div>
+    </div>
+    <a href="{% url 'pedagogie:mensuel_grille' classe.pk mois_courant.year mois_courant.month %}" class="btn btn-outline-secondary btn-sm">Notes du mois</a>
+</div>
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{{ resultat.seuil|floatformat:"-2" }}</div><div class="stat-carte-label">Moyenne de passage (sur 10)</div>
+    </div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{{ admis }}</div><div class="stat-carte-label">À partir de la moyenne de passage</div>
+    </div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{{ non_admis }}</div><div class="stat-carte-label">En dessous de la moyenne de passage</div>
+    </div></div></div></div>
+</div>
+<div class="card"><div class="card-body">
+    {% if lignes %}
+    <div class="table-responsive">
+        <table class="table table-large">
+            <thead>
+                <tr>
+                    <th>Rang</th><th>Élève</th>
+                    {% for m in resultat.mois %}<th class="text-end">{{ m|date:"F" }}</th>{% endfor %}
+                    <th class="text-end">Moyenne de l'année</th><th>Décision</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td>{% if ligne.rang %}{{ ligne.rang }}{% else %}-{% endif %}</td>
+                    <td><strong>{{ ligne.eleve.nom_complet }}</strong>{% if ligne.mois_manquants %}<div class="text-muted small">{{ ligne.mois_manquants }} mois sans note</div>{% endif %}</td>
+                    {% for moyenne in ligne.cases %}<td class="text-end">{% if moyenne is not None %}{{ moyenne|floatformat:"2" }}{% endif %}</td>{% endfor %}
+                    <td class="text-end"><strong>{% if ligne.moyenne_annuelle is not None %}{{ ligne.moyenne_annuelle|floatformat:"2" }}{% else %}-{% endif %}</strong></td>
+                    <td>{% if ligne.admis %}<span class="text-success">Passe</span>{% elif ligne.admis is False %}<span class="text-danger">Ne passe pas</span>{% else %}-{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if resultat.plus_forte is not None %}<p class="text-muted small mt-2 mb-0"><span>Plus forte moyenne</span> : {{ resultat.plus_forte|floatformat:"2" }} - <span>Plus faible moyenne</span> : {{ resultat.plus_faible|floatformat:"2" }}</p>{% endif %}
+    {% else %}
+    <div class="etat-vide"><p>Aucun élève n'est inscrit dans cette classe.</p></div>
+    {% endif %}
+</div></div>
+{% endblock %}

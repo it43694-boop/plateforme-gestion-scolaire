@@ -51,6 +51,7 @@ ICONES_DES_LIENS = {
     "scolarite:calendrier": "calendrier",
     "tests_niveau:liste_candidats": "test",
     "pedagogie:mes_classes": "classes",
+    "pedagogie:mensuel_classes": "classes",
     "pedagogie:suivi_des_cours": "suivi",
     "pedagogie:clotures_notes": "cadenas",
     "pedagogie:avancement_programmes": "suivi",
@@ -84,6 +85,13 @@ ICONES_DES_LIENS = {
     "espace_developpeur:journal_audit": "oeil",
     "espace_plateforme:liste_etablissements": "accueil",
     "espace_plateforme:abonnements": "carte",
+}
+
+
+# Ceux qui remplissent ou consultent le bulletin mensuel du premier cycle (voir pedagogie.mensuel.peut_saisir / peut_consulter).
+ROLES_BULLETINS_MENSUELS = {
+    Role.ENSEIGNANT.value, Role.DIRECTEUR_1ER_CYCLE.value, Role.RESPONSABLE_PEDAGOGIQUE.value, Role.SUPER_ADMINISTRATEUR.value,
+    *{r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL},
 }
 
 
@@ -154,6 +162,8 @@ def navigation(request):
     pedagogie = []
     if role == Role.ENSEIGNANT.value and ("notes_bulletins" in modules_autorises or "absences" in modules_autorises):
         pedagogie.append({"label": "Mes classes", "url": "pedagogie:mes_classes"})
+    if "notes_bulletins" in modules_autorises and role in ROLES_BULLETINS_MENSUELS:
+        pedagogie.append({"label": "Bulletins mensuels", "url": "pedagogie:mensuel_classes"})
     if "suivi_des_cours" in modules_autorises:
         pedagogie.append({"label": "Suivi des cours", "url": "pedagogie:suivi_des_cours"})
         pedagogie.append({"label": "Avancement des programmes", "url": "pedagogie:avancement_programmes"})

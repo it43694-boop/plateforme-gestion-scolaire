@@ -19,6 +19,7 @@
                     <td>{{ affectation.classe }}</td>
                     <td>{{ affectation.matiere|default:"Titulaire" }}</td>
                     <td class="text-end">
+                        {% if affectation.classe.cycle == "1er_cycle" %}<a href="{% url 'pedagogie:mensuel_classes' %}" class="btn btn-sm btn-primary">Bulletins mensuels</a>{% endif %}
                         <a href="{% url 'pedagogie:saisir_note' affectation.id %}" class="btn btn-sm btn-outline-secondary">Notes</a>
                         <a href="{% url 'pedagogie:cahier_affectation' affectation.id %}" class="btn btn-sm btn-outline-secondary">Cahier de textes</a>
                         <a href="{% url 'pedagogie:programme_affectation' affectation.id %}" class="btn btn-sm btn-outline-secondary">Programme</a>

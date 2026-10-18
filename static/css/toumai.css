@@ -1162,6 +1162,10 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 .largeur-7 { width: 7rem; }
 .largeur-8 { width: 8rem; }
 .table-large { min-width: 680px; }
+.table-grille { min-width: 1100px; }
+.table-grille th:first-child, .table-grille td:first-child { position: sticky; inset-inline-start: 0; z-index: 1; background: var(--paper-000); min-width: 11rem; }
+.table-grille input.note-saisie { width: 4.2rem; text-align: center; }
+.table-grille input.observation-saisie { min-width: 12rem; }
 .mw-520 { max-width: 520px; }
 .mw-560 { max-width: 560px; }
 

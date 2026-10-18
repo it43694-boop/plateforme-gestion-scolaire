@@ -10,6 +10,7 @@ Jeu de données de EducationBase (statistiques.test_education) : école A, class
 - e3 n'a pas de parent mais son propre numéro 70999003 ; e6 n'a ni parent ni numéro
 """
 import datetime
+import re
 from urllib.parse import quote
 
 from django.test import TestCase
@@ -234,7 +235,9 @@ class SecuriteDuTexteTests(DiffusionBase):
         reponse = self.ouvrir(self.fondateur, type="annonce", classe=self.c6a.pk, texte=texte)
         self.assertEqual(reponse.status_code, 200)
         self.assertEqual(self.lignes(reponse)[0]["message"], texte)  # recopié tel quel, rien n'est évalué
-        self.assertNotContains(reponse, "49")
+        # Le jeton CSRF et le « nonce » de sécurité sont tirés au hasard à chaque affichage et contiennent « 49 » environ une fois sur vingt : on les retire.
+        page = re.sub(r'nonce="[^"]*"|name="csrfmiddlewaretoken" value="[^"]*"', "", reponse.content.decode())
+        self.assertNotIn("49", page)
 
     def test_un_message_trop_long_est_refuse(self):
         reponse = self.ouvrir(self.fondateur, type="annonce", classe=self.c6a.pk, texte="x" * 501)

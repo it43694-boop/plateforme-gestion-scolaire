@@ -179,7 +179,11 @@ else:
 AUTH_USER_MODEL = "comptes.Utilisateur"
 
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    # L'email, le prénom et le nom (le modèle n'a ni « username » ni « first_name » : sans cette liste, seul l'email serait comparé).
+    {
+        "NAME": "comptes.validators.SimilitudeMotDePasseValidator",
+        "OPTIONS": {"user_attributes": ("email", "prenom", "nom")},
+    },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
         "OPTIONS": {"min_length": 10},

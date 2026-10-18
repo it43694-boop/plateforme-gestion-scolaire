@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Résultats du mois - {{ classe.nom }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "pedagogie" 24 %}</div>
+        <div>
+            <h1><span>Résultats du mois de</span> {{ mois|date:"F Y" }}</h1>
+            <p><strong>{{ classe.nom }}</strong> - <span>{{ classe.annee_scolaire.libelle }}</span></p>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'pedagogie:mensuel_grille' classe.pk mois.year mois.month %}" class="btn btn-outline-secondary btn-sm">Notes du mois</a>
+        <a href="{% url 'pedagogie:mensuel_annuel' classe.pk %}" class="btn btn-outline-secondary btn-sm">Moyenne de l'année</a>
+        {% if avec_notes %}<a href="{% url 'pedagogie:mensuel_bulletins_classe_pdf' classe.pk mois.year mois.month %}" class="btn btn-primary btn-sm" data-telechargement>Bulletins de la classe (PDF)</a>{% endif %}
+    </div>
+</div>
+<div class="d-flex flex-wrap align-items-center gap-1 mb-3">
+    {% for m, choisi in mois_de_l_annee %}
+    <a href="{% url 'pedagogie:mensuel_resultats' classe.pk m.year m.month %}" class="btn btn-sm {% if choisi %}btn-primary{% else %}btn-outline-secondary{% endif %}">{{ m|date:"F" }}</a>
+    {% endfor %}
+</div>
+{% if resultat.cloture %}<div class="alert alert-warning">Les notes de ce trimestre sont clôturées.</div>{% endif %}
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{{ avec_notes }} / {{ resultat.effectif }}</div><div class="stat-carte-label">Élèves notés</div>
+    </div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{% if resultat.plus_forte is not None %}{{ resultat.plus_forte|floatformat:"2" }}{% else %}-{% endif %}</div><div class="stat-carte-label">Plus forte moyenne (sur 10)</div>
+    </div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{% if resultat.plus_faible is not None %}{{ resultat.plus_faible|floatformat:"2" }}{% else %}-{% endif %}</div><div class="stat-carte-label">Plus faible moyenne (sur 10)</div>
+    </div></div></div></div>
+</div>
+<div class="card"><div class="card-body">
+    {% if lignes %}
+    <div class="table-responsive">
+        <table class="table table-large">
+            <thead><tr><th>Rang</th><th>Élève</th><th class="text-end">Total</th><th class="text-end">Disciplines notées</th><th class="text-end">Moyenne (sur 10)</th><th>Appréciation</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td>{% if ligne.rang %}{{ ligne.rang }}{% else %}-{% endif %}</td>
+                    <td><strong>{{ ligne.eleve.nom_complet }}</strong></td>
+                    <td class="text-end">{% if ligne.total is not None %}{{ ligne.total|floatformat:"-2" }}{% else %}-{% endif %}</td>
+                    <td class="text-end">{{ ligne.nombre }}</td>
+                    <td class="text-end"><strong>{% if ligne.moyenne is not None %}{{ ligne.moyenne|floatformat:"2" }}{% else %}-{% endif %}</strong></td>
+                    <td>{{ ligne.appreciation|default:"-" }}</td>
+                    <td class="text-end">{% if ligne.moyenne is not None %}<a href="{% url 'pedagogie:mensuel_bulletin_pdf' ligne.eleve.matricule mois.year mois.month %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Bulletin PDF</a>{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="etat-vide"><p>Aucun élève n'est inscrit dans cette classe.</p></div>
+    {% endif %}
+</div></div>
+{% endblock %}

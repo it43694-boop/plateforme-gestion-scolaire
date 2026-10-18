@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Bulletins mensuels - {{ eleve.nom_complet }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "pedagogie" 24 %}</div>
+        <div>
+            <h1>Bulletins mensuels</h1>
+            <p><strong>{{ eleve.nom_complet }}</strong> - <span>{{ classe.nom }}</span> - <span>{{ classe.annee_scolaire.libelle }}</span></p>
+            <p>Une composition par mois, chaque discipline notée sur 10.</p>
+        </div>
+    </div>
+</div>
+{% if autres_inscriptions.count > 1 %}
+<div class="d-flex flex-wrap gap-1 mb-3">
+    {% for autre in autres_inscriptions %}<a href="{% url 'pedagogie:mensuel_eleve' eleve.matricule %}?inscription={{ autre.pk }}" class="btn btn-sm {% if autre.pk == inscription.pk %}btn-primary{% else %}btn-outline-secondary{% endif %}">{{ autre.classe.nom }} - {{ autre.classe.annee_scolaire.libelle }}</a>{% endfor %}
+</div>
+{% endif %}
+{% if annuel and annuel.moyenne_annuelle is not None %}
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{{ annuel.moyenne_annuelle|floatformat:"2" }}</div><div class="stat-carte-label">Moyenne de l'année (sur 10)</div>
+    </div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{{ annuel.rang }} / {{ effectif }}</div><div class="stat-carte-label">Rang dans la classe</div>
+    </div></div></div></div>
+    {% if voit_la_decision %}
+    <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body stat-carte"><div class="stat-carte-corps">
+        <div class="stat-carte-valeur">{% if annuel.admis %}Passe{% else %}Ne passe pas{% endif %}</div><div class="stat-carte-label">Moyenne de passage : {{ seuil|floatformat:"-2" }}</div>
+    </div></div></div></div>
+    {% endif %}
+</div>
+{% endif %}
+<div class="card"><div class="card-body">
+    {% if lignes %}
+    <div class="table-responsive">
+        <table class="table table-large">
+            <thead><tr><th>Mois</th><th class="text-end">Total</th><th class="text-end">Moyenne (sur 10)</th><th class="text-end">Rang</th><th>Appréciation</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td><strong>{{ ligne.mois|date:"F Y" }}</strong></td>
+                    <td class="text-end">{{ ligne.ligne.total|floatformat:"-2" }}</td>
+                    <td class="text-end"><strong>{{ ligne.ligne.moyenne|floatformat:"2" }}</strong></td>
+                    <td class="text-end">{{ ligne.ligne.rang }} / {{ ligne.effectif }}</td>
+                    <td>{{ ligne.ligne.appreciation|default:"-" }}</td>
+                    <td class="text-end"><a href="{% url 'pedagogie:mensuel_bulletin_pdf' eleve.matricule ligne.mois.year ligne.mois.month %}{% if inscription.pk %}?inscription={{ inscription.pk }}{% endif %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Bulletin PDF</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="etat-vide"><p>Aucun bulletin mensuel pour le moment.</p></div>
+    {% endif %}
+</div></div>
+{% endblock %}

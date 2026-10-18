@@ -23,6 +23,10 @@
     </div>
 </div>
 
+{% if inscription and inscription.classe.cycle == "1er_cycle" %}
+<div class="alert alert-info">Au premier cycle, le bulletin est mensuel : une composition par mois, chaque discipline notée sur 10. <a href="{% url 'pedagogie:mensuel_eleve' eleve.matricule %}">Voir les bulletins mensuels</a></div>
+{% endif %}
+
 {% if bulletins_trimestre %}
     {% for bulletin in bulletins_trimestre %}
     <div class="card mt-3">
