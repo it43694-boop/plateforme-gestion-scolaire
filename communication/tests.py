@@ -34,6 +34,7 @@ class PubierAnnonceTests(TestCase):
     def setUp(self):
         self.annee, self.classe = creer_contexte_classe()
         self.enseignant = creer_utilisateur_actif("prof-com@example.com", Role.ENSEIGNANT)
+        Affectation.objects.create(enseignant=self.enseignant, classe=self.classe, matiere="Maths")  # sa classe : il n'écrit qu'à ses propres classes
         self.direction = creer_utilisateur_actif("direction-com@example.com", Role.FONDATEUR)
         self.eleve = creer_utilisateur_actif("eleve-com@example.com", Role.ELEVE)
         Inscription.objects.create(eleve=self.eleve, classe=self.classe)

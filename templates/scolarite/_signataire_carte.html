@@ -1,0 +1,3 @@
+<span class="fonction">{% if carte.signataire.fonction %}{{ carte.signataire.fonction }}{% else %}Le Directeur{% endif %}</span><br>
+{% if carte.signataire.signature %}<img src="{{ carte.signataire.signature }}" class="signature"><br>{% endif %}
+{{ carte.signataire.nom }}

@@ -28,8 +28,13 @@
     span.nom { font-size: 11px; font-weight: bold; }
     span.nom-long { font-size: 9px; font-weight: bold; }
     div.signataire { text-align: right; font-size: 7.5px; }
+    table.bloc-signataire { width: 57mm; }
+    td.vide-signataire { width: 8mm; }
+    td.cellule-cachet { width: 11mm; vertical-align: middle; text-align: right; }
+    td.signataire { width: 38mm; text-align: right; font-size: 7.5px; vertical-align: middle; }
     span.fonction { font-weight: bold; }
     img.signature { height: 4.5mm; }
+    img.cachet { width: 10mm; height: 10mm; }
     td.matricule { padding: 0 3mm; height: 4.5mm; font-size: 7.5px; font-weight: bold; vertical-align: middle; }
     td.bande { background-color: #0E5EA6; color: #FFFFFF; height: 5.5mm; font-size: 7.5px; text-align: center; vertical-align: middle; }
     td.titre-verso { background-color: #0E5EA6; color: #FFFFFF; height: 8mm; font-size: 10px; font-weight: bold; text-align: center; vertical-align: middle; }
@@ -50,6 +55,7 @@
     span.annee-badge { font-size: 10px; }
     span.info { font-size: 10px; }
     div.signataire { font-size: 9px; }
+    td.signataire { font-size: 9px; }
     td.matricule { font-size: 9px; }
     td.identite { font-size: 9px; }
     span.legende { font-size: 7.5px; }
@@ -77,12 +83,16 @@
                             <div class="nom-eleve"><span class="{% if carte.nom_long %}nom-long{% else %}nom{% endif %}">{{ carte.eleve.nom }}</span> <span class="{% if carte.nom_long %}nom-long{% else %}nom{% endif %}">{{ carte.eleve.prenom }}</span></div>
                             {% if carte.eleve.date_naissance %}<span class="info"><span>{% if carte.eleve.sexe == "F" %}Née le{% elif carte.eleve.sexe == "M" %}Né le{% else %}Né(e) le{% endif %}</span> {{ carte.eleve.date_naissance|date:"d/m/Y" }}{% if carte.eleve.lieu_naissance %} <span>à</span> {{ carte.eleve.lieu_naissance }}{% endif %}</span><br>{% endif %}
                             <span class="info"><span>Classe :</span> {{ carte.classe.nom }}</span>
-                            {% if etablissement.nom_signataire or etablissement.fonction_signataire %}
-                            <div class="signataire">
-                                <span class="fonction">{% if etablissement.fonction_signataire %}{{ etablissement.fonction_signataire }}{% else %}Le Directeur{% endif %}</span><br>
-                                {% if signature %}<img src="{{ signature }}" class="signature"><br>{% endif %}
-                                {{ etablissement.nom_signataire }}
-                            </div>
+                            {% if carte.signataire %}
+                            {% if carte.signataire.cachet %}
+                            <table class="bloc-signataire"><tr>
+                                <td class="vide-signataire"> </td>
+                                <td class="signataire">{% include "scolarite/_signataire_carte.html" %}</td>
+                                <td class="cellule-cachet"><img src="{{ carte.signataire.cachet }}" class="cachet"></td>
+                            </tr></table>
+                            {% else %}
+                            <div class="signataire">{% include "scolarite/_signataire_carte.html" %}</div>
+                            {% endif %}
                             {% endif %}
                         </td>
                     </tr></table>

@@ -30,6 +30,7 @@ from etablissement.models import Etablissement
 from finances.models import Contrat, DemandeConge, Salaire, TypeConge, TypeContrat, TypeTranche, enregistrer_paiement
 from pedagogie.models import Absence, CreneauEmploiDuTemps, Note, Trimestre
 from permissions_matrix.models import PermissionMatrix
+from permissions_matrix.modules import Module
 from scolarite.models import Affectation, AnneeScolaire, Classe, Cycle, FicheInfrastructure, Inscription, ResultatExamen
 from tests_niveau.models import Candidat
 
@@ -118,11 +119,11 @@ class IsolationCompleteTests(TestCase):
         d["annee"] = annee
         classes = [
             Classe.objects.create(nom=f"{p}-classe{i}", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=annee) for i in (1, 2)
-        ]
+        ] + [Classe.objects.create(nom=f"{p}-classe3", cycle=Cycle.DEUXIEME_CYCLE, annee_scolaire=annee)]  # un autre cycle : la 3ème
         for role in TOUS_LES_ROLES:
             d["comptes"][role] = creer_compte(role, tag, "", ecole)
         comptable = d["comptes"][Role.COMPTABLE]
-        for i, classe in zip((1, 2), classes):
+        for i, classe in zip((1, 2, 3), classes):
             eleve = creer_compte(Role.ELEVE, tag, f"x{i}", ecole)
             parent = creer_compte(Role.PARENT, tag, f"x{i}", ecole)
             eleve.parents_lies.add(parent)
@@ -168,6 +169,9 @@ class IsolationCompleteTests(TestCase):
                 employe=prof, etablissement=ecole, type_conge=TypeConge.PAYE, date_debut=datetime.date(2026, 12, 1),
                 date_fin=datetime.date(2026, 12, 5), enregistre_par=comptable,
             )
+        camarade = creer_compte(Role.ELEVE, tag, "camarade", ecole)  # dans la classe 1, sans parent : un camarade de x1
+        Inscription.objects.create(eleve=camarade, classe=classes[0])
+        d["camarade"] = camarade
         Document.objects.create(titre=f"{p}-doc", etablissement=ecole, fichier=ContentFile(b"x", name=f"{p}.pdf"), ajoute_par=comptable)
         Annonce.objects.create(titre=f"{p}-annonce", etablissement=ecole, contenu="c", portee=Portee.TOUTE_ECOLE, auteur=comptable)
         d["notification"] = Notification.objects.create(
@@ -351,3 +355,57 @@ class IsolationCompleteTests(TestCase):
                 if reponse.status_code != 403:
                     ouvertes.append(f"{role.value} -> {nom}: {reponse.status_code}")
         self.assertEqual(ouvertes, [], "\n".join(ouvertes))
+
+    # --- 5. chacun ne voit que ce qui le concerne, même si l'école coche tous les modules ----------------
+    MODULES_DES_ELEVES_ET_DES_CLASSES = (
+        Module.CLASSES, Module.ELEVES, Module.ENSEIGNANTS, Module.EMPLOI_DU_TEMPS, Module.SUIVI_DES_COURS, Module.NOTES_BULLETINS,
+        Module.ABSENCES, Module.COMMUNICATION, Module.BIBLIOTHEQUE, Module.STATISTIQUES, Module.ASSISTANT,
+    )
+
+    def accorder_les_modules_des_eleves_et_des_classes(self, roles):
+        """Le pire réglage qu'une école puisse faire : tous les modules qui touchent aux élèves et aux classes, cochés pour ces rôles."""
+        for role in roles:
+            for module in Module:
+                PermissionMatrix.objects.update_or_create(
+                    etablissement=self.ecoles["a"], role=role.value, module=module.value,
+                    defaults={"autorise": module in self.MODULES_DES_ELEVES_ET_DES_CLASSES},
+                )
+
+    @staticmethod
+    def produit_un_fichier(nom):
+        """Un PDF, un tableur ou une archive : ce contrôle ne lit que du texte, ces adresses ne montreraient rien et sont lentes à produire."""
+        return any(mot in nom for mot in ("pdf", "export", "csv", "xlsx", "zip", "telecharger", "recu"))
+
+    def traces_de_la_classe(self, n):
+        """Tout ce qui permettrait de reconnaître la classe n (ses élèves, leurs parents, son enseignant, ses données) dans une page."""
+        x, p = self.d["a"][f"x{n}"], PREFIXE["a"]
+        return [
+            x["eleve"].nom.lower(), str(x["eleve"].matricule), x["parent"].nom.lower(), x["prof"].nom.lower(), f"{p}-classe{n}", f"{p}mat{n}",
+            f"{p}secret{n}", f"{p}motif{n}", f"{p}salle{n}", f"{p}lieunaiss{n}", f"{p}actenaiss{n}", f"{p}diplome{n}", f"{p}discipline{n}",
+        ]
+
+    def test_chacun_ne_voit_que_ce_qui_le_concerne_meme_si_tous_les_modules_sont_accordes(self):
+        a = self.d["a"]
+        self.accorder_les_modules_des_eleves_et_des_classes((Role.ENSEIGNANT, Role.PARENT, Role.ELEVE, Role.DIRECTEUR_1ER_CYCLE))
+        camarade = [a["camarade"].nom.lower(), str(a["camarade"].matricule)]
+        interdit_aux_autres_classes = self.traces_de_la_classe(2) + self.traces_de_la_classe(3)
+        acteurs = {
+            # (compte, ce qu'il ne doit voir nulle part, les objets (n°) dont on essaie les adresses)
+            "enseignant de la classe 1": (a["x1"]["prof"], interdit_aux_autres_classes, (1, 2, 3)),
+            "parent de l'élève 1": (a["x1"]["parent"], interdit_aux_autres_classes + camarade, (1, 2, 3)),
+            "élève 1": (a["x1"]["eleve"], interdit_aux_autres_classes + camarade, (1, 2, 3)),
+            "directeur du 1er cycle": (a["comptes"][Role.DIRECTEUR_1ER_CYCLE], self.traces_de_la_classe(3), (1, 3)),
+        }
+        fuites = []
+        for libelle, (compte, interdits, objets) in acteurs.items():
+            for nom, route, params in self.routes:
+                if self.ignorer(nom, route) or nom.startswith("comptes:reinitialiser") or self.produit_un_fichier(nom):
+                    continue
+                if nom == "scolarite:affecter_enseignant" and compte.role == Role.DIRECTEUR_1ER_CYCLE:
+                    continue  # exception voulue : pour affecter, un directeur de cycle choisit parmi tous les enseignants de l'école (un enseignant enseigne souvent dans deux cycles)
+                adresses = [instancier(route, self.valeurs("a", n)) for n in objets] if params else ["/" + route + "?q=zqx"]
+                for url in adresses:
+                    trouves = sorted({m for m in interdits if m in self.texte(self.appeler(compte, "get", url))})
+                    if trouves:
+                        fuites.append(f"{libelle} GET {nom} ({url}) montre {trouves}")
+        self.assertEqual(fuites, [], chr(10).join(fuites))

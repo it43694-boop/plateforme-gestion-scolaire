@@ -391,9 +391,9 @@ class DroitsTests(MensuelBase):
         client = client_de(self.t2)  # t2 enseigne en 6B et en 9A
         for adresse in self.adresses_de_la_classe():
             with self.subTest(adresse=adresse):
-                self.assertEqual(client.get(adresse).status_code, 403)
+                self.assertEqual(client.get(adresse).status_code, 404)  # hors de son périmètre : introuvable (comme une classe d'une autre école), pas seulement interdit
         grille = reverse("pedagogie:mensuel_grille", args=[self.c6a.pk, 2026, 10])
-        self.assertEqual(client.post(grille, {f"n_{self.e1.pk}_{self.disc['Dictée'].pk}": "9"}).status_code, 403)
+        self.assertEqual(client.post(grille, {f"n_{self.e1.pk}_{self.disc['Dictée'].pk}": "9"}).status_code, 404)
         self.assertEqual(NoteMensuelle.objects.count(), 0)
 
     def test_les_autres_roles_sont_refuses(self):

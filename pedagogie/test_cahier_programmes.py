@@ -76,7 +76,7 @@ class SeanceTests(CahierBase):
     def test_qui_tient_le_cahier(self):
         for compte, code in (
             (self.t1, 200), (self.fondateur, 200), (self.dir_1er, 200),  # le directeur de cycle ne peut qu'en lecture : voir plus bas
-            (self.t2, 403), (self.t3, 403), (self.parent, 403), (self.e1, 403), (self.comptable, 403),
+            (self.t2, 403), (self.t3, 404), (self.parent, 403), (self.e1, 403), (self.comptable, 403),  # t3 : classe hors de son périmètre, introuvable
         ):
             self.client.force_login(compte)
             with self.subTest(compte=compte.email):
@@ -157,7 +157,7 @@ class CahierDeClasseTests(CahierBase):
         for compte in (self.t3, self.parent, self.e1, self.comptable):  # t3 n'enseigne pas en 6A
             self.client.force_login(compte)
             with self.subTest(compte=compte.email):
-                self.assertEqual(self.client.get(url).status_code, 403)
+                self.assertEqual(self.client.get(url).status_code, 404 if compte == self.t3 else 403)  # t3 : une classe hors de son périmètre est introuvable
         self.client.force_login(self.fondateur_b)
         self.assertEqual(self.client.get(url).status_code, 404)
         self.client.force_login(self.dir_1er)  # 9A n'est pas de son cycle
@@ -313,7 +313,7 @@ class ProgrammeTests(CahierBase):
         for compte in (self.t2, self.t3, self.parent, self.e1, self.comptable):
             self.client.force_login(compte)
             with self.subTest(compte=compte.email):
-                self.assertEqual(self.client.get(self.url_programme).status_code, 403)
+                self.assertEqual(self.client.get(self.url_programme).status_code, 404 if compte == self.t3 else 403)  # t3 : classe hors de son périmètre
         self.client.force_login(self.fondateur_b)
         self.assertEqual(self.client.get(self.url_programme).status_code, 404)
 

@@ -10,12 +10,12 @@ from comptes.models import Utilisateur
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
 from espace_developpeur.forms import (
     TOUS_CHAMPS_ADMINISTRATIFS, ConfirmerRetraitEleveForm, CreerAnneeScolaireForm, ModifierCompteForm,
-    ParametresEtablissementForm, CHAMPS_CONSERVES, champs_applicables, est_vide, valeur_vide,
+    ParametresEtablissementForm, SignataireCycleForm, CHAMPS_CONSERVES, champs_applicables, est_vide, valeur_vide,
 )
 from espace_developpeur.retrait_eleve import (
     anonymiser_eleve, historique_eleve, historique_lisible, mode_de_retrait, supprimer_eleve,
 )
-from etablissement.models import Etablissement
+from etablissement.models import Etablissement, SignataireCycle
 from permissions_matrix.models import PermissionMatrix
 from permissions_matrix.modules import Module
 from scolarite.models import AnneeScolaire, eleve_de_l_etablissement_ou_404
@@ -60,6 +60,55 @@ def parametres_etablissement(request):
     return render(request, "espace_developpeur/parametres_etablissement.html", {
         "formulaire": formulaire, "etablissement": etablissement,
     })
+
+
+@role_requis(*ROLE_ESPACE_DEVELOPPEUR)
+@require_http_methods(["GET", "POST"])
+def signataires_cycle(request):
+    """
+    Le signataire et le cachet des cartes d'élève, cycle par cycle (chaque cycle a son directeur). Un cycle laissé vide garde ceux de l'école
+    (page « Identité de l'établissement »). On propose les cycles de la formule de l'école, et ceux qui ont déjà un signataire.
+    """
+    from django.db import transaction
+
+    from scolarite.models import Cycle, cycles_autorises_pour
+
+    etablissement = request.user.etablissement
+    if etablissement is None:
+        messages.error(request, "Votre compte n'est rattaché à aucun établissement.")
+        return redirect("comptes:redirection_tableau_de_bord")
+    existants = {signataire.cycle: signataire for signataire in SignataireCycle.objects.filter(etablissement=etablissement)}
+    autorises = cycles_autorises_pour(etablissement)
+    cycles = [(cycle, libelle) for cycle, libelle in Cycle.choices if cycle in autorises or cycle in existants]
+    formulaires = [
+        (cycle, libelle, SignataireCycleForm(
+            request.POST or None, request.FILES or None, prefix=cycle,
+            instance=existants.get(cycle) or SignataireCycle(etablissement=etablissement, cycle=cycle),
+        ))
+        for cycle, libelle in cycles
+    ]
+    if request.method == "POST" and all(formulaire.is_valid() for _, _, formulaire in formulaires):
+        modifies = []
+        with transaction.atomic():
+            for cycle, _, formulaire in formulaires:
+                signataire = formulaire.save(commit=False)
+                if signataire.vide:  # plus rien de renseigné : le cycle reprend le signataire de l'école
+                    if signataire.pk:
+                        signataire.delete()
+                        modifies.append(cycle)
+                    continue
+                if formulaire.has_changed():
+                    signataire.save()
+                    modifies.append(cycle)
+        if modifies:
+            enregistrer_action(
+                acteur=request.user, action="signataires_cycle", cible=etablissement.nom, details={"cycles": modifies}, request=request,
+            )
+            messages.success(request, "Signataires et cachets par cycle enregistrés.")
+        else:
+            messages.info(request, "Aucune modification.")
+        return redirect("espace_developpeur:signataires_cycle")
+    return render(request, "espace_developpeur/signataires_cycle.html", {"etablissement": etablissement, "formulaires": formulaires})
 
 
 @role_requis(*ROLE_ESPACE_DEVELOPPEUR)

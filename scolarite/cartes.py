@@ -7,7 +7,9 @@ continuent de fonctionner.
 import base64
 from io import BytesIO
 
-from scolarite.documents import logo_en_donnees  # noqa: F401 (réexporté : les cartes et les documents lisent le logo de la même façon)
+from PIL import Image
+
+from scolarite.documents import image_en_donnees, logo_en_donnees  # noqa: F401 (logo réexporté : les cartes et les documents le lisent de la même façon)
 from scolarite.models import Inscription, TypeDocumentVerifiable, VerificationDocument, nouveau_code_verification
 from scolarite.photos import photo_en_donnees
 
@@ -66,6 +68,71 @@ def construire_cartes(inscriptions, adresse_de_verification) -> list[dict]:
             "nom_long": len(eleve.nom) + len(eleve.prenom) > 24,  # un nom très long s'écrit plus petit plutôt que de passer sur deux lignes
         })
     return cartes
+
+
+def cachet_en_donnees(champ) -> str:
+    """
+    Le cachet en adresse « data: » pour le PDF, recadré dans un carré transparent : rond, ovale ou rectangulaire, il garde ses proportions
+    dans la case carrée que la carte lui réserve. Vide si le cachet est absent ou illisible.
+    """
+    if not champ:
+        return ""
+    try:
+        with champ.open("rb") as fichier:
+            contenu = fichier.read(2 * 1024 * 1024 + 1)
+        if not contenu or len(contenu) > 2 * 1024 * 1024:
+            return ""
+        with Image.open(BytesIO(contenu)) as source:
+            image = source.convert("RGBA")
+        image.thumbnail((400, 400))
+        carre = Image.new("RGBA", (max(image.size),) * 2, (0, 0, 0, 0))
+        carre.paste(image, ((carre.width - image.width) // 2, (carre.height - image.height) // 2), image)
+        tampon = BytesIO()
+        carre.save(tampon, format="PNG")
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return ""
+    return "data:image/png;base64," + base64.b64encode(tampon.getvalue()).decode("ascii")
+
+
+def signataires_par_cycle(etablissement, cycles) -> dict:
+    """
+    Qui signe la carte, et quel cachet elle porte, pour chacun des cycles donnés : `{cycle: {"nom", "fonction", "signature", "cachet"}}`
+    (images en adresses « data: » pour le PDF), ou `None` pour un cycle où rien n'est renseigné.
+
+    - Le signataire d'un cycle (nom, fonction, signature) est celui que l'école a saisi pour ce cycle (`SignataireCycle`) ; si elle n'a saisi aucun
+      des trois pour ce cycle, c'est celui de l'école entière. Jamais un mélange : la signature d'un directeur n'accompagne pas le nom d'un autre.
+    - Le cachet est celui du cycle, sinon celui de l'école.
+    """
+    from etablissement.models import SignataireCycle
+
+    propres = {signataire.cycle: signataire for signataire in SignataireCycle.objects.filter(etablissement=etablissement)}
+    images = {}  # une image n'est lue et encodée qu'une fois, même si plusieurs cycles s'en servent
+
+    def donnees(champ, lecteur=image_en_donnees):
+        if not champ:
+            return ""
+        if (lecteur, champ.name) not in images:
+            images[(lecteur, champ.name)] = lecteur(champ)
+        return images[(lecteur, champ.name)]
+
+    resultat = {}
+    for cycle in cycles:
+        propre = propres.get(cycle)
+        if propre is not None and (propre.nom_signataire or propre.fonction_signataire or propre.signature):
+            nom, fonction, signature = propre.nom_signataire, propre.fonction_signataire, donnees(propre.signature)
+        else:
+            nom, fonction, signature = etablissement.nom_signataire, etablissement.fonction_signataire, donnees(etablissement.signature)
+        champ_cachet = propre.cachet if propre is not None and propre.cachet else etablissement.cachet
+        cachet = donnees(champ_cachet, cachet_en_donnees)
+        resultat[cycle] = {"nom": nom, "fonction": fonction, "signature": signature, "cachet": cachet} if (nom or fonction or signature or cachet) else None
+    return resultat
+
+
+def ajouter_les_signataires(cartes: list[dict], etablissement) -> None:
+    """Joint à chaque carte le signataire (et le cachet) du cycle de sa classe."""
+    signataires = signataires_par_cycle(etablissement, {carte["classe"].cycle for carte in cartes})
+    for carte in cartes:
+        carte["signataire"] = signataires[carte["classe"].cycle]
 
 
 def pages(cartes: list[dict]) -> list[list[dict]]:

@@ -844,6 +844,9 @@ def classes_visibles_pour(utilisateur):
     toujours limité à SON établissement, puis, en plus, cloisonné par
     cycle pour les directeurs de cycle ainsi que pour le Censeur et le
     Surveillant général (propres au Lycée - voir CYCLE_PAR_ROLE_CLOISONNE).
+
+    Chacun ne voit que ce qui le concerne, QUELS QUE SOIENT les modules que l'école lui accorde : un enseignant ne voit que les classes où il est
+    affecté, un parent que celles de ses enfants, un élève que les siennes. Les autres rôles voient toute l'école (ou leur cycle).
     """
     queryset = Classe.objects.filter(
         annee_scolaire__etablissement=utilisateur.etablissement_id,
@@ -851,6 +854,12 @@ def classes_visibles_pour(utilisateur):
     cycle_impose = CYCLE_PAR_ROLE_CLOISONNE.get(utilisateur.role)
     if cycle_impose:
         return queryset.filter(cycle=cycle_impose)
+    if utilisateur.role == Role.ENSEIGNANT:
+        return queryset.filter(pk__in=Affectation.objects.filter(enseignant=utilisateur).values("classe_id"))
+    if utilisateur.role == Role.PARENT:
+        return queryset.filter(pk__in=Inscription.objects.filter(eleve__parents_lies=utilisateur).values("classe_id"))
+    if utilisateur.role == Role.ELEVE:
+        return queryset.filter(pk__in=Inscription.objects.filter(eleve=utilisateur).values("classe_id"))
     return queryset
 
 

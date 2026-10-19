@@ -4,7 +4,7 @@ from comptes.forms import BootstrapFormMixin
 from comptes.models import FormationPedagogique, Sexe, SituationHandicap, StatutDeplacement, StatutPersonnel
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role, StatutCompte
 from comptes.validators import valider_ecriture_arabe
-from etablissement.models import Etablissement
+from etablissement.models import Etablissement, SignataireCycle
 from scolarite.models import AnneeScolaire, role_autorise_pour_plan
 
 # Les rôles à accès total inconditionnel (développeur, fondateur,
@@ -193,6 +193,20 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
             "taux_inps_salarie", "taux_inps_employeur", "taux_amo_salarie", "taux_amo_employeur",
         ]
         widgets = {"date_situation": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")}
+
+
+class SignataireCycleForm(BootstrapFormMixin, forms.ModelForm):
+    """Qui signe, et quel cachet porte, les cartes d'élève d'UN cycle (un formulaire par cycle, distingués par leur préfixe)."""
+
+    class Meta:
+        model = SignataireCycle
+        fields = ["nom_signataire", "fonction_signataire", "signature", "cachet"]
+
+    def clean_nom_signataire(self):
+        return " ".join((self.cleaned_data.get("nom_signataire") or "").split())
+
+    def clean_fonction_signataire(self):
+        return " ".join((self.cleaned_data.get("fonction_signataire") or "").split())
 
 
 class CreerAnneeScolaireForm(BootstrapFormMixin, forms.Form):

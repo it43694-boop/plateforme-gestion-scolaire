@@ -50,8 +50,8 @@ class ListeDeClasseCsvPdfTests(EducationBase):
 
     def test_un_parent_n_exporte_rien(self):
         self.client.force_login(self.parent)
-        self.assertEqual(self.client.get(self.url_csv).status_code, 403)
-        self.assertEqual(self.client.get(self.url_pdf).status_code, 403)
+        self.assertEqual(self.client.get(self.url_csv).status_code, 404)  # la classe n'est pas celle de ses enfants : introuvable
+        self.assertEqual(self.client.get(self.url_pdf).status_code, 404)
 
     def test_la_classe_d_une_autre_ecole_est_introuvable(self):
         self.client.force_login(self.fondateur)

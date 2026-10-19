@@ -121,8 +121,8 @@ class ListeDeClasseTests(ExportsBase):
     def test_l_enseignant_affecte_obtient_sa_classe_pas_les_autres(self):
         self.assertEqual(self.liste(self.t1).status_code, 200)
         self.assertEqual(self.liste(self.t_fr).status_code, 200)
-        self.assertEqual(self.liste(self.t2).status_code, 403)  # t2 n'enseigne pas en 6A
-        self.assertEqual(self.liste(self.t1, self.c6b).status_code, 403)
+        self.assertEqual(self.liste(self.t2).status_code, 404)  # t2 n'enseigne pas en 6A : classe hors de son périmètre, introuvable
+        self.assertEqual(self.liste(self.t1, self.c6b).status_code, 404)
 
     def test_parents_et_eleves_refuses(self):
         for compte in (self.parent, self.e1):
@@ -230,8 +230,8 @@ class ReleveDeNotesTests(ExportsBase):
         self.assertEqual({ligne[3] for ligne in detail}, {"Maths"})
 
     def test_acces(self):
-        self.assertEqual(self.releve(self.t2).status_code, 403)       # pas affecté à la 6A
-        self.assertEqual(self.releve(self.t1, self.c6b).status_code, 403)
+        self.assertEqual(self.releve(self.t2).status_code, 404)       # pas affecté à la 6A : classe hors de son périmètre, introuvable
+        self.assertEqual(self.releve(self.t1, self.c6b).status_code, 404)
         for compte in (self.parent, self.e1):
             self.assertEqual(self.releve(compte).status_code, 403)
         self.assertEqual(self.releve(self.fondateur, self.classe_b).status_code, 404)
@@ -286,7 +286,7 @@ class AbsencesTests(ExportsBase):
 
     def test_acces(self):
         self.assertEqual(self.absences(self.t1).status_code, 200)
-        self.assertEqual(self.absences(self.t2).status_code, 403)
+        self.assertEqual(self.absences(self.t2).status_code, 404)  # t2 n'enseigne pas en 6A : classe hors de son périmètre, introuvable
         for compte in (self.parent, self.e1):
             self.assertEqual(self.absences(compte).status_code, 403)
         self.assertEqual(self.absences(self.fondateur, self.classe_b).status_code, 404)

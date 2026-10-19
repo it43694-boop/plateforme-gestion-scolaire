@@ -489,7 +489,7 @@ def recherche_globale(request):
 def affecter_enseignant(request):
     classes_disponibles = classes_visibles_pour(request.user)
     formulaire = AffecterEnseignantForm(
-        request.POST or None, etablissement=request.user.etablissement, classes_disponibles=classes_disponibles,
+        request.POST or None, etablissement=request.user.etablissement, classes_disponibles=classes_disponibles, utilisateur=request.user,
     )
     if request.method == "POST" and formulaire.is_valid():
         enseignant = formulaire.cleaned_data["enseignant"]

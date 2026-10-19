@@ -399,6 +399,13 @@ def quitter_acces_delegue(request):
     return redirect("espace_plateforme:liste_etablissements")
 
 
+def _peut_voir_les_encaissements_de_l_ecole(utilisateur) -> bool:
+    """Le total encaissé par toute l'école : la comptabilité et la direction, jamais un enseignant, un élève ou un parent qui aurait reçu le module."""
+    from finances.views import _peut_gerer_les_paiements
+
+    return _peut_gerer_les_paiements(utilisateur)
+
+
 @login_required
 def redirection_tableau_de_bord(request):
     """
@@ -424,24 +431,26 @@ def redirection_tableau_de_bord(request):
     indicateurs = []
     actions_rapides = []
     classes = classes_visibles_pour(request.user)
+    est_eleve = request.user.role == Role.ELEVE
     if Module.ELEVES.value in valeurs_autorisees:
-        indicateurs.append({
-            "label": "Élèves inscrits",
-            "valeur": Inscription.objects.filter(
-                classe__in=classes, statut=Inscription.Statut.EN_COURS,
-            ).count(),
-            "icone": "eleves", "couleur": "bleu",
-        })
+        if not est_eleve:  # un élève n'a pas à connaître l'effectif de sa classe ni de l'école
+            indicateurs.append({
+                "label": "Élèves inscrits",
+                "valeur": Inscription.objects.filter(
+                    classe__in=classes, statut=Inscription.Statut.EN_COURS,
+                ).count(),
+                "icone": "eleves", "couleur": "bleu",
+            })
         from scolarite.views import ROLES_INSCRIPTION_ELEVE_INTERDITE
         if request.user.role not in ROLES_INSCRIPTION_ELEVE_INTERDITE:
             actions_rapides.append({"label": "Inscrire un élève", "url": "scolarite:inscrire_eleve"})
-    if Module.CLASSES.value in valeurs_autorisees:
+    if Module.CLASSES.value in valeurs_autorisees and not est_eleve:
         indicateurs.append({
             "label": "Classes actives",
             "valeur": classes.filter(annee_scolaire__est_active=True).count(),
             "icone": "pedagogie", "couleur": "or",
         })
-    if Module.FINANCES.value in valeurs_autorisees:
+    if Module.FINANCES.value in valeurs_autorisees and _peut_voir_les_encaissements_de_l_ecole(request.user):
         from django.contrib.humanize.templatetags.humanize import intcomma
         from finances.models import Paiement
         total = Paiement.objects.filter(
@@ -455,9 +464,11 @@ def redirection_tableau_de_bord(request):
         actions_rapides.append({"label": "Enregistrer un paiement", "url": "finances:enregistrer_paiement"})
     if Module.ABSENCES.value in valeurs_autorisees:
         from pedagogie.models import Absence
+        # Un élève ne voit que SES absences ; les autres rôles, celles des classes qu'ils ont le droit de voir.
+        absences = Absence.objects.filter(eleve=request.user) if est_eleve else Absence.objects.filter(classe__in=classes)
         indicateurs.append({
             "label": "Absences enregistrées",
-            "valeur": Absence.objects.filter(classe__in=classes).count(),
+            "valeur": absences.count(),
             "icone": "alerte", "couleur": "rouge",
         })
     if Module.COMMUNICATION.value in valeurs_autorisees:
@@ -477,11 +488,11 @@ def redirection_tableau_de_bord(request):
     # Graphiques : mêmes droits que les chiffres au-dessus (encaissements si le module Finances est ouvert, effectifs des
     # classes que ce rôle voit, cloisonnement par cycle compris).
     graphiques = {}
-    if Module.FINANCES.value in valeurs_autorisees and request.user.etablissement_id:
+    if Module.FINANCES.value in valeurs_autorisees and request.user.etablissement_id and _peut_voir_les_encaissements_de_l_ecole(request.user):
         from comptes.graphiques import encaissements_par_mois
         graphiques["encaissements"] = encaissements_par_mois(request.user.etablissement)
         graphiques["devise"] = getattr(request.user.etablissement, "code_devise", "FCFA")
-    if Module.ELEVES.value in valeurs_autorisees:
+    if Module.ELEVES.value in valeurs_autorisees and not est_eleve:  # un élève n'a pas à connaître l'effectif des classes
         actives = list(classes.filter(annee_scolaire__est_active=True))
         effectifs = dict(
             Inscription.objects.filter(classe__in=actives, statut=Inscription.Statut.EN_COURS)

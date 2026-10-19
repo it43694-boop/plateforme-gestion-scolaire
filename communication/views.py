@@ -14,6 +14,7 @@ from comptes.models import Notification, Utilisateur
 from comptes.roles import Role
 from communication.forms import EnvoyerMessageForm, PublierAnnonceForm
 from communication.models import Annonce, Message, Portee
+from communication.visibilite import annonces_visibles_pour
 from communication.diffusion import types_autorises
 from communication.equipes import peut_utiliser_equipes
 from permissions_matrix.modules import Module
@@ -92,17 +93,8 @@ def publier_annonce(request):
 
 @module_requis(Module.COMMUNICATION)
 def liste_annonces(request):
-    annonces = Annonce.objects.filter(
-        etablissement=request.user.etablissement,
-    ).select_related("classe_ciblee", "auteur")
-    if request.user.role == Role.ELEVE:
-        classes_de_leleve = request.user.inscriptions.values_list("classe_id", flat=True)
-        from django.db.models import Q
-        annonces = annonces.filter(Q(portee=Portee.TOUTE_ECOLE) | Q(classe_ciblee__in=classes_de_leleve))
-    elif request.user.role == Role.PARENT:
-        from django.db.models import Q
-        classes_des_enfants = request.user.enfants_lies.values_list("inscriptions__classe_id", flat=True)
-        annonces = annonces.filter(Q(portee=Portee.TOUTE_ECOLE) | Q(classe_ciblee__in=classes_des_enfants))
+    # Chacun ne lit que les annonces de toute l'école et celles de ses classes (voir communication.visibilite).
+    annonces = annonces_visibles_pour(request.user).select_related("classe_ciblee", "auteur")
     page_obj = Paginator(annonces, 15).get_page(request.GET.get("page"))
     return render(request, "communication/liste_annonces.html", {
         "page_obj": page_obj, "annonces": page_obj.object_list,

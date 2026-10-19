@@ -1,6 +1,7 @@
 import datetime
 
 from django import forms
+from django.db.models import Q
 
 from comptes.forms import BootstrapFormMixin
 from comptes.models import SituationHandicap, StatutDeplacement
@@ -131,11 +132,15 @@ class AffecterEnseignantForm(BootstrapFormMixin, forms.Form):
         help_text="Poids de cette matière dans la moyenne du bulletin. 1 = compte comme les autres.",
     )
 
-    def __init__(self, *args, etablissement=None, classes_disponibles=None, **kwargs):
+    def __init__(self, *args, etablissement=None, classes_disponibles=None, utilisateur=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["enseignant"].queryset = Utilisateur.objects.filter(
-            role=Role.ENSEIGNANT, etablissement=etablissement,
-        ).order_by("nom", "prenom")
+        enseignants = Utilisateur.objects.filter(role=Role.ENSEIGNANT, etablissement=etablissement)
+        if utilisateur is not None and utilisateur.role == Role.ENSEIGNANT and classes_disponibles is not None:
+            # Un enseignant à qui l'école a donné ce module ne voit que ses collègues de ses propres classes (et lui-même), pas tous les enseignants de l'école.
+            enseignants = enseignants.filter(Q(pk=utilisateur.pk) | Q(affectations__classe__in=classes_disponibles)).distinct()
+        elif utilisateur is not None and utilisateur.role in (Role.PARENT, Role.ELEVE):
+            enseignants = enseignants.none()
+        self.fields["enseignant"].queryset = enseignants.order_by("nom", "prenom")
         if classes_disponibles is not None:
             self.fields["classe"].queryset = classes_disponibles
 

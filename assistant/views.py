@@ -38,43 +38,49 @@ def construire_donnees_generales(utilisateur):
     from django.db.models import Case, F, IntegerField, Sum, When
 
     from bibliotheque.models import Document
-    from communication.models import Annonce
     from finances.models import MouvementCaisse, Salaire
     from scolarite.models import classes_visibles_pour
+
+    from communication.visibilite import annonces_visibles_pour
+    from finances.views import _peut_gerer_les_paiements
+    from scolarite.models import CYCLE_PAR_ROLE_CLOISONNE
 
     valeurs_autorisees = PermissionMatrix.modules_autorises(utilisateur.role, etablissement=utilisateur.etablissement)
     classes = classes_visibles_pour(utilisateur)
     devise = getattr(utilisateur.etablissement, "code_devise", "FCFA")
+    # Un élève ou un parent n'a pas à connaître les effectifs, les classes ni les finances de l'école : ses chiffres ne portent que sur lui (ou ses enfants).
+    famille = utilisateur.role in (Role.ELEVE, Role.PARENT)
     items = []
 
-    if Module.ELEVES.value in valeurs_autorisees:
+    if Module.ELEVES.value in valeurs_autorisees and not famille:
         items.append({
             "cle": "eleves_inscrits", "label": "Élèves inscrits",
             "valeur": Inscription.objects.filter(classe__in=classes, statut=Inscription.Statut.EN_COURS).count(),
         })
-    if Module.CLASSES.value in valeurs_autorisees:
+    if Module.CLASSES.value in valeurs_autorisees and not famille:
         items.append({
             "cle": "classes_actives", "label": "Classes actives",
             "valeur": classes.filter(annee_scolaire__est_active=True).count(),
         })
-    if Module.ENSEIGNANTS.value in valeurs_autorisees:
-        items.append({
-            "cle": "enseignants", "label": "Enseignants actifs",
-            "valeur": Utilisateur.objects.filter(
-                etablissement=utilisateur.etablissement, role=Role.ENSEIGNANT, is_active=True,
-            ).count(),
-        })
+    if Module.ENSEIGNANTS.value in valeurs_autorisees and not famille:
+        enseignants = Utilisateur.objects.filter(etablissement=utilisateur.etablissement, role=Role.ENSEIGNANT, is_active=True)
+        if utilisateur.role == Role.ENSEIGNANT or utilisateur.role in CYCLE_PAR_ROLE_CLOISONNE:  # seulement ceux qui enseignent dans les classes visibles
+            enseignants = enseignants.filter(affectations__classe__in=classes).distinct()
+        items.append({"cle": "enseignants", "label": "Enseignants actifs", "valeur": enseignants.count()})
     if Module.ABSENCES.value in valeurs_autorisees:
-        items.append({
-            "cle": "absences_enregistrees", "label": "Absences enregistrées",
-            "valeur": Absence.objects.filter(classe__in=classes).count(),
-        })
-    if Module.FINANCES.value in valeurs_autorisees:
+        if utilisateur.role == Role.ELEVE:
+            absences = Absence.objects.filter(eleve=utilisateur)
+        elif utilisateur.role == Role.PARENT:
+            absences = Absence.objects.filter(eleve__parents_lies=utilisateur)
+        else:
+            absences = Absence.objects.filter(classe__in=classes)
+        items.append({"cle": "absences_enregistrees", "label": "Absences enregistrées", "valeur": absences.count()})
+    if Module.FINANCES.value in valeurs_autorisees and _peut_gerer_les_paiements(utilisateur):
         total = Paiement.objects.filter(
             etablissement=utilisateur.etablissement, est_supprime=False,
         ).aggregate(total=Sum("montant"))["total"] or 0
         items.append({"cle": "total_encaissements", "label": "Total encaissé", "valeur": f"{total} {devise}"})
-    if Module.CAISSE.value in valeurs_autorisees:
+    if Module.CAISSE.value in valeurs_autorisees and not famille:
         solde = MouvementCaisse.objects.filter(
             etablissement=utilisateur.etablissement, annule=False,
         ).aggregate(solde=Sum(Case(
@@ -83,7 +89,7 @@ def construire_donnees_generales(utilisateur):
             output_field=IntegerField(),
         )))["solde"] or 0
         items.append({"cle": "solde_caisse", "label": "Solde de caisse", "valeur": f"{solde} {devise}"})
-    if Module.SALAIRES.value in valeurs_autorisees:
+    if Module.SALAIRES.value in valeurs_autorisees and not famille:
         salaires = Salaire.objects.filter(etablissement=utilisateur.etablissement, est_supprime=False)
         items.append({
             "cle": "salaires_en_attente", "label": "Salaires en attente de paiement",
@@ -97,7 +103,7 @@ def construire_donnees_generales(utilisateur):
     if Module.COMMUNICATION.value in valeurs_autorisees:
         items.append({
             "cle": "annonces_publiees", "label": "Annonces publiées",
-            "valeur": Annonce.objects.filter(etablissement=utilisateur.etablissement).count(),
+            "valeur": annonces_visibles_pour(utilisateur).count(),
         })
     return items
 

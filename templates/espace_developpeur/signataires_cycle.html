@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block titre %}Signatures et cachets par cycle{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div>
+        <h1>Signatures et cachets par cycle</h1>
+        <p>Chaque cycle a son directeur : sa signature et son cachet sont imprimés sur les cartes d'élève des classes de ce cycle. Un cycle laissé vide reprend la signature et le cachet de l'école.</p>
+    </div>
+    <a href="{% url 'espace_developpeur:parametres_etablissement' %}" class="btn btn-outline-secondary btn-sm">Identité de l'établissement</a>
+</div>
+<form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    <div class="row">
+        {% for cycle, libelle, formulaire in formulaires %}
+        <div class="col-lg-6 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <p class="titre-section">{{ libelle }}</p>
+                    {% for erreur in formulaire.non_field_errors %}<div class="text-danger small mb-2">{{ erreur }}</div>{% endfor %}
+                    {% for champ in formulaire %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                        {{ champ }}
+                        {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                        {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <p class="text-muted small">Pour retirer une signature ou un cachet, cochez « Effacer » puis enregistrez. Un cycle dont tous les champs sont vides reprend ceux de l'école.</p>
+    <button type="submit" class="btn btn-primary">Enregistrer</button>
+</form>
+{% endblock %}

@@ -432,3 +432,53 @@ class TarifCycle(models.Model):
 
         if self.cycle not in Cycle.values:
             raise ValidationError({"cycle": "Cycle inconnu."})
+
+
+def chemin_upload_signature_cycle(instance, nom_fichier):
+    return chemin_upload_unique("signataire_cycle_signature", instance.etablissement_id, nom_fichier)
+
+
+def chemin_upload_cachet_cycle(instance, nom_fichier):
+    return chemin_upload_unique("signataire_cycle_cachet", instance.etablissement_id, nom_fichier)
+
+
+class SignataireCycle(models.Model):
+    """
+    Qui signe, et quel cachet porte, les cartes d'élève d'un cycle : chaque cycle a son directeur. Un cycle qui n'a rien de renseigné ici
+    garde le signataire et le cachet de l'école (champs de `Etablissement`) ; voir `scolarite.cartes.signataires_par_cycle`.
+    """
+
+    etablissement = models.ForeignKey(Etablissement, on_delete=models.CASCADE, related_name="signataires_cycle")
+    cycle = models.CharField(max_length=20, help_text="Un cycle de scolarite.models.Cycle (préscolaire, 1er cycle, 2ème cycle, lycée, professionnel).")
+    nom_signataire = models.CharField("nom du signataire", max_length=120, blank=True, help_text="Personne qui signe les cartes de ce cycle (directeur, proviseur...).")
+    fonction_signataire = models.CharField("fonction du signataire", max_length=100, blank=True, help_text="Exemple : Le Directeur, La Directrice, Le Proviseur.")
+    signature = models.ImageField(
+        "signature", upload_to=chemin_upload_signature_cycle, blank=True, null=True,
+        validators=[valider_taille_image_2mo, valider_contenu_fichier],
+        help_text="Image de la signature (de préférence PNG sur fond transparent). Taille maximale : 2 Mo.",
+    )
+    cachet = models.ImageField(
+        "cachet", upload_to=chemin_upload_cachet_cycle, blank=True, null=True,
+        validators=[valider_taille_image_2mo, valider_contenu_fichier],
+        help_text="Image du cachet du cycle (de préférence PNG sur fond transparent). Taille maximale : 2 Mo.",
+    )
+
+    class Meta:
+        verbose_name = "signataire par cycle"
+        verbose_name_plural = "signataires par cycle"
+        ordering = ["etablissement", "cycle"]
+        constraints = [models.UniqueConstraint(fields=["etablissement", "cycle"], name="un_signataire_par_cycle_et_par_ecole")]
+
+    def __str__(self):
+        return f"{self.etablissement} - {self.cycle}"
+
+    def clean(self):
+        super().clean()
+        from scolarite.models import Cycle
+
+        if self.cycle not in Cycle.values:
+            raise ValidationError({"cycle": "Cycle inconnu."})
+
+    @property
+    def vide(self) -> bool:
+        return not (self.nom_signataire or self.fonction_signataire or self.signature or self.cachet)

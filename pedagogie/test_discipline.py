@@ -194,7 +194,7 @@ class RegistreDeClasseTests(DisciplineBase):
 
     def test_un_enseignant_ne_traite_que_ses_classes(self):
         self.client.force_login(self.t1)
-        self.assertEqual(self.client.get(reverse("pedagogie:registre_discipline", args=[self.c6b.pk])).status_code, 403)
+        self.assertEqual(self.client.get(reverse("pedagogie:registre_discipline", args=[self.c6b.pk])).status_code, 404)  # hors de son périmètre : introuvable (comme une classe d'une autre école), pas seulement interdit
         self.assertEqual(self.client.get(reverse("pedagogie:registre_discipline", args=[self.classe_b.pk])).status_code, 404)
 
     def test_le_secretariat_a_besoin_du_module_absences(self):

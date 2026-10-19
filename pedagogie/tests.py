@@ -400,7 +400,7 @@ class AbsenceTests(TestCase):
         exterieur = creer_utilisateur_actif("exterieur-abs@example.com", Role.ENSEIGNANT)
         self.client.force_login(exterieur)
         reponse = self.client.get(reverse("pedagogie:saisir_absence", args=[self.classe.id]))
-        self.assertEqual(reponse.status_code, 403)
+        self.assertEqual(reponse.status_code, 404)  # hors de son périmètre : introuvable (comme une classe d'une autre école), pas seulement interdit
 
     def test_parent_ne_peut_pas_saisir_une_absence(self):
         """
@@ -663,7 +663,7 @@ class GererEmploiDuTempsVueTests(TestCase):
     def test_enseignant_sans_affectation_est_refuse(self):
         self.client.force_login(self.enseignant_sans_affectation)
         reponse = self.client.get(reverse("pedagogie:gerer_emploi_du_temps", args=[self.classe.id]))
-        self.assertEqual(reponse.status_code, 403)
+        self.assertEqual(reponse.status_code, 404)  # hors de son périmètre : introuvable (comme une classe d'une autre école), pas seulement interdit
 
     def test_enseignant_sans_affectation_ne_peut_pas_ajouter_de_creneau(self):
         self.client.force_login(self.enseignant_sans_affectation)
@@ -671,7 +671,7 @@ class GererEmploiDuTempsVueTests(TestCase):
             "affectation": self.affectation.id, "jour_semaine": JourSemaine.LUNDI,
             "heure_debut": "08:00", "heure_fin": "09:00", "salle": "",
         })
-        self.assertEqual(reponse.status_code, 403)
+        self.assertEqual(reponse.status_code, 404)  # hors de son périmètre : introuvable (comme une classe d'une autre école), pas seulement interdit
         self.assertEqual(CreneauEmploiDuTemps.objects.filter(classe=self.classe).count(), 0)
 
     def test_eleve_voit_sa_propre_classe_sans_formulaire(self):
@@ -683,7 +683,7 @@ class GererEmploiDuTempsVueTests(TestCase):
     def test_eleve_ne_voit_pas_une_autre_classe(self):
         self.client.force_login(self.eleve)
         reponse = self.client.get(reverse("pedagogie:gerer_emploi_du_temps", args=[self.autre_classe.id]))
-        self.assertEqual(reponse.status_code, 403)
+        self.assertEqual(reponse.status_code, 404)  # hors de son périmètre : introuvable (comme une classe d'une autre école), pas seulement interdit
 
     def test_eleve_ne_peut_pas_ajouter_de_creneau_meme_sur_sa_classe(self):
         self.client.force_login(self.eleve)
@@ -697,7 +697,7 @@ class GererEmploiDuTempsVueTests(TestCase):
     def test_eleve_ne_peut_pas_exporter_une_autre_classe(self):
         self.client.force_login(self.eleve)
         reponse = self.client.get(reverse("pedagogie:exporter_emploi_du_temps_pdf", args=[self.autre_classe.id]))
-        self.assertEqual(reponse.status_code, 403)
+        self.assertEqual(reponse.status_code, 404)  # hors de son périmètre : introuvable (comme une classe d'une autre école), pas seulement interdit
 
     def test_direction_peut_supprimer_un_creneau(self):
         creneau = CreneauEmploiDuTemps.objects.create(

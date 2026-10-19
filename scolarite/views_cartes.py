@@ -11,8 +11,8 @@ from comptes.decorators import module_requis
 from comptes.excel import nom_fichier_sur
 from comptes.pdf import creer_pdf
 from permissions_matrix.modules import Module
-from scolarite.cartes import construire_cartes, pages
-from scolarite.documents import image_en_donnees, logo_en_donnees, ville_de_l_ecole
+from scolarite.cartes import ajouter_les_signataires, construire_cartes, pages
+from scolarite.documents import logo_en_donnees, ville_de_l_ecole
 from scolarite.models import (
     ROLES_ETAT_CIVIL_ELEVE, Inscription, classes_visibles_pour, eleve_de_l_etablissement_ou_404, eleve_visible_pour,
 )
@@ -30,9 +30,10 @@ def _reponse_pdf(request, inscriptions, nom_fichier, cible):
     if not cartes:
         return None
     etablissement = request.user.etablissement
+    ajouter_les_signataires(cartes, etablissement)  # chaque cycle a son signataire et son cachet, sinon ceux de l'école
     html = render_to_string("scolarite/cartes_eleves_pdf.html", {
         "pages": pages(cartes), "etablissement": etablissement, "logo": logo_en_donnees(etablissement),
-        "signature": image_en_donnees(etablissement.signature), "ville": ville_de_l_ecole(etablissement),
+        "ville": ville_de_l_ecole(etablissement),
         "adresse_verification": request.get_host() + page_de_verification.rstrip("/"),  # ce que la carte imprime, sans « https:// »
         "arabe": getattr(request, "LANGUAGE_CODE", "fr") == "ar",
     }, request=request)
