@@ -95,6 +95,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # L'école de la personne est retenue un an dans un cookie : elle ne la cherche plus à chaque connexion (voir vitrine.ecole_memorisee)
+    "vitrine.middleware.MemoriserEcoleMiddleware",
     # Les chiffres arabes tapés dans un champ (٠١٢...) deviennent 0123... avant toute lecture (hors mots de passe).
     "comptes.langue.ChiffresOccidentauxMiddleware",
     # La langue dépend du compte connecté : après l'authentification ; la traduction, juste après elle.

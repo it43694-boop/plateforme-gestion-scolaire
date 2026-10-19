@@ -44,6 +44,15 @@
                 </div>
             </div>
         </div>
+        <div class="card mt-3">
+            <div class="card-body">
+                <p class="titre-section">Lien de connexion de l'école</p>
+                <p class="text-muted small">Donnez ce lien ou ce code QR aux élèves, aux parents et au personnel : ils arrivent directement sur la connexion de l'école, sans chercher son nom dans la liste. À mettre sur les lettres aux parents, les affiches et les groupes WhatsApp.</p>
+                <input type="text" class="form-control mb-3" value="{{ lien_connexion }}" readonly dir="ltr" aria-label="Lien de connexion de l'école">
+                <img src="{% url 'espace_developpeur:qr_connexion' %}" alt="Code QR du lien de connexion" width="220" height="220" class="d-block mb-2">
+                <a href="{% url 'espace_developpeur:qr_connexion' %}" download="qr_connexion_{{ etablissement.slug }}.png" class="btn btn-outline-secondary btn-sm">Télécharger le code QR</a>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

@@ -901,6 +901,15 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 .vitrine-hero-ctas.vitrine-etablissements { flex-direction: column; align-items: stretch; gap: 0.6rem; max-width: 340px; }
 .vitrine-etablissements-intro { color: #B7C0D6; font-size: 0.85rem; margin-bottom: 0.2rem; }
 .vitrine-etablissement-lien { display: flex; align-items: center; gap: 0.6rem; justify-content: flex-start; }
+.vitrine-etablissement-lieu { display: block; font-size: 0.8rem; opacity: 0.7; }
+.vitrine-recherche { display: flex; gap: 0.5rem; }
+.vitrine-recherche-champ {
+  flex: 1; min-width: 0; padding: 0.6rem 0.9rem; border-radius: 0.5rem; font-size: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08); color: #fff;
+}
+.vitrine-recherche-champ::placeholder { color: #B7C0D6; }
+.vitrine-recherche-resultats { display: flex; flex-direction: column; gap: 0.6rem; }
+.vitrine-ecole-autre { color: #B7C0D6; font-size: 0.85rem; text-align: center; text-decoration: underline; }
 .vitrine-etablissement-logo { width: 22px; height: 22px; border-radius: 5px; object-fit: contain; background: #fff; }
 .vitrine-etablissement-initiale {
   width: 22px; height: 22px; border-radius: 50%; border: 1px solid currentColor;

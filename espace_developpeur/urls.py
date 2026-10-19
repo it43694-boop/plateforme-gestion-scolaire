@@ -7,6 +7,7 @@ app_name = "espace_developpeur"
 urlpatterns = [
     path("etablissement/", views.parametres_etablissement, name="parametres_etablissement"),
     path("etablissement/signataires/", views.signataires_cycle, name="signataires_cycle"),
+    path("etablissement/qr-connexion.png", views.qr_connexion, name="qr_connexion"),
     path("comptes/", views.liste_comptes, name="liste_comptes"),
     path("comptes/<int:utilisateur_id>/modifier/", views.modifier_compte, name="modifier_compte"),
     path(

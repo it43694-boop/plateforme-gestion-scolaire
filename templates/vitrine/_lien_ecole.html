@@ -1,0 +1,8 @@
+<a href="{% url 'vitrine:choisir_etablissement' etab.slug %}" class="btn-hero-secondaire vitrine-etablissement-lien">
+    {% if etab.logo %}
+    <img src="{{ etab.logo.url }}" alt="" class="vitrine-etablissement-logo">
+    {% else %}
+    <span class="vitrine-etablissement-initiale">{{ etab.initiale }}</span>
+    {% endif %}
+    <span>{{ etab.nom }}{% if etab.commune %}<span class="vitrine-etablissement-lieu">{{ etab.commune }}</span>{% endif %}</span>
+</a>

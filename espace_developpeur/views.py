@@ -1,7 +1,9 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from comptes.audit import enregistrer_action
@@ -58,8 +60,30 @@ def parametres_etablissement(request):
         messages.success(request, "Identité de l'établissement mise à jour.")
         return redirect("espace_developpeur:parametres_etablissement")
     return render(request, "espace_developpeur/parametres_etablissement.html", {
-        "formulaire": formulaire, "etablissement": etablissement,
+        "formulaire": formulaire, "etablissement": etablissement, "lien_connexion": _lien_de_connexion(request, etablissement),
     })
+
+
+def _lien_de_connexion(request, etablissement) -> str:
+    """Le lien direct vers la page de connexion de l'école : ses utilisateurs n'ont plus à la chercher dans la liste de l'accueil."""
+    return request.build_absolute_uri(reverse("vitrine:choisir_etablissement", args=[etablissement.slug]))
+
+
+@role_requis(*ROLE_ESPACE_DEVELOPPEUR)
+def qr_connexion(request):
+    """Le code QR du lien de connexion de l'école (image PNG), à imprimer sur une affiche, une lettre aux parents ou une carte."""
+    from io import BytesIO
+
+    import qrcode
+
+    etablissement = request.user.etablissement
+    if etablissement is None:
+        raise Http404("Votre compte n'est rattaché à aucun établissement.")
+    tampon = BytesIO()
+    qrcode.make(_lien_de_connexion(request, etablissement), box_size=12, border=3).save(tampon, format="PNG")
+    reponse = HttpResponse(tampon.getvalue(), content_type="image/png")
+    reponse["Content-Disposition"] = f'inline; filename="qr_connexion_{etablissement.slug}.png"'
+    return reponse
 
 
 @role_requis(*ROLE_ESPACE_DEVELOPPEUR)

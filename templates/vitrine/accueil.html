@@ -62,17 +62,36 @@
 
             {% if mode_multi %}
             <div class="vitrine-hero-ctas vitrine-etablissements" id="choisir-etablissement">
-                <p class="vitrine-etablissements-intro">Choisissez votre établissement pour continuer :</p>
-                {% for etab in etablissements %}
-                <a href="{% url 'vitrine:choisir_etablissement' etab.slug %}" class="btn-hero-secondaire vitrine-etablissement-lien">
-                    {% if etab.logo %}
-                    <img src="{{ etab.logo.url }}" alt="" class="vitrine-etablissement-logo">
+                {% if derniere_ecole %}
+                <p class="vitrine-etablissements-intro">Votre établissement :</p>
+                <a href="{% url 'vitrine:choisir_etablissement' derniere_ecole.slug %}" class="btn-hero-primaire vitrine-etablissement-lien">
+                    {% if derniere_ecole.logo %}
+                    <img src="{{ derniere_ecole.logo.url }}" alt="" class="vitrine-etablissement-logo">
                     {% else %}
-                    <span class="vitrine-etablissement-initiale">{{ etab.initiale }}</span>
+                    <span class="vitrine-etablissement-initiale">{{ derniere_ecole.initiale }}</span>
                     {% endif %}
-                    {{ etab.nom }}
+                    <span>Continuer vers {{ derniere_ecole.nom }}</span>
                 </a>
-                {% endfor %}
+                <a href="{% url 'vitrine:changer_ecole' %}" class="vitrine-ecole-autre">Ce n'est pas mon école</a>
+                {% else %}
+                <p class="vitrine-etablissements-intro">Choisissez votre établissement pour continuer :</p>
+                <form method="get" action="{% url 'vitrine:accueil' %}#choisir-etablissement" role="search" class="vitrine-recherche">
+                    <input type="search" name="q" value="{{ terme }}" class="vitrine-recherche-champ" placeholder="Nom de votre établissement ou de sa ville"
+                           aria-label="Rechercher votre établissement" autocomplete="off" data-recherche-ecole-url="{{ adresse_de_recherche }}">
+                    <button type="submit" class="btn-hero-primaire">Rechercher</button>
+                </form>
+                <div class="vitrine-recherche-resultats" data-recherche-ecole-resultats>
+                    {% if resultats is not None %}
+                    {% for etab in resultats %}{% include "vitrine/_lien_ecole.html" %}{% empty %}
+                    <p class="vitrine-etablissements-intro">Aucun établissement trouvé.</p>
+                    {% endfor %}
+                    {% elif etablissements %}
+                    {% for etab in etablissements %}{% include "vitrine/_lien_ecole.html" %}{% endfor %}
+                    {% else %}
+                    <p class="vitrine-etablissements-intro">Tapez le nom de votre établissement ou de sa ville.</p>
+                    {% endif %}
+                </div>
+                {% endif %}
             </div>
             {% else %}
             <div class="vitrine-hero-ctas">
@@ -457,5 +476,6 @@
 </footer>
 
 <script src="{% static 'js/app.js' %}" defer></script>
+{% if mode_multi %}<script src="{% static 'js/recherche_ecole.js' %}" defer></script>{% endif %}
 </body>
 </html>
