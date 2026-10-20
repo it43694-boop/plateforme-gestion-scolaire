@@ -83,6 +83,9 @@
   box-shadow: inset -2px 0 0 var(--gold-500); padding-left: 0.7rem; padding-right: 0.9rem;
 }
 
+/* Menu d'actions des lignes de tableau : trait doré à droite de l'entrée survolée */
+[dir="rtl"] .menu-actions-entree:hover, [dir="rtl"] .menu-actions-entree:focus-visible { box-shadow: inset -2px 0 0 var(--gold-500); }
+
 /* Mot de passe : l'œil passe à gauche du champ */
 [dir="rtl"] .champ-mot-de-passe input { padding-right: 0.75rem; padding-left: 2.9rem; }
 [dir="rtl"] .bouton-oeil { right: auto; left: 0.3rem; }

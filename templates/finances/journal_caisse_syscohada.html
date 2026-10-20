@@ -52,7 +52,7 @@
                 {% for mouvement in mouvements %}
                 <tr>
                     <td>{{ mouvement.date_mouvement|date:"d/m/Y" }}</td>
-                    <td>{{ mouvement.reference }}</td>
+                    <td class="reference-val">{{ mouvement.reference }}</td>
                     <td>{{ mouvement.description }}</td>
                     <td>{{ mouvement.compte_contrepartie }}</td>
                     <td class="text-end montant-val">{% if mouvement.debit_caisse %}{{ mouvement.debit_caisse|montant }} {{ etablissement.code_devise|default:"FCFA" }}{% endif %}</td>

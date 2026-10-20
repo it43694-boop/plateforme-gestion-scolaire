@@ -46,6 +46,10 @@
         </div>
 
         <nav>
+            <div class="nav-filtre" data-filtre-menu hidden>
+                <input type="search" class="nav-filtre-champ" placeholder="Chercher une page du menu..." aria-label="Chercher une page du menu" autocomplete="off">
+            </div>
+            <div class="nav-resultats" data-filtre-resultats hidden></div>
             <div class="nav-section">
                 <a class="nav-lien {% if request.resolver_match.view_name == 'comptes:redirection_tableau_de_bord' %}actif{% endif %}"
                    href="{% url 'comptes:redirection_tableau_de_bord' %}">{% icone "accueil" 17 %} <span class="nav-lien-texte">Tableau de bord</span></a>

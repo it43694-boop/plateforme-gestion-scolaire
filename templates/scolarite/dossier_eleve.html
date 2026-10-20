@@ -72,23 +72,38 @@
     {% endif %}
 </div>
 
-<div class="d-flex gap-2 mb-3 mt-2">
+<div class="actions-ligne actions-ligne-debut mb-3 mt-2">
     {% if peut_corriger_dossier %}<a href="{% url 'scolarite:corriger_dossier_eleve' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Corriger le dossier</a>{% endif %}
     {% if peut_voir_notes %}<a href="{% url 'pedagogie:bulletin_eleve' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Voir le bulletin</a>{% endif %}
     {% if peut_voir_absences %}<a href="{% url 'pedagogie:historique_absences' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Historique des absences</a>
     <a href="{% url 'pedagogie:historique_discipline' eleve.matricule %}" class="btn btn-sm btn-outline-secondary">Discipline</a>{% endif %}
-    {% if inscription_active %}<a href="{% url 'scolarite:generer_attestation_scolarite' eleve.matricule %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Attestation de scolarité</a>{% endif %}
-    {% if inscription_active and peut_imprimer_carte %}<a href="{% url 'scolarite:carte_eleve_pdf' eleve.matricule %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Carte d'élève (PDF)</a>{% endif %}
-    {% if peut_mot_de_passe_provisoire %}
-    <form method="post" action="{% url 'scolarite:mot_de_passe_provisoire' eleve.matricule %}" class="d-inline"
-          data-confirmer="Générer un nouveau mot de passe provisoire ? L'ancien mot de passe de cet élève ne fonctionnera plus.">
-        {% csrf_token %}
-        <button class="btn btn-sm btn-outline-secondary">Mot de passe provisoire</button>
-    </form>
-    {% endif %}
-    {% if peut_retirer_eleve %}<a href="{% url 'espace_developpeur:retirer_eleve' eleve.matricule %}" class="btn btn-sm btn-outline-danger">Supprimer / anonymiser</a>{% endif %}
     {% if peut_reintegrer %}<a href="{% url 'scolarite:reintegrer_eleve' eleve.matricule %}" class="btn btn-sm btn-outline-primary">Réintégrer</a>{% endif %}
-    {% if inscription_active and peut_cloturer_inscription %}<a href="{% url 'scolarite:cloturer_inscription' eleve.matricule %}" class="btn btn-sm btn-outline-danger">Clôturer l'inscription (abandon/transfert)</a>{% endif %}
+    {% if inscription_active %}
+    <details class="menu-actions">
+        <summary class="btn btn-sm btn-outline-secondary">Imprimer</summary>
+        <div class="menu-actions-panneau">
+            <a href="{% url 'scolarite:generer_attestation_scolarite' eleve.matricule %}" class="menu-actions-entree" data-telechargement>Attestation de scolarité</a>
+            {% if peut_imprimer_carte %}<a href="{% url 'scolarite:carte_eleve_pdf' eleve.matricule %}" class="menu-actions-entree" data-telechargement>Carte d'élève (PDF)</a>{% endif %}
+        </div>
+    </details>
+    {% endif %}
+    {% if peut_mot_de_passe_provisoire or peut_retirer_eleve or inscription_active and peut_cloturer_inscription %}
+    <details class="menu-actions">
+        <summary class="btn btn-sm btn-outline-secondary">Plus</summary>
+        <div class="menu-actions-panneau">
+            {% if peut_mot_de_passe_provisoire %}
+            <form method="post" action="{% url 'scolarite:mot_de_passe_provisoire' eleve.matricule %}"
+                  data-confirmer="Générer un nouveau mot de passe provisoire ? L'ancien mot de passe de cet élève ne fonctionnera plus.">
+                {% csrf_token %}
+                <button type="submit" class="menu-actions-entree">Mot de passe provisoire</button>
+            </form>
+            {% endif %}
+            {% if peut_mot_de_passe_provisoire and peut_retirer_eleve or peut_mot_de_passe_provisoire and inscription_active and peut_cloturer_inscription %}<hr class="menu-actions-separateur">{% endif %}
+            {% if inscription_active and peut_cloturer_inscription %}<a href="{% url 'scolarite:cloturer_inscription' eleve.matricule %}" class="menu-actions-entree menu-actions-danger">Clôturer l'inscription (abandon/transfert)</a>{% endif %}
+            {% if peut_retirer_eleve %}<a href="{% url 'espace_developpeur:retirer_eleve' eleve.matricule %}" class="menu-actions-entree menu-actions-danger">Supprimer / anonymiser</a>{% endif %}
+        </div>
+    </details>
+    {% endif %}
 </div>
 
 {% if documents_possibles %}

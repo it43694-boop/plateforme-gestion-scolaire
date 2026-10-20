@@ -33,23 +33,30 @@
                             {{ salaire.get_statut_display }}
                         </span>
                     </td>
-                    <td>{{ salaire.reference|default:"-" }}</td>
+                    <td class="reference-val">{{ salaire.reference|default:"-" }}</td>
                     <td class="text-end">
-                        {% if salaire.salaire_brut %}
-                        <a href="{% url 'finances:bulletin_paie_pdf' salaire.id %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Bulletin PDF</a>
-                        {% endif %}
-                        {% if salaire.statut != 'paye' %}
-                        <form method="post" action="{% url 'finances:marquer_salaire_paye' salaire.id %}" class="d-inline">
-                            {% csrf_token %}
-                            <button class="btn btn-sm btn-success">Marquer payé</button>
-                        </form>
-                        {% endif %}
-                        {% if est_direction %}
-                        <form method="post" action="{% url 'finances:supprimer_salaire' salaire.id %}" class="d-inline" data-confirmer="Supprimer ce salaire de {{ salaire.employe.nom_complet }} ({{ salaire.montant|montant }} {{ etablissement.code_devise|default:"FCFA" }}) ? Cette action est irréversible.">
-                            {% csrf_token %}
-                            <button class="btn btn-sm btn-outline-danger">Supprimer</button>
-                        </form>
-                        {% endif %}
+                        <div class="actions-ligne">
+                            {% if salaire.statut != 'paye' %}
+                            <form method="post" action="{% url 'finances:marquer_salaire_paye' salaire.id %}">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-success">Marquer payé</button>
+                            </form>
+                            {% endif %}
+                            {% if salaire.salaire_brut %}
+                            <a href="{% url 'finances:bulletin_paie_pdf' salaire.id %}" class="btn btn-sm btn-outline-secondary" data-telechargement>Bulletin PDF</a>
+                            {% endif %}
+                            {% if est_direction %}
+                            <details class="menu-actions">
+                                <summary class="btn btn-sm btn-outline-secondary">Plus</summary>
+                                <div class="menu-actions-panneau">
+                                    <form method="post" action="{% url 'finances:supprimer_salaire' salaire.id %}" data-confirmer="Supprimer ce salaire de {{ salaire.employe.nom_complet }} ({{ salaire.montant|montant }} {{ etablissement.code_devise|default:"FCFA" }}) ? Cette action est irréversible.">
+                                        {% csrf_token %}
+                                        <button type="submit" class="menu-actions-entree menu-actions-danger">Supprimer</button>
+                                    </form>
+                                </div>
+                            </details>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}

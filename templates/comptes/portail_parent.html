@@ -11,14 +11,14 @@
 <div class="col-12 col-lg-6">
     <div class="card h-100"><div class="card-body">
         <h2 class="h5">{{ dossier.eleve.nom_complet }}</h2>
-        <p class="text-muted mb-3">Matricule : {{ dossier.eleve.matricule }}{% if dossier.inscription %} · {{ dossier.inscription.classe }}{% endif %}</p>
+        <p class="text-muted mb-3">Matricule : {{ dossier.eleve.matricule }}{% if dossier.inscription %}<br><span class="text-nowrap">{{ dossier.inscription.classe }}</span>{% endif %}</p>
         <div class="row g-2 small mb-3">
             <div class="col-4"><strong>{{ dossier.absences }}</strong><br>Absences</div>
             <div class="col-4"><strong>{% if dossier.moyenne is not None %}{{ dossier.moyenne|floatformat:2 }}{% else %}-{% endif %}</strong><br>Moyenne</div>
             <div class="col-4"><strong>{{ dossier.solde|montant }} {{ etablissement.code_devise|default:"FCFA" }}</strong><br>Solde</div>
         </div>
         {% if dossier.arrieres %}<p class="small text-danger mb-3">Arriérés des années passées : {{ dossier.arrieres|montant }} {{ etablissement.code_devise|default:"FCFA" }}</p>{% endif %}
-        <div class="d-flex flex-wrap gap-2">
+        <div class="grille-boutons">
             <a class="btn btn-sm btn-outline-primary" href="{% url 'pedagogie:bulletin_eleve' dossier.eleve.matricule %}">Bulletin</a>
             <a class="btn btn-sm btn-outline-primary" href="{% url 'pedagogie:historique_absences' dossier.eleve.matricule %}">Absences</a>
             <a class="btn btn-sm btn-outline-primary" href="{% url 'pedagogie:historique_discipline' dossier.eleve.matricule %}">Discipline</a>
@@ -42,7 +42,7 @@
         <span class="text-muted small">{% if e.est_une_periode %}Du {{ e.date_debut|date:"d/m/Y" }} au {{ e.fin|date:"d/m/Y" }}{% else %}{{ e.date_debut|date:"d/m/Y" }}{% endif %}</span>
     </div>
     {% endfor %}
-    <a href="{% url 'scolarite:calendrier' %}" class="small">Voir tout le calendrier</a>
+    <a href="{% url 'scolarite:calendrier' %}" class="small lien-pied-carte">Voir tout le calendrier</a>
 </div></div>
 {% endif %}
 {% endblock %}

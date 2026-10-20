@@ -483,6 +483,13 @@ def redirection_tableau_de_bord(request):
         from communication.views import ROLES_PUBLICATION_ANNONCE_INTERDITE
         if request.user.role not in ROLES_PUBLICATION_ANNONCE_INTERDITE:
             actions_rapides.append({"label": "Publier une annonce", "url": "communication:publier_annonce"})
+    if est_eleve and request.user.matricule:
+        # Raccourcis de l'élève vers SES pages : le matricule dans l'adresse est le sien, jamais celui d'un autre.
+        if "notes_bulletins" in valeurs_autorisees:
+            actions_rapides.append({"label": "Mon bulletin", "href": reverse("pedagogie:bulletin_eleve", args=[request.user.matricule])})
+            actions_rapides.append({"label": "Mes devoirs", "url": "pedagogie:devoirs"})
+        if Module.ABSENCES.value in valeurs_autorisees:
+            actions_rapides.append({"label": "Mes absences", "href": reverse("pedagogie:historique_absences", args=[request.user.matricule])})
     if request.user.role in {r.value for r in ROLES_VALIDATION_COMPTES}:
         a_valider = Utilisateur.objects.filter(
             statut=StatutCompte.EN_ATTENTE_VALIDATION, etablissement=request.user.etablissement,

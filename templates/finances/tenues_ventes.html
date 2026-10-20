@@ -27,7 +27,7 @@
             <tbody>
                 {% for vente in ventes %}
                 <tr>
-                    <td>{{ vente.reference }}{% if vente.annulee %} <span class="badge bg-danger">Annulée</span>{% endif %}
+                    <td class="reference-val">{{ vente.reference }}{% if vente.annulee %} <span class="badge bg-danger">Annulée</span>{% endif %}
                         <div class="text-muted small">{{ vente.date_vente|date:"d/m/Y H:i" }} - {{ vente.get_mode_paiement_display }}</div>
                         {% if vente.annulee and vente.motif_annulation %}<div class="text-muted small">{{ vente.motif_annulation }}</div>{% endif %}</td>
                     <td>{{ vente.nom_acheteur }}{% if vente.eleve %} <span class="text-muted">({{ vente.eleve.matricule }})</span>{% endif %}</td>

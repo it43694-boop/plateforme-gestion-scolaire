@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load montants %}
 {% block titre %}Enregistrer un règlement{% endblock %}
 {% block contenu %}
 <div class="page-header">
     <div>
         <h1>Enregistrer le règlement de la facture {{ facture.numero }}</h1>
-        <p>{{ facture.etablissement.nom }} - {{ facture.montant }} FCFA - période du {{ facture.periode_debut|date:"d/m/Y" }} au {{ facture.periode_fin|date:"d/m/Y" }}.</p>
+        <p>{{ facture.etablissement.nom }} - {{ facture.montant|montant }} FCFA - période du {{ facture.periode_debut|date:"d/m/Y" }} au {{ facture.periode_fin|date:"d/m/Y" }}.</p>
     </div>
 </div>
 <div class="card mw-520">
@@ -20,7 +21,7 @@
                     {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
                 </div>
             {% endfor %}
-            <button type="submit" class="btn btn-success w-100">Enregistrer le règlement de {{ facture.montant }} FCFA</button>
+            <button type="submit" class="btn btn-success w-100">Enregistrer le règlement de {{ facture.montant|montant }} FCFA</button>
         </form>
         <p class="text-muted small mt-3 mb-0">Une facture payée ne peut plus être annulée.</p>
     </div>

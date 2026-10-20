@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load icones %}
+{% load icones montants %}
 {% block titre %}Enregistrer un paiement{% endblock %}
 {% block contenu %}
 <div class="page-header">
@@ -15,7 +15,7 @@
             <strong>Paiement déclaré par un parent.</strong>
             <ul class="mb-2">
                 <li><span>Parent :</span> {{ declaration.declare_par.nom_complet }}</li>
-                <li><span>Montant :</span> {{ declaration.montant }}</li>
+                <li><span>Montant :</span> {{ declaration.montant|montant }}</li>
                 <li><span>Opérateur :</span> {{ declaration.get_operateur_display }}</li>
                 <li><span>Payé le :</span> {{ declaration.date_du_paiement|date:"d/m/Y" }}</li>
                 <li><span>Numéro de transaction :</span> <strong translate="no" dir="ltr">{{ declaration.reference_transaction }}</strong>{% if declaration.capture %} <a href="{{ declaration.capture.url }}" target="_blank" rel="noopener">Voir la capture</a>{% endif %}</li>

@@ -26,7 +26,7 @@
             <tbody>
                 {% for mouvement in mouvements %}
                 <tr class="{% if mouvement.annule %}ligne-annulee{% endif %}">
-                    <td>{{ mouvement.reference }}</td>
+                    <td class="reference-val">{{ mouvement.reference }}</td>
                     <td>
                         <span class="badge {% if mouvement.type_mouvement == 'entree' %}bg-success{% else %}bg-danger{% endif %}">
                             {{ mouvement.get_type_mouvement_display }}

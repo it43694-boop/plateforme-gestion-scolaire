@@ -17,6 +17,7 @@ TEXTES_JS = (
     "saisie(s) n'ont pas pu être synchronisées et doivent être ressaisies.",
     "Les notifications sont activées sur cet appareil.", "Les notifications ne sont pas activées sur cet appareil.",
     "Les notifications sont bloquées : autorisez-les dans les réglages de votre navigateur.", "Activation impossible pour le moment. Réessayez plus tard.",
+    "Aucune page ne correspond.",
 )
 
 

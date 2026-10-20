@@ -215,6 +215,17 @@ def nom_d_ecole_arabe(nom: str) -> str:
 
 
 MOTS_DE_MARQUE = {"yelenova", "education"}  # le nom de la plateforme (« YELENOVA ») est traduit par le catalogue, jamais pris pour un nom de personne
+# Dans un champ libre (nom du père, de la mère, de la personne à prévenir), on découpe mot par mot : « Tuteur de Kadidia » ne doit pas faire
+# de « de » un nom de personne (il casserait la traduction de toutes les phrases qui contiennent « de »). Clés sans accent ni majuscule.
+MOTS_JAMAIS_DES_NOMS = {
+    "de", "du", "des", "la", "le", "les", "et", "en", "au", "aux", "chez", "sur", "pour", "par", "avec", "sans", "ou",
+    "mme", "mr", "madame", "monsieur", "tuteur", "tutrice", "parent", "parents", "pere", "mere", "oncle", "tante", "frere", "soeur",
+}
+
+
+def mots_de_nom(texte) -> list:
+    """Les mots d'un champ libre qui peuvent être des noms de personnes."""
+    return [mot for mot in MOT.findall(texte or "") if cle(mot) not in MOTS_JAMAIS_DES_NOMS]
 
 
 def _ajouter(index: dict, latin, arabe, *, saisi: bool):
@@ -285,11 +296,11 @@ def construire_index(etablissement_id) -> dict:
     for nom_ecole in ecoles_citees:
         _ajouter(cles, nom_ecole, nom_d_ecole_arabe(nom_ecole), saisi=False)
     for nom_signataire in ecoles.exclude(nom_signataire="").values_list("nom_signataire", flat=True):
-        for mot in MOT.findall(nom_signataire):
+        for mot in mots_de_nom(nom_signataire):
             _ajouter(cles, mot, None, saisi=False)
     for noms in personnes.exclude(nom_pere="", nom_mere="", contact_urgence_nom="").values_list("nom_pere", "nom_mere", "contact_urgence_nom").distinct():
         for nom_complet in noms:
-            for mot in MOT.findall(nom_complet or ""):
+            for mot in mots_de_nom(nom_complet):
                 _ajouter(cles, mot, None, saisi=False)
     # Personnes qui n'ont pas (encore) de compte : candidats aux tests de niveau et parents annoncés à l'inscription d'un élève.
     # Aucune écriture saisie pour eux : la transcription automatique sert, et le nom d'une personne qui a un compte garde le dessus.

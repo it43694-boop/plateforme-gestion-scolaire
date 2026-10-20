@@ -1860,3 +1860,159 @@ details[open] > .nav-section-titre .nav-chevron { transform: rotate(0deg); }
 .installer-aide ol { margin: 0 0 1.2rem; padding-inline-start: 1.25rem; line-height: 1.55; }
 .installer-aide li + li { margin-top: 0.45rem; }
 .installer-aide form { margin: 0; text-align: end; }
+
+
+/* ========================================================================
+   Menu d'actions d'une ligne (<details class="menu-actions">) : une ou deux actions principales restent visibles, le reste
+   est rangé dans ce menu (au lieu de huit boutons alignés). Le panneau est posé à l'écran par app.js (position fixe) pour que
+   la carte qui contient le tableau ne le coupe jamais ; sans JavaScript il s'ouvre quand même, à sa place naturelle.
+   ======================================================================== */
+.actions-ligne { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.4rem; }
+.actions-ligne form { margin: 0; display: inline-flex; }
+td.cellule-actions-fixe, td.text-end:has(> .actions-ligne) { white-space: nowrap; }
+.menu-actions { position: relative; display: inline-block; }
+.menu-actions > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; user-select: none; }
+.menu-actions > summary::-webkit-details-marker { display: none; }
+.menu-actions > summary::after {
+  content: ""; width: 0.38rem; height: 0.38rem; flex-shrink: 0;
+  border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor;
+  transform: translateY(-0.12rem) rotate(45deg); transition: transform 0.2s ease;
+}
+.menu-actions[open] > summary::after { transform: translateY(0.06rem) rotate(225deg); }
+.menu-actions[open] > summary { background: var(--paper-050); }
+.menu-actions > summary:focus-visible { outline: 2px solid var(--gold-500); outline-offset: 2px; }
+.menu-actions-panneau {
+  position: fixed; z-index: 80;
+  min-width: 230px; max-width: calc(100vw - 1rem); max-height: calc(100vh - 1rem); overflow-y: auto;
+  background: var(--paper-000); border: 1px solid var(--line-200); border-radius: var(--rayon-panneau);
+  box-shadow: var(--ombre-flottante); padding: 0.4rem; text-align: start; white-space: normal;
+}
+/* app.js pose le panneau puis lui donne la classe « pose » ; jusque-là il reste invisible (sans JavaScript, il s'affiche tel quel) */
+.menus-actions-js .menu-actions-panneau:not(.pose) { visibility: hidden; }
+.menu-actions-panneau.pose { animation: menu-compte-apparition 0.18s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.menu-actions-panneau form { margin: 0; display: block; }
+.menu-actions-titre { margin: 0.55rem 0.7rem 0.15rem; font-size: 0.8rem; font-weight: 600; color: var(--ink-500); }
+.menu-actions-titre:first-child { margin-top: 0.3rem; }
+.menu-actions-separateur { margin: 0.35rem 0; border: 0; border-top: 1px solid var(--line-200); }
+.menu-actions-entree {
+  display: flex; align-items: center; gap: 0.5rem; width: 100%; min-height: 36px; text-align: start;
+  background: none; border: 0; border-radius: var(--rayon-controle); padding: 0.45rem 0.7rem;
+  font: inherit; font-size: 0.88rem; color: var(--texte-principal); text-decoration: none; cursor: pointer;
+}
+.menu-actions-entree:hover, .menu-actions-entree:focus-visible {
+  background: var(--paper-050); box-shadow: inset 2px 0 0 var(--gold-500); outline: none; color: var(--texte-principal); text-decoration: none;
+}
+.menu-actions-danger, .menu-actions-danger:hover, .menu-actions-danger:focus-visible { color: var(--danger-600); }
+@media print { .menu-actions { display: none; } }
+
+/* Les montants et les références ne se coupent jamais en deux lignes (« 25 000 / FCFA », « REC-2026- / 000044 ») */
+.montant-val, .texte-matricule, .table td.reference-val { white-space: nowrap; }
+
+/* Colonnes du graphique des encaissements : un mois à zéro montre une simple ligne, pas un grand bloc vide */
+.colonne-fond { opacity: 0.6; }
+.colonne-vide .colonne-fond { fill: transparent; }
+.colonne-vide .colonne-svg { border-bottom: 2px solid var(--line-300); border-radius: 0; }
+.colonne-vide .colonne-valeur { color: var(--ink-300); font-weight: 500; }
+
+/* Chiffres clés du tableau de bord : répartis sans carte orpheline, quel que soit leur nombre (1 à 8) */
+.grille-indicateurs { display: grid; grid-template-columns: 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+.grille-indicateurs > * { min-width: 0; }
+@media (min-width: 576px) and (max-width: 1199.98px) {
+  .grille-indicateurs { grid-template-columns: repeat(2, 1fr); }
+  .grille-indicateurs > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+@media (min-width: 1200px) {
+  .grille-indicateurs { grid-template-columns: repeat(12, 1fr); }
+  .grille-indicateurs > * { grid-column: span 3; }
+  .grille-indicateurs[data-nombre="1"] > *, .grille-indicateurs[data-nombre="3"] > *, .grille-indicateurs[data-nombre="6"] > * { grid-column: span 4; }
+  .grille-indicateurs[data-nombre="2"] > * { grid-column: span 6; }
+  .grille-indicateurs[data-nombre="5"] > :nth-child(-n+3) { grid-column: span 4; }
+  .grille-indicateurs[data-nombre="5"] > :nth-child(n+4) { grid-column: span 6; }
+  .grille-indicateurs[data-nombre="7"] > :nth-child(n+5) { grid-column: span 4; }
+}
+
+/* Liens isolés en bas d'une carte ou dans une liste de notifications : même confort tactile que les boutons */
+.lien-pied-carte, .lien-ligne { display: inline-block; }
+@media (max-width: 900px), (pointer: coarse) {
+  .lien-pied-carte, .lien-ligne { display: inline-flex; align-items: center; min-height: 44px; }
+  .alerte-details a.badge { padding: 0.65rem 0.8rem !important; }
+  .menu-actions-entree { min-height: 44px; }
+  /* Cases à cocher et interrupteurs assez grands pour un doigt (appel de la cantine, des absences, réglages) */
+  input[type="checkbox"], input[type="radio"] { width: 1.65rem; height: 1.65rem; }
+  .form-check-input { margin-top: 0.1rem; }
+  .form-switch input[type="checkbox"].form-check-input { width: 3rem; }
+  .form-check { min-height: 1.65rem; padding-inline-start: 2.3rem; }
+  .form-check .form-check-input { margin-inline-start: -2.3rem; }
+  .table td > .form-check-input:only-child { margin: 0.35rem; }
+  .table td label[for] { display: inline-flex; align-items: center; min-height: 44px; }
+}
+.actions-ligne-debut { justify-content: flex-start; }
+.menu-actions-formulaire { display: flex; gap: 0.4rem; align-items: center; padding: 0.2rem 0.5rem 0.4rem; }
+.menu-actions-formulaire .form-control { min-width: 9rem; }
+.select-formule { min-width: 16.5rem; font-size: 0.8rem; }
+/* Liens de texte (noms dans les tableaux, liens de la page de connexion, pieds de page) : zone à toucher confortable sur écran tactile */
+@media (max-width: 900px), (pointer: coarse) {
+  .table td a:not(.btn):not(.badge), .auth-carte a:not(.btn):not(.auth-lien-logo), .auth-lien-retour a, .legal-pied-liens a, .vitrine-ecole-autre {
+    display: inline-flex; align-items: center; min-height: 40px; padding: 0 0.3rem;
+  }
+  .alerte-details a.badge { display: inline-flex; align-items: center; min-height: 40px; }
+}
+/* Les actions d'une ligne de tableau restent sur une seule ligne sur ordinateur ; elles passent à la ligne sur téléphone (cartes) */
+@media (min-width: 721px) { .table td .actions-ligne { flex-wrap: nowrap; } }
+@media (max-width: 720px) {
+  .table-large.table-appel { min-width: 0; }
+  .table-appel th, .table-appel td { padding: 0.45rem 0.35rem; }
+  .table-appel td:first-child { width: 2.8rem; }
+}
+.grille-boutons { display: grid; grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr)); gap: 0.5rem; }
+.grille-boutons .btn { width: 100%; }
+
+/* Chercher une page du menu (menu long) : champ collé en haut de la barre latérale, résultats à la place des rubriques */
+.nav-filtre { position: sticky; top: 0; z-index: 3; padding: 0.8rem 0.85rem 0.35rem; background: #12203D; }
+.nav-filtre[hidden], .nav-resultats[hidden] { display: none; }
+.nav-filtre-champ {
+  width: 100%; min-height: 36px; padding: 0.45rem 0.7rem; font-size: 0.86rem; color: #fff;
+  background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: var(--rayon-controle);
+}
+.nav-filtre-champ::placeholder { color: #9AA5C2; }
+.nav-filtre-champ:focus { outline: 2px solid var(--gold-500); outline-offset: 1px; background: rgba(255, 255, 255, 0.1); }
+.nav-resultats { padding: 0.4rem 0.85rem 1rem; }
+.nav-aucun { margin: 0; padding: 0.5rem 0.6rem; font-size: 0.86rem; color: #9AA5C2; }
+.filtre-actif > .nav-section { display: none; }
+
+/* ========================================================================
+   Accueil public : le vrai logo au centre, ligne d'atouts, captures de l'application
+   ======================================================================== */
+.vitrine-decor-centre-logo { width: 156px; height: 108px; padding: 10px; border-radius: 22px; background: #fff; border: 2px solid var(--gold-400); }
+.vitrine-decor-centre-logo img { display: block; width: 100%; height: 100%; object-fit: contain; }
+@media (max-width: 900px) { .vitrine-decor-centre-logo { width: 118px; height: 82px; padding: 7px; border-radius: 18px; } }
+
+.vitrine-atouts {
+  list-style: none; margin: 0; padding: 0.9rem 4vw; position: relative; z-index: 2;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem 1.9rem;
+  background: #1B2C4D; border-top: 1px solid rgba(255, 255, 255, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.vitrine-atouts li { display: flex; align-items: center; gap: 0.5rem; color: #DDE3F0; font-size: 0.88rem; }
+.vitrine-atouts li::before {
+  content: ""; flex-shrink: 0; width: 0.36rem; height: 0.66rem; margin-top: -0.15rem;
+  border-right: 2px solid var(--gold-400); border-bottom: 2px solid var(--gold-400); transform: rotate(40deg);
+}
+
+.vitrine-vues { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; align-items: start; }
+.vitrine-vue { margin: 0; }
+.vitrine-vue img { display: block; width: 100%; height: auto; }
+.vitrine-vue-ecran {
+  grid-column: 1 / -1; overflow: hidden; border-radius: 12px; border: 1px solid var(--line-300); background: var(--paper-000);
+  box-shadow: 0 24px 60px -28px rgba(18, 32, 61, 0.45);
+}
+.vitrine-vue-barre { display: flex; gap: 6px; padding: 9px 12px; background: var(--paper-050); border-bottom: 1px solid var(--line-200); }
+.vitrine-vue-barre span { width: 9px; height: 9px; border-radius: 50%; background: var(--line-300); }
+.vitrine-vue-telephone {
+  max-width: 250px; width: 100%; justify-self: center; overflow: hidden; border: 6px solid #12203D; border-radius: 28px; background: #12203D;
+  box-shadow: 0 24px 50px -26px rgba(18, 32, 61, 0.55);
+}
+.vitrine-vue-telephone img { border-radius: 20px; }
+@media (min-width: 900px) {
+  .vitrine-vues { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1fr); align-items: center; }
+  .vitrine-vue-ecran { grid-column: auto; }
+}

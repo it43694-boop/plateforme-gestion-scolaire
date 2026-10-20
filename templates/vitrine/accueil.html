@@ -12,6 +12,8 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="{{ nom_commercial }}">
     <meta property="og:description" content="{{ positionnement_plateforme }}">
+    {% static 'img/logo-yelenova.png' as logo_de_partage %}
+    <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ logo_de_partage }}">
     {% include "partials/feuilles_de_style.html" %}
 </head>
 <body class="corps-vitrine">
@@ -40,8 +42,10 @@
         </div>
         <div class="vitrine-nav-liens">
             <a href="#fonctionnalites">Fonctionnalités</a>
+            <a href="#apercu">En images</a>
             <a href="#guide-roles">Guide par rôle</a>
             <a href="#securite">Sécurité</a>
+            {% if contact_whatsapp_lien or contact_courriel %}<a href="#contact">Contact</a>{% endif %}
         </div>
         <div class="vitrine-nav-actions">
             {% include "partials/bouton_installer.html" %}
@@ -102,12 +106,12 @@
         </div>
 
         <div class="vitrine-decor" aria-hidden="true">
-            <div class="vitrine-decor-centre">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="34" height="34">
-                    <path d="M2 9l10-5 10 5-10 5-10-5z"/>
-                    <path d="M6 11.5V16c0 1.5 2.7 3 6 3s6-1.5 6-3v-4.5"/>
-                    <path d="M22 9v6"/>
-                </svg>
+            <div class="vitrine-decor-centre vitrine-decor-centre-logo">
+                {% if etablissement and etablissement.logo %}
+                <img src="{{ etablissement.logo.url }}" alt="">
+                {% else %}
+                <img src="{% static 'img/logo-yelenova-embleme.png' %}" alt="">
+                {% endif %}
             </div>
             <div class="vitrine-orbite">
             <div class="vitrine-icone-satellite p1">
@@ -144,26 +148,13 @@
         </div>
     </div>
 
-    <div class="vitrine-ticker">
-        <div class="vitrine-ticker-piste">
-            <span>Élèves &amp; classes</span><span>·</span>
-            <span><strong>Finances</strong>, Caisse &amp; Salaires</span><span>·</span>
-            <span>Notes &amp; bulletins</span><span>·</span>
-            <span>Absences</span><span>·</span>
-            <span>Emploi du temps</span><span>·</span>
-            <span>Bibliothèque numérique</span><span>·</span>
-            <span>Communication &amp; annonces</span><span>·</span>
-            <span><strong>Statistiques</strong> en temps réel</span><span>·</span>
-            <span>Élèves &amp; classes</span><span>·</span>
-            <span><strong>Finances</strong>, Caisse &amp; Salaires</span><span>·</span>
-            <span>Notes &amp; bulletins</span><span>·</span>
-            <span>Absences</span><span>·</span>
-            <span>Emploi du temps</span><span>·</span>
-            <span>Bibliothèque numérique</span><span>·</span>
-            <span>Communication &amp; annonces</span><span>·</span>
-            <span><strong>Statistiques</strong> en temps réel</span><span>·</span>
-        </div>
-    </div>
+    <ul class="vitrine-atouts">
+        <li>En français et en arabe</li>
+        <li>Paiement Mobile Money</li>
+        <li>Alertes sur le téléphone des parents</li>
+        <li>Notes et absences saisies sans réseau</li>
+        <li>Chacun ne voit que ce qui le concerne</li>
+    </ul>
 </div>
 
 <section class="vitrine-section" id="fonctionnalites">
@@ -185,7 +176,7 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="9"/><path d="M9 12h6M12 8v8"/></svg>
             </div>
             <h3>Finances, Caisse &amp; Salaires</h3>
-            <p>Chaque paiement et chaque salaire payé alimente automatiquement un registre de Caisse unique et infalsifiable.</p>
+            <p>Chaque paiement et chaque salaire payé alimente automatiquement un registre de Caisse unique et infalsifiable. Les parents déclarent leur paiement Orange Money ou Moov Money : la comptabilité valide et le reçu part tout seul.</p>
         </div>
         <div class="vitrine-carte">
             <div class="vitrine-carte-icone">
@@ -205,8 +196,8 @@
             <div class="vitrine-carte-icone">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M4 4h16v12H8l-4 4V4z"/></svg>
             </div>
-            <h3>Communication &amp; annonces</h3>
-            <p>Notification email automatique aux destinataires concernés ; un enseignant ne diffuse jamais à toute l'école.</p>
+            <h3>Communication &amp; alertes</h3>
+            <p>Absences, annonces et paiements arrivent aux parents sur leur téléphone, même application fermée, et par courriel ; un enseignant ne diffuse jamais à toute l'école.</p>
         </div>
         <div class="vitrine-carte">
             <div class="vitrine-carte-icone">
@@ -215,6 +206,50 @@
             <h3>Statistiques &amp; pilotage</h3>
             <p>Effectifs par sexe, taux de réussite, finances par échéance - filtrés par année scolaire et par cycle.</p>
         </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9s1.3-6.4 3.8-9z"/></svg>
+            </div>
+            <h3>Français et arabe</h3>
+            <p>Toute l'application, les bulletins et les documents officiels existent en français et en arabe, avec la lecture de droite à gauche.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 1-3 3.5-3 6s1 4 3 4v8"/></svg>
+            </div>
+            <h3>Cantine &amp; vie scolaire</h3>
+            <p>Appel de la cantine, discipline, conduite, vente de tenues, cartes d'élève avec la signature et le cachet de chaque cycle.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18.5h2"/></svg>
+            </div>
+            <h3>Sur téléphone, même sans réseau</h3>
+            <p>L'application s'installe sur l'écran d'accueil comme une application ordinaire ; les notes et les absences saisies sans réseau partent dès que la connexion revient.</p>
+        </div>
+    </div>
+</section>
+
+<section class="vitrine-section" id="apercu">
+    <h2>L'application en images</h2>
+    <p class="intro">
+        Le tableau de bord de la direction sur ordinateur ; sur téléphone, le portail des parents
+        et la déclaration d'un paiement Mobile Money. Données fictives.
+    </p>
+    <div class="vitrine-vues">
+        <figure class="vitrine-vue vitrine-vue-ecran">
+            <div class="vitrine-vue-barre" aria-hidden="true"><span></span><span></span><span></span></div>
+            <img src="{% if LANGUAGE_BIDI %}{% static 'img/vitrine/tableau-de-bord-ar.webp' %}{% else %}{% static 'img/vitrine/tableau-de-bord.webp' %}{% endif %}" width="1200" height="750" loading="lazy"
+                 alt="Tableau de bord de la direction : chiffres clés, encaissements des six derniers mois et effectifs par classe">
+        </figure>
+        <figure class="vitrine-vue vitrine-vue-telephone">
+            <img src="{% if LANGUAGE_BIDI %}{% static 'img/vitrine/portail-parent-ar.webp' %}{% else %}{% static 'img/vitrine/portail-parent.webp' %}{% endif %}" width="390" height="844" loading="lazy"
+                 alt="Portail des parents sur téléphone : absences, moyenne et solde de chaque enfant">
+        </figure>
+        <figure class="vitrine-vue vitrine-vue-telephone">
+            <img src="{% if LANGUAGE_BIDI %}{% static 'img/vitrine/declarer-paiement-ar.webp' %}{% else %}{% static 'img/vitrine/declarer-paiement.webp' %}{% endif %}" width="390" height="844" loading="lazy"
+                 alt="Déclaration d'un paiement Orange Money ou Moov Money par un parent">
+        </figure>
     </div>
 </section>
 
@@ -460,6 +495,25 @@
         </div>
     </div>
 </section>
+
+{% if contact_whatsapp_lien or contact_courriel %}
+<section class="vitrine-section sans-haut" id="contact">
+    <div class="card">
+        <div class="card-body vitrine-securite-corps">
+            <div>
+                <h3 class="vitrine-securite-titre">Envie de voir l'application dans votre école ?</h3>
+                <p class="vitrine-securite-texte">
+                    Écrivez-nous : nous vous la présentons en quelques minutes et nous préparons un devis adapté à la taille de votre école.
+                </p>
+            </div>
+            <div class="actions-ligne">
+                {% if contact_whatsapp_lien %}<a href="{{ contact_whatsapp_lien }}" class="btn btn-success" target="_blank" rel="noopener">Demander une démonstration sur WhatsApp</a>{% endif %}
+                {% if contact_courriel %}<a href="mailto:{{ contact_courriel }}" class="btn btn-outline-primary">Écrire un courriel</a>{% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
 
 </main>
 

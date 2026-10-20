@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from django.conf import settings
 
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, ROLES_VALIDATION_COMPTES, Role
@@ -280,14 +282,31 @@ def acces_delegue(request):
     return {}
 
 
+MESSAGE_DEMONSTRATION = {
+    "fr": "Bonjour, je souhaite une démonstration de Yelenova pour mon école.",
+    "ar": "مرحبًا، أودّ عرضًا توضيحيًا لمنصة يلينوفا لمدرستي.",
+}
+
+
+def lien_whatsapp_demonstration(numero, langue="fr"):
+    """Lien WhatsApp (wa.me) avec le message de demande de démonstration ; vide si aucun numéro n'est configuré."""
+    chiffres = "".join(c for c in (numero or "") if c.isdigit())
+    if not chiffres:
+        return ""
+    message = MESSAGE_DEMONSTRATION.get(langue, MESSAGE_DEMONSTRATION["fr"])
+    return f"https://wa.me/{chiffres}?text={quote(message)}"
+
+
 def identite_plateforme(request):
-    """Nom, slogan et description de la plateforme (Yelenova), disponibles dans tous les gabarits."""
+    """Nom, slogan, description et contact de la plateforme (Yelenova), disponibles dans tous les gabarits."""
     return {
         "nom_plateforme": settings.NOM_PLATEFORME,
         "nom_commercial": settings.NOM_COMMERCIAL,
         "slogan_plateforme": settings.SLOGAN_PLATEFORME,
         "positionnement_plateforme": settings.POSITIONNEMENT_PLATEFORME,
         "description_plateforme": settings.DESCRIPTION_PLATEFORME,
+        "contact_whatsapp_lien": lien_whatsapp_demonstration(settings.CONTACT_WHATSAPP, getattr(request, "LANGUAGE_CODE", "fr")),
+        "contact_courriel": settings.CONTACT_COURRIEL,
     }
 
 

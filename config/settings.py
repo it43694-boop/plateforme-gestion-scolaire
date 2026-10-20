@@ -389,6 +389,12 @@ DESCRIPTION_PLATEFORME = (
     "d'accéder à des espaces adaptés à leurs responsabilités, dans un environnement organisé et sécurisé."
 )
 
+# Contact public de Yelenova pour les écoles qui veulent une démonstration (page d'accueil). Tant que rien n'est renseigné,
+# la page n'affiche aucun bloc de contact. Valeurs à mettre dans l'environnement (Render), jamais dans ce dépôt public :
+# CONTACT_WHATSAPP au format international (par exemple 223XXXXXXXX), CONTACT_COURRIEL (adresse de contact commerciale).
+CONTACT_WHATSAPP = env("CONTACT_WHATSAPP", default="")
+CONTACT_COURRIEL = env("CONTACT_COURRIEL", default="")
+
 # Pages légales (mentions légales, conditions d'utilisation, politique de confidentialité).
 # L'identité de l'éditeur vient de l'environnement : elle ne s'écrit jamais dans ce dépôt public. Tant que
 # PAGES_LEGALES_VALIDEES n'est pas à True, les pages affichent « version provisoire, en cours de validation

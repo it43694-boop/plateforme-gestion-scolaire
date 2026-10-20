@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load montants %}
 {% block titre %}Factures d'abonnement{% endblock %}
 {% block contenu %}
 <div class="page-header">
@@ -45,10 +46,10 @@
             <tbody>
                 {% for facture in factures %}
                 <tr>
-                    <td>{{ facture.numero }}</td>
+                    <td class="reference-val">{{ facture.numero }}</td>
                     <td>{{ facture.etablissement.nom }}</td>
                     <td>{{ facture.periode_debut|date:"d/m/Y" }} - {{ facture.periode_fin|date:"d/m/Y" }}</td>
-                    <td class="text-end montant-val">{{ facture.montant }}</td>
+                    <td class="text-end montant-val">{{ facture.montant|montant }}</td>
                     <td>{{ facture.date_emission|date:"d/m/Y" }}</td>
                     <td>{{ facture.date_echeance|date:"d/m/Y" }}</td>
                     <td>
@@ -69,28 +70,35 @@
                         {% endif %}
                     </td>
                     <td class="text-end">
-                        <div class="d-flex flex-wrap justify-content-end gap-1">
-                            <a href="{% url 'espace_plateforme:facture_pdf' facture.id %}" class="btn btn-sm btn-outline-secondary text-nowrap" data-telechargement>PDF</a>
+                        <div class="actions-ligne">
                             {% if facture.statut == "emise" %}
-                            <form method="post" action="{% url 'espace_plateforme:envoyer_facture' facture.id %}" class="d-inline">
-                                {% csrf_token %}
-                                <button class="btn btn-sm btn-outline-primary text-nowrap">{% if facture.envoyee_le %}Renvoyer par email{% else %}Envoyer par email{% endif %}</button>
-                            </form>
-                            {% if facture.lien_whatsapp %}
-                            <a href="{{ facture.lien_whatsapp }}" class="btn btn-sm btn-outline-success text-nowrap" target="_blank" rel="noopener">WhatsApp</a>
-                            {% else %}
-                            <a href="{% url 'espace_plateforme:modifier_etablissement' facture.etablissement_id %}" class="btn btn-sm btn-outline-secondary text-nowrap" title="Aucun numéro connu pour cette école : ajoutez-le dans ses réglages">+ N° WhatsApp</a>
-                            {% endif %}
                             <a href="{% url 'espace_plateforme:payer_facture' facture.id %}" class="btn btn-sm btn-success text-nowrap">Enregistrer le règlement</a>
                             {% endif %}
+                            <a href="{% url 'espace_plateforme:facture_pdf' facture.id %}" class="btn btn-sm btn-outline-secondary text-nowrap" data-telechargement>PDF</a>
+                            {% if facture.statut == "emise" %}
+                            <details class="menu-actions">
+                                <summary class="btn btn-sm btn-outline-secondary">Plus</summary>
+                                <div class="menu-actions-panneau">
+                                    <form method="post" action="{% url 'espace_plateforme:envoyer_facture' facture.id %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="menu-actions-entree">{% if facture.envoyee_le %}Renvoyer par email{% else %}Envoyer par email{% endif %}</button>
+                                    </form>
+                                    {% if facture.lien_whatsapp %}
+                                    <a href="{{ facture.lien_whatsapp }}" class="menu-actions-entree" target="_blank" rel="noopener">WhatsApp</a>
+                                    {% else %}
+                                    <a href="{% url 'espace_plateforme:modifier_etablissement' facture.etablissement_id %}" class="menu-actions-entree" title="Aucun numéro connu pour cette école : ajoutez-le dans ses réglages">+ N° WhatsApp</a>
+                                    {% endif %}
+                                    <hr class="menu-actions-separateur">
+                                    <p class="menu-actions-titre">Annuler cette facture</p>
+                                    <form method="post" action="{% url 'espace_plateforme:annuler_facture' facture.id %}" class="menu-actions-formulaire">
+                                        {% csrf_token %}
+                                        <input type="text" name="motif" class="form-control form-control-sm" placeholder="Motif d'annulation" aria-label="Motif d'annulation" required maxlength="255">
+                                        <button class="btn btn-sm btn-outline-danger text-nowrap">Annuler</button>
+                                    </form>
+                                </div>
+                            </details>
+                            {% endif %}
                         </div>
-                        {% if facture.statut == "emise" %}
-                        <form method="post" action="{% url 'espace_plateforme:annuler_facture' facture.id %}" class="d-flex justify-content-end gap-1 mt-1">
-                            {% csrf_token %}
-                            <input type="text" name="motif" class="form-control form-control-sm w-auto" placeholder="Motif d'annulation" required maxlength="255" size="14">
-                            <button class="btn btn-sm btn-outline-danger text-nowrap">Annuler</button>
-                        </form>
-                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

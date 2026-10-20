@@ -874,3 +874,154 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 })();
+
+
+/* ========================================================================
+   Menus d'actions des lignes de tableau (<details class="menu-actions">).
+   Pendant qu'il est ouvert, le panneau quitte le tableau pour la fin de la page (sinon la carte qui contient le tableau le coupe et
+   les lignes suivantes passent par-dessus) ; il est posé à l'écran (position fixe) à côté du bouton, au-dessus s'il n'y a pas de place
+   en dessous, puis il revient à sa place. Il se referme au clic ailleurs, avec Échap, au défilement de la page, au changement de taille
+   et après le choix d'une action. Un seul menu est ouvert à la fois.
+   ======================================================================== */
+(function () {
+    "use strict";
+    document.documentElement.classList.add("menus-actions-js");
+    var ouvert = null;
+
+    function panneauDe(menu) {
+        if (!menu.__panneau) menu.__panneau = menu.querySelector(".menu-actions-panneau");
+        return menu.__panneau;
+    }
+
+    function poser(menu) {
+        var panneau = panneauDe(menu);
+        var declencheur = menu.querySelector("summary");
+        if (!panneau || !declencheur) return;
+        panneau.classList.remove("pose");
+        document.body.appendChild(panneau);
+        var r = declencheur.getBoundingClientRect();
+        var hauteur = panneau.offsetHeight;
+        var largeur = panneau.offsetWidth;
+        var fenetreH = window.innerHeight;
+        var fenetreL = window.innerWidth;
+        var droiteAGauche = document.documentElement.getAttribute("dir") === "rtl";
+        var haut = r.bottom + 6;
+        if (haut + hauteur > fenetreH - 8 && r.top - 6 - hauteur >= 8) haut = r.top - 6 - hauteur;
+        haut = Math.max(8, Math.min(haut, fenetreH - hauteur - 8));
+        var gauche = droiteAGauche ? r.left : r.right - largeur;
+        gauche = Math.max(8, Math.min(gauche, fenetreL - largeur - 8));
+        panneau.style.top = haut + "px";
+        panneau.style.left = gauche + "px";
+        panneau.classList.add("pose");
+    }
+
+    function ranger(menu) {
+        var panneau = panneauDe(menu);
+        if (!panneau) return;
+        panneau.classList.remove("pose");
+        if (panneau.parentNode !== menu) menu.appendChild(panneau);
+    }
+
+    function fermer(menu, rendreLeFocus) {
+        if (!menu) return;
+        menu.open = false;
+        ranger(menu);
+        if (ouvert === menu) ouvert = null;
+        if (rendreLeFocus) {
+            var declencheur = menu.querySelector("summary");
+            if (declencheur) declencheur.focus();
+        }
+    }
+
+    document.addEventListener("toggle", function (evenement) {
+        var menu = evenement.target;
+        if (!menu.classList || !menu.classList.contains("menu-actions")) return;
+        if (menu.open) {
+            if (ouvert && ouvert !== menu) fermer(ouvert, false);
+            ouvert = menu;
+            poser(menu);
+        } else {
+            ranger(menu);
+            if (ouvert === menu) ouvert = null;
+        }
+    }, true);
+
+    document.addEventListener("click", function (evenement) {
+        if (!ouvert) return;
+        var cible = evenement.target;
+        var panneau = panneauDe(ouvert);
+        var dedans = ouvert.contains(cible) || (panneau && panneau.contains(cible));
+        if (!dedans) { fermer(ouvert, false); return; }
+        if (panneau && panneau.contains(cible) && cible.closest && cible.closest(".menu-actions-entree")) {
+            var menu = ouvert;
+            setTimeout(function () { fermer(menu, false); }, 0); // après le départ du lien ou l'envoi du formulaire
+        }
+    });
+    document.addEventListener("keydown", function (evenement) {
+        if (evenement.key === "Escape" && ouvert) fermer(ouvert, true);
+    });
+    window.addEventListener("scroll", function (evenement) {
+        if (!ouvert) return;
+        var panneau = panneauDe(ouvert);
+        if (panneau && evenement.target instanceof Node && panneau.contains(evenement.target)) return; // on fait défiler le menu lui-même
+        fermer(ouvert, false);
+    }, true);
+    window.addEventListener("resize", function () { if (ouvert) fermer(ouvert, false); });
+})();
+
+
+/* ========================================================================
+   Chercher une page du menu : quand le menu est long (12 liens ou plus), un champ de recherche apparaît en haut de la barre
+   latérale. Les pages qui correspondent s'affichent à la place des rubriques (sans toucher aux rubriques repliées
+   ou dépliées : leur état mémorisé ne change pas). Entrée ouvre la première page trouvée.
+   ======================================================================== */
+(function () {
+    "use strict";
+    var boite = document.querySelector("[data-filtre-menu]");
+    var zone = document.querySelector("[data-filtre-resultats]");
+    if (!boite || !zone) return;
+    var navigation = boite.closest("nav");
+    var champ = boite.querySelector("input");
+    var liens = Array.prototype.slice.call(navigation.querySelectorAll("a.nav-lien"));
+    if (!champ || liens.length < 12) return;
+    boite.hidden = false;
+
+    function simplifier(texte) {
+        return (texte || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+    }
+
+    function afficher() {
+        var recherche = simplifier(champ.value);
+        zone.textContent = "";
+        if (!recherche) {
+            zone.hidden = true;
+            navigation.classList.remove("filtre-actif");
+            return;
+        }
+        var trouves = 0;
+        liens.forEach(function (lien) {
+            if (simplifier(lien.textContent).indexOf(recherche) === -1) return;
+            zone.appendChild(lien.cloneNode(true));
+            trouves += 1;
+        });
+        if (!trouves) {
+            var vide = document.createElement("p");
+            vide.className = "nav-aucun";
+            vide.textContent = t("Aucune page ne correspond.");
+            zone.appendChild(vide);
+        }
+        zone.hidden = false;
+        navigation.classList.add("filtre-actif");
+    }
+
+    champ.addEventListener("input", afficher);
+    champ.addEventListener("keydown", function (evenement) {
+        if (evenement.key === "Enter") {
+            var premier = zone.querySelector("a.nav-lien");
+            if (premier) { evenement.preventDefault(); window.location.href = premier.getAttribute("href"); }
+        } else if (evenement.key === "Escape" && champ.value) {
+            champ.value = "";
+            afficher();
+        }
+    });
+})();

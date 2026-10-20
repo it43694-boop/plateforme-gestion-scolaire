@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load montants %}
 {% block titre %}Abonnements{% endblock %}
 {% block contenu %}
 <div class="page-header">
@@ -40,7 +41,7 @@
                         {% if situation.nombre_en_retard %}<div class="small text-danger">{{ situation.nombre_en_retard }} facture{{ situation.nombre_en_retard|pluralize }} en retard ({{ situation.montant_en_retard }} FCFA)</div>{% endif %}
                     </td>
                     <td>{{ situation.couvert_jusqu_au|date:"d/m/Y"|default:"-" }}</td>
-                    <td class="text-end montant-val">{{ situation.montant_a_payer }}</td>
+                    <td class="text-end montant-val">{{ situation.montant_a_payer|montant }}</td>
                     <td>
                         <span class="badge {% if etablissement.actif %}bg-success{% else %}bg-danger{% endif %}">{% if etablissement.actif %}Actif{% else %}Désactivé{% endif %}</span>
                     </td>

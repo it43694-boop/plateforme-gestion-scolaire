@@ -32,25 +32,25 @@
 {% if actions_rapides %}
 <div class="raccourcis mb-4">
     {% for action in actions_rapides %}
-    <a href="{% url action.url %}" class="btn btn-outline-primary btn-sm">{{ action.label }}</a>
+    <a href="{% if action.href %}{{ action.href }}{% else %}{% url action.url %}{% endif %}" class="btn btn-outline-primary btn-sm">{{ action.label }}</a>
     {% endfor %}
 </div>
 {% endif %}
 
-<div class="row g-3 mb-4">
+{% if indicateurs %}
+<div class="grille-indicateurs" data-nombre="{{ indicateurs|length }}">
     {% for indicateur in indicateurs %}
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card h-100"><div class="card-body stat-carte">
-            <div class="stat-carte-icone {{ indicateur.couleur }}">{% icone indicateur.icone 22 %}</div>
-            <div class="stat-carte-corps">
-                <div class="stat-carte-valeur" data-compteur>{{ indicateur.valeur }}</div>
-                <div class="stat-carte-label">{{ indicateur.label }}</div>
-            </div>
-            {% if indicateur.url %}<a href="{% url indicateur.url %}" class="stretched-link" aria-label="{{ indicateur.label }} : {{ indicateur.valeur }}"></a>{% endif %}
-        </div></div>
-    </div>
+    <div class="card h-100"><div class="card-body stat-carte">
+        <div class="stat-carte-icone {{ indicateur.couleur }}">{% icone indicateur.icone 22 %}</div>
+        <div class="stat-carte-corps">
+            <div class="stat-carte-valeur" data-compteur>{{ indicateur.valeur }}</div>
+            <div class="stat-carte-label">{{ indicateur.label }}</div>
+        </div>
+        {% if indicateur.url %}<a href="{% url indicateur.url %}" class="stretched-link" aria-label="{{ indicateur.label }} : {{ indicateur.valeur }}"></a>{% endif %}
+    </div></div>
     {% endfor %}
 </div>
+{% endif %}
 
 {% if graphiques.encaissements or graphiques.effectifs %}
 <div class="row g-3 mb-4">
@@ -84,7 +84,7 @@
         <span class="text-muted small">{% if e.est_une_periode %}Du {{ e.date_debut|date:"d/m/Y" }} au {{ e.fin|date:"d/m/Y" }}{% else %}{{ e.date_debut|date:"d/m/Y" }}{% endif %}</span>
     </div>
     {% endfor %}
-    <a href="{% url 'scolarite:calendrier' %}" class="small">Voir tout le calendrier</a>
+    <a href="{% url 'scolarite:calendrier' %}" class="small lien-pied-carte">Voir tout le calendrier</a>
 </div></div>
 {% endif %}
 
@@ -93,7 +93,7 @@
     <h2 class="h5">Notifications</h2>
     {% for notification in notifications %}
     <div class="border-bottom py-2">
-        {% if notification.url %}<a href="{{ notification.url }}"><strong>{{ notification.titre }}</strong></a>{% else %}<strong>{{ notification.titre }}</strong>{% endif %}
+        {% if notification.url %}<a href="{{ notification.url }}" class="lien-ligne"><strong>{{ notification.titre }}</strong></a>{% else %}<strong>{{ notification.titre }}</strong>{% endif %}
         <div class="small text-muted">{{ notification.message }}</div>
     </div>
     {% endfor %}

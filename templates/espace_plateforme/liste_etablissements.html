@@ -41,7 +41,7 @@
                     <td>
                         <form method="post" action="{% url 'espace_plateforme:modifier_plan' etablissement.id %}" class="d-inline">
                             {% csrf_token %}
-                            <select name="plan" class="form-select form-select-sm" aria-label="Formule de {{ etablissement.nom }}" data-auto-submit>
+                            <select name="plan" class="form-select form-select-sm select-formule" aria-label="Formule de {{ etablissement.nom }}" data-auto-submit>
                                 {% for valeur, libelle in plan_choices %}
                                 <option value="{{ valeur }}" {% if valeur == etablissement.plan %}selected{% endif %}>{{ libelle }}</option>
                                 {% endfor %}
@@ -82,20 +82,33 @@
                     </td>
                     <td>{% if etablissement.visible_dans_annuaire %}Oui{% else %}Non{% endif %}</td>
                     <td class="text-end">
-                        {% if etablissement.actif %}
-                        <form method="post" action="{% url 'espace_plateforme:acceder_etablissement' etablissement.id %}" class="d-inline">
-                            {% csrf_token %}
-                            <button class="btn btn-sm btn-primary">Accéder</button>
-                        </form>
-                        {% endif %}
-                        <a href="{% url 'espace_plateforme:voir_comptes_etablissement' etablissement.id %}" class="btn btn-sm btn-outline-secondary">Comptes</a>
-                        <a href="{% url 'espace_plateforme:modifier_etablissement' etablissement.id %}" class="btn btn-sm btn-outline-secondary">Modifier</a>
-                        <form method="post" action="{% url 'espace_plateforme:basculer_actif' etablissement.id %}" class="d-inline">
-                            {% csrf_token %}
-                            <button class="btn btn-sm {% if etablissement.actif %}btn-outline-danger{% else %}btn-success{% endif %}">
-                                {% if etablissement.actif %}Désactiver{% else %}Réactiver{% endif %}
-                            </button>
-                        </form>
+                        <div class="actions-ligne">
+                            {% if etablissement.actif %}
+                            <form method="post" action="{% url 'espace_plateforme:acceder_etablissement' etablissement.id %}">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-primary">Accéder</button>
+                            </form>
+                            {% else %}
+                            <form method="post" action="{% url 'espace_plateforme:basculer_actif' etablissement.id %}">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-success">Réactiver</button>
+                            </form>
+                            {% endif %}
+                            <details class="menu-actions">
+                                <summary class="btn btn-sm btn-outline-secondary">Plus</summary>
+                                <div class="menu-actions-panneau">
+                                    <a href="{% url 'espace_plateforme:voir_comptes_etablissement' etablissement.id %}" class="menu-actions-entree">Comptes</a>
+                                    <a href="{% url 'espace_plateforme:modifier_etablissement' etablissement.id %}" class="menu-actions-entree">Modifier</a>
+                                    {% if etablissement.actif %}
+                                    <hr class="menu-actions-separateur">
+                                    <form method="post" action="{% url 'espace_plateforme:basculer_actif' etablissement.id %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="menu-actions-entree menu-actions-danger">Désactiver</button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </details>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
