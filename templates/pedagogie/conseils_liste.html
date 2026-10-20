@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Conseils de classe{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "favori" 24 %}</div>
+        <div>
+            <h1>Conseils de classe</h1>
+            <p>Préparez le conseil de chaque classe à la fin d'un trimestre : moyennes, rangs, distinctions, sanctions et, au 3ème trimestre, passage en classe supérieure.</p>
+        </div>
+    </div>
+</div>
+
+{% if annee %}
+{% if annees|length > 1 %}
+<form method="get" class="d-flex gap-2 mb-3">
+    <select name="annee" class="form-select form-select-sm w-auto" aria-label="Année scolaire">
+        {% for a in annees %}<option value="{{ a.id }}"{% if a == annee %} selected{% endif %}>{{ a.libelle }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-outline-secondary btn-sm">Afficher</button>
+</form>
+{% endif %}
+<div class="card"><div class="card-body">
+    <h2 class="titre-section">Année scolaire {{ annee.libelle }}</h2>
+    {% if lignes %}
+    <table class="table table-cartes mb-0">
+        <thead><tr><th>Classe</th><th>Effectif</th><th>1er trimestre</th><th>2ème trimestre</th><th>3ème trimestre</th></tr></thead>
+        <tbody>
+            {% for ligne in lignes %}
+            <tr>
+                <td>{{ ligne.classe.nom }}</td>
+                <td class="montant-val">{{ ligne.effectif }}</td>
+                {% for trimestre in ligne.trimestres %}
+                <td>
+                    <a href="{% url 'pedagogie:conseil' ligne.classe.pk trimestre.valeur %}" class="btn btn-sm {% if trimestre.conseil.valide %}btn-outline-secondary{% else %}btn-outline-primary{% endif %}">
+                        {% if trimestre.conseil.valide %}Validé{% elif trimestre.conseil %}En préparation{% else %}Préparer{% endif %}
+                    </a>
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="etat-vide"><p>Aucune classe à afficher pour cette année scolaire.</p></div>
+    {% endif %}
+</div></div>
+{% else %}
+<div class="card"><div class="card-body etat-vide"><p>Aucune année scolaire n'est encore créée.</p></div></div>
+{% endif %}
+{% endblock %}

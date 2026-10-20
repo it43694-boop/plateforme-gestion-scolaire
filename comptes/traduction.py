@@ -36,7 +36,7 @@ JETONS = re.compile(
     r"(<!--.*?-->|<script\b.*?</script\s*>|<style\b.*?</style\s*>|<textarea\b.*?</textarea\s*>|<[^>]+>)", re.S | re.I,
 )
 ATTRIBUTS = re.compile(
-    r'(?P<debut>(?<![\w-])(?:placeholder|aria-label|title|alt|data-confirmer)\s*=\s*")(?P<valeur>[^"]*)(?P<fin>")', re.I,
+    r'(?P<debut>(?<![\w-])(?:placeholder|aria-label|title|alt|data-confirmer-bouton|data-confirmer)\s*=\s*")(?P<valeur>[^"]*)(?P<fin>")', re.I,
 )
 NOM_DE_BALISE = re.compile(r"<(/?)([a-zA-Z][\w:-]*)")
 PROTEGE = re.compile(r'(?<![\w-])translate\s*=\s*"no"', re.I)

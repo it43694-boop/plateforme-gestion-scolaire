@@ -1,6 +1,8 @@
 from django.urls import path
 
-from pedagogie import views, views_cahier, views_clotures, views_discipline, views_exports, views_mensuel, views_programmes
+from pedagogie import (
+    views, views_cahier, views_clotures, views_conseils, views_discipline, views_exports, views_mensuel, views_programmes,
+)
 
 app_name = "pedagogie"
 
@@ -28,6 +30,10 @@ urlpatterns = [
     path("notes/clotures/", views_clotures.clotures_notes, name="clotures_notes"),
     path("notes/clotures/<int:annee_id>/<str:trimestre>/cloturer/", views_clotures.cloturer_periode, name="cloturer_periode"),
     path("notes/clotures/<int:annee_id>/<str:trimestre>/rouvrir/", views_clotures.rouvrir_periode, name="rouvrir_periode"),
+    path("conseils/", views_conseils.liste_conseils, name="conseils"),
+    path("conseils/classe/<int:classe_id>/<str:trimestre>/", views_conseils.conseil, name="conseil"),
+    path("conseils/classe/<int:classe_id>/<str:trimestre>/proces-verbal.pdf", views_conseils.proces_verbal_pdf, name="conseil_proces_verbal_pdf"),
+    path("conseils/classe/<int:classe_id>/<str:trimestre>/tableau-d-honneur.pdf", views_conseils.tableau_d_honneur_pdf, name="conseil_tableau_d_honneur_pdf"),
     path("mensuel/", views_mensuel.classes, name="mensuel_classes"),
     path("mensuel/classe/<int:classe_id>/disciplines/", views_mensuel.disciplines, name="mensuel_disciplines"),
     path("mensuel/classe/<int:classe_id>/annee/", views_mensuel.annuel, name="mensuel_annuel"),

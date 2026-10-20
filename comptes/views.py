@@ -647,7 +647,10 @@ def liste_notifications(request):
     from django.core.paginator import Paginator
     notifications = notifications_visibles_pour(request.user)
     page_obj = Paginator(notifications, 25).get_page(request.GET.get("page"))
-    return render(request, "comptes/notifications.html", {"page_obj": page_obj, "notifications": page_obj.object_list})
+    return render(request, "comptes/notifications.html", {
+        "page_obj": page_obj, "notifications": page_obj.object_list,
+        "peut_voir_diagnostic_push": request.user.role == Role.DEVELOPPEUR,  # seul à pouvoir corriger l'environnement du serveur
+    })
 
 
 @login_required

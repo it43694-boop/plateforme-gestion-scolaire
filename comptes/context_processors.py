@@ -54,6 +54,7 @@ ICONES_DES_LIENS = {
     "tests_niveau:liste_candidats": "test",
     "pedagogie:mes_classes": "classes",
     "pedagogie:mensuel_classes": "classes",
+    "pedagogie:conseils": "favori",
     "pedagogie:suivi_des_cours": "suivi",
     "pedagogie:clotures_notes": "cadenas",
     "pedagogie:avancement_programmes": "suivi",
@@ -170,6 +171,10 @@ def navigation(request):
         pedagogie.append({"label": "Mes classes", "url": "pedagogie:mes_classes"})
     if "notes_bulletins" in modules_autorises and role in ROLES_BULLETINS_MENSUELS:
         pedagogie.append({"label": "Bulletins mensuels", "url": "pedagogie:mensuel_classes"})
+    from pedagogie.conseils import ROLES_CONSEIL
+
+    if "notes_bulletins" in modules_autorises and request.user.etablissement_id and role in ROLES_CONSEIL:
+        pedagogie.append({"label": "Conseils de classe", "url": "pedagogie:conseils"})
     if "suivi_des_cours" in modules_autorises:
         pedagogie.append({"label": "Suivi des cours", "url": "pedagogie:suivi_des_cours"})
         pedagogie.append({"label": "Avancement des programmes", "url": "pedagogie:avancement_programmes"})

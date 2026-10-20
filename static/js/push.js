@@ -77,26 +77,49 @@
         });
     });
 
-    // La carte de la page « Notifications ».
+    // La carte de la page « Notifications » : toujours visible quand les notifications sont allumées sur le site, et elle dit pourquoi quand ce
+    // téléphone ne peut pas les recevoir (au lieu de disparaître sans rien dire).
     var carte = document.querySelector("[data-push-carte]");
-    if (!carte || !gere) return;
+    if (!carte) return;
     var etat = carte.querySelector("[data-push-etat]");
     var boutonActiver = carte.querySelector("[data-push-activer]");
     var boutonDesactiver = carte.querySelector("[data-push-desactiver]");
-    carte.hidden = false;
+    var boutonEssai = carte.querySelector("[data-push-essai]");
+    if (!gere) {
+        etat.textContent = texte("Ce navigateur ne permet pas les notifications sur téléphone. Ouvrez Yelenova avec Chrome (Android) ou installez l'application sur l'écran d'accueil (iPhone).");
+        return;
+    }
+    var attente = setTimeout(function () {
+        if (etat.getAttribute("data-fini") !== "1") etat.textContent = texte("Le téléphone ne répond pas : fermez et rouvrez l'application, puis réessayez.");
+    }, 8000);
 
     function afficher() {
         if (Notification.permission === "denied") {
+            etat.setAttribute("data-fini", "1"); clearTimeout(attente);
             etat.textContent = texte("Les notifications sont bloquées : autorisez-les dans les réglages de votre navigateur.");
-            boutonActiver.hidden = true; boutonDesactiver.hidden = true;
+            boutonActiver.hidden = true; boutonDesactiver.hidden = true; if (boutonEssai) boutonEssai.hidden = true;
             return;
         }
         abonnement().then(function (souscription) {
+            etat.setAttribute("data-fini", "1"); clearTimeout(attente);
             var actif = !!souscription && Notification.permission === "granted";
             etat.textContent = texte(actif ? "Les notifications sont activées sur cet appareil." : "Les notifications ne sont pas activées sur cet appareil.");
-            boutonActiver.hidden = actif; boutonDesactiver.hidden = !actif;
+            boutonActiver.hidden = actif; boutonDesactiver.hidden = !actif; if (boutonEssai) boutonEssai.hidden = !actif;
         });
     }
+
+    function essayer() {
+        boutonEssai.disabled = true;
+        var echec = function () { etat.textContent = texte("L'essai n'a pas pu être envoyé. Désactivez puis réactivez les notifications."); };
+        envoyer("/comptes/push/essai/", {}).then(function (reponse) {
+            if (reponse.status === 429) { etat.textContent = texte("Trop d'essais : réessayez dans une heure."); return null; }
+            return reponse.json().then(function (corps) {
+                if (corps && corps.ok) etat.textContent = texte("Notification d'essai envoyée : elle doit arriver dans quelques secondes.");
+                else echec();
+            });
+        }).catch(echec).then(function () { boutonEssai.disabled = false; });
+    }
+    if (boutonEssai) boutonEssai.addEventListener("click", essayer);
 
     function erreur() { etat.textContent = texte("Activation impossible pour le moment. Réessayez plus tard."); }
     boutonActiver.addEventListener("click", function () { activer().then(afficher, function () { afficher(); if (Notification.permission !== "denied") erreur(); }); });

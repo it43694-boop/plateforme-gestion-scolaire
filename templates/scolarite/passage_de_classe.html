@@ -8,6 +8,10 @@
     </div>
 </div>
 
+{% if decisions_du_conseil %}
+<div class="alert alert-info">Les décisions du conseil de classe du 3ème trimestre sont déjà choisies pour chaque élève : vérifiez-les, puis validez.</div>
+{% endif %}
+
 <form method="get" class="mb-3 mw-400">
     <label class="form-label">Année scolaire de destination</label>
     <select name="annee_destination" class="form-select" data-auto-submit>
@@ -62,8 +66,8 @@
                         <td>{{ inscription.eleve.nom_complet }} <span class="text-muted">({{ inscription.eleve.matricule }})</span></td>
                         <td>
                             <select name="decision_{{ inscription.id }}" class="form-select form-select-sm mw-200" aria-label="Décision pour {{ inscription.eleve.nom_complet }}">
-                                <option value="admis" selected>Admis</option>
-                                <option value="redouble">Redouble</option>
+                                <option value="admis"{% if inscription.decision_du_conseil != "redouble" %} selected{% endif %}>Admis</option>
+                                <option value="redouble"{% if inscription.decision_du_conseil == "redouble" %} selected{% endif %}>Redouble</option>
                                 <option value="transfere">Transféré / parti</option>
                             </select>
                         </td>

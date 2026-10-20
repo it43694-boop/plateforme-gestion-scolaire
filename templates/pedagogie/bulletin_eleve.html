@@ -99,6 +99,34 @@
                 </div>
                 {% endif %}
             </div>
+            {% if bulletin.conseil %}
+            <div class="row g-3 mt-2">
+                {% if bulletin.conseil.distinction %}
+                <div class="col-6 col-md">
+                    <div class="mini-stat-label">Distinction du conseil de classe</div>
+                    <div class="mini-stat-valeur petit">{{ bulletin.conseil.distinction }}</div>
+                </div>
+                {% endif %}
+                {% if bulletin.conseil.sanction %}
+                <div class="col-6 col-md">
+                    <div class="mini-stat-label">Sanction du conseil de classe</div>
+                    <div class="mini-stat-valeur petit">{{ bulletin.conseil.sanction }}</div>
+                </div>
+                {% endif %}
+                {% if bulletin.conseil.passage %}
+                <div class="col-6 col-md">
+                    <div class="mini-stat-label">Décision de passage</div>
+                    <div class="mini-stat-valeur petit">{{ bulletin.conseil.passage }}</div>
+                </div>
+                {% endif %}
+                {% if bulletin.conseil.observation %}
+                <div class="col-12 col-md">
+                    <div class="mini-stat-label">Observation du conseil de classe</div>
+                    <div>{{ bulletin.conseil.observation }}</div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
         </div>
     </div>
     {% endfor %}

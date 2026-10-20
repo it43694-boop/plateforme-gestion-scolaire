@@ -599,3 +599,90 @@ class ObservationMensuelle(models.Model):
         verbose_name = "observation du mois"
         verbose_name_plural = "observations du mois"
         unique_together = ("eleve", "classe", "mois")
+
+
+class Distinction(models.TextChoices):
+    TABLEAU_D_HONNEUR = "tableau_d_honneur", "Tableau d'honneur"
+    ENCOURAGEMENTS = "encouragements", "Encouragements"
+    FELICITATIONS = "felicitations", "Félicitations"
+
+
+class SanctionDuConseil(models.TextChoices):
+    AVERTISSEMENT_TRAVAIL = "avertissement_travail", "Avertissement (travail)"
+    AVERTISSEMENT_CONDUITE = "avertissement_conduite", "Avertissement (conduite)"
+    BLAME_TRAVAIL = "blame_travail", "Blâme (travail)"
+    BLAME_CONDUITE = "blame_conduite", "Blâme (conduite)"
+
+
+class DecisionDePassage(models.TextChoices):
+    ADMIS = "admis", "Admis"
+    REDOUBLE = "redouble", "Redouble"
+
+
+class ConseilDeClasse(models.Model):
+    """
+    Le conseil de classe d'une classe pour un trimestre : le tableau des élèves (moyenne, rang, conduite, absences) sur lequel la direction
+    note les distinctions, les sanctions et, au 3ème trimestre, la décision de passage. Les seuils des distinctions sont ceux de ce conseil
+    (les moyennes servent seulement de suggestion : c'est le conseil qui décide). Une fois validé, le conseil ne change plus (la direction
+    peut le rouvrir).
+    """
+
+    classe = models.ForeignKey(Classe, on_delete=models.CASCADE, related_name="conseils")
+    trimestre = models.CharField(max_length=20, choices=Trimestre.choices)
+    date_conseil = models.DateField("date du conseil", null=True, blank=True)
+    seuil_tableau_d_honneur = models.DecimalField(max_digits=4, decimal_places=2, default=Decimal("12"), validators=[MinValueValidator(0), MaxValueValidator(20)])
+    seuil_encouragements = models.DecimalField(max_digits=4, decimal_places=2, default=Decimal("14"), validators=[MinValueValidator(0), MaxValueValidator(20)])
+    seuil_felicitations = models.DecimalField(max_digits=4, decimal_places=2, default=Decimal("16"), validators=[MinValueValidator(0), MaxValueValidator(20)])
+    seuil_passage = models.DecimalField(
+        max_digits=4, decimal_places=2, default=Decimal("10"), validators=[MinValueValidator(0), MaxValueValidator(20)],
+        help_text="Moyenne annuelle à partir de laquelle l'élève est proposé au passage (3ème trimestre).",
+    )
+    observations = models.CharField("observations générales", max_length=1000, blank=True)
+    valide_le = models.DateTimeField(null=True, blank=True)
+    valide_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.SET_NULL, null=True, blank=True, related_name="conseils_valides")
+    cree_le = models.DateTimeField(auto_now_add=True)
+    modifie_le = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "conseil de classe"
+        verbose_name_plural = "conseils de classe"
+        constraints = [models.UniqueConstraint(fields=["classe", "trimestre"], name="conseil_unique_par_classe_et_trimestre")]
+        ordering = ["classe", "trimestre"]
+
+    def __str__(self):
+        return f"Conseil - {self.classe} - {self.get_trimestre_display()}"
+
+    @property
+    def valide(self) -> bool:
+        return self.valide_le is not None
+
+    def clean(self):
+        super().clean()
+        if not (self.seuil_tableau_d_honneur <= self.seuil_encouragements <= self.seuil_felicitations):
+            raise ValidationError("Les seuils doivent aller du plus bas (tableau d'honneur) au plus haut (félicitations).")
+
+
+class DecisionConseil(models.Model):
+    """Ce que le conseil décide pour un élève : une distinction, une sanction, la décision de passage (3ème trimestre) et une observation."""
+
+    conseil = models.ForeignKey(ConseilDeClasse, on_delete=models.CASCADE, related_name="decisions")
+    eleve = models.ForeignKey("comptes.Utilisateur", on_delete=models.CASCADE, related_name="decisions_conseil", limit_choices_to={"role": Role.ELEVE})
+    distinction = models.CharField(max_length=20, choices=Distinction.choices, blank=True)
+    sanction = models.CharField(max_length=30, choices=SanctionDuConseil.choices, blank=True)
+    decision_passage = models.CharField(max_length=10, choices=DecisionDePassage.choices, blank=True)
+    observation = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        verbose_name = "décision du conseil"
+        verbose_name_plural = "décisions du conseil"
+        constraints = [models.UniqueConstraint(fields=["conseil", "eleve"], name="decision_conseil_unique_par_eleve")]
+
+    def __str__(self):
+        return f"{self.eleve} - {self.conseil}"
+
+    def clean(self):
+        super().clean()
+        if self.eleve_id and self.eleve.role != Role.ELEVE:
+            raise ValidationError("Seul un élève fait l'objet d'une décision du conseil.")
+        if self.eleve_id and self.conseil_id and not Inscription.objects.filter(eleve_id=self.eleve_id, classe_id=self.conseil.classe_id).exists():
+            raise ValidationError("Cet élève n'est pas inscrit dans cette classe.")

@@ -60,9 +60,19 @@ document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll('form[method="post"], form[method="POST"], form[data-attente]').forEach(function (formulaire) {
         formulaire.addEventListener("submit", function (evenement) {
             var confirmation = formulaire.getAttribute("data-confirmer");
+            var declencheur = evenement.submitter;
+            if (declencheur && declencheur.getAttribute("data-confirmer-bouton")) confirmation = declencheur.getAttribute("data-confirmer-bouton");
             if (confirmation && !window.confirm(confirmation)) {
                 evenement.preventDefault();
                 return;
+            }
+            if (declencheur && declencheur.name) {
+                // le bouton qui a envoyé le formulaire va être désactivé ci-dessous : on garde son choix (Enregistrer, Valider...) dans un champ caché
+                var choix = document.createElement("input");
+                choix.type = "hidden";
+                choix.name = declencheur.name;
+                choix.value = declencheur.value;
+                formulaire.appendChild(choix);
             }
             formulaire.querySelectorAll("button, input[type='submit']").forEach(function (bouton) {
                 if (bouton.type !== "submit") return;

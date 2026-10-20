@@ -348,3 +348,128 @@ class ProducteursTests(PushBase):
             "declaration": declaration.pk, "matricule_eleve": self.e1.matricule, "tranche": "versement", "montant": "5000", "mode_paiement": "mobile_money",
         })
         self.assertEqual(list(Notification.objects.filter(destinataire=self.parent).values_list("titre", flat=True)), ["Paiement validé"])
+
+
+@EN_SERVICE
+class EssaiEtCarteTests(PushBase):
+    """La carte reste visible (avec la raison quand le téléphone ne peut pas recevoir) et chacun peut s'envoyer une notification d'essai."""
+
+    def test_la_carte_est_toujours_dans_la_page_et_n_est_plus_cachee(self):
+        self.client.force_login(self.parent)
+        page = self.client.get(reverse("comptes:liste_notifications")).content.decode()
+        self.assertRegex(page, r'<div class="card mb-3" data-push-carte>')
+        self.assertIn("Vérification de votre téléphone", page)
+        self.assertIn("data-push-essai", page)
+        self.assertRegex(page, r"<button[^>]*data-push-essai[^>]*hidden")  # le bouton d'essai n'apparaît qu'une fois les notifications activées
+
+    def test_le_script_dit_pourquoi_quand_le_telephone_ne_peut_pas_recevoir(self):
+        from django.contrib.staticfiles import finders
+
+        with open(finders.find("js/push.js"), encoding="utf-8") as fichier:
+            script = fichier.read()
+        self.assertIn("Ce navigateur ne permet pas les notifications sur téléphone", script)
+        self.assertIn("Le téléphone ne répond pas", script)
+        from comptes.templatetags.traductions import TEXTES_JS
+
+        for texte in (
+            "Ce navigateur ne permet pas les notifications sur téléphone. Ouvrez Yelenova avec Chrome (Android) ou installez l'application sur l'écran d'accueil (iPhone).",
+            "Le téléphone ne répond pas : fermez et rouvrez l'application, puis réessayez.",
+            "L'essai n'a pas pu être envoyé. Désactivez puis réactivez les notifications.",
+            "Trop d'essais : réessayez dans une heure.",
+            "Notification d'essai envoyée : elle doit arriver dans quelques secondes.",
+        ):
+            with self.subTest(texte=texte[:40]):
+                self.assertIn(texte, TEXTES_JS)
+                self.assertIn(texte, script)
+
+    def test_l_essai_part_sur_les_appareils_de_la_personne_et_sur_eux_seuls(self):
+        mien, un_autre = self.abonner(self.parent, "https://push.exemple.test/mien"), self.abonner(self.t1, "https://push.exemple.test/autre")
+        with mock.patch("pywebpush.webpush") as envoi:
+            reponse = self.poster("comptes:essai_push", {})
+        self.assertEqual(reponse.status_code, 200)
+        self.assertEqual(reponse.json(), {"ok": True, "appareils": 1, "envoyees": 1})
+        self.assertEqual(envoi.call_count, 1)
+        self.assertEqual(envoi.call_args.kwargs["subscription_info"]["endpoint"], mien.endpoint)
+        self.assertNotEqual(envoi.call_args.kwargs["subscription_info"]["endpoint"], un_autre.endpoint)
+        message = json.loads(envoi.call_args.kwargs["data"])
+        self.assertEqual(message["message"], "Les notifications fonctionnent sur ce téléphone.")
+        self.assertEqual(message["url"], "/comptes/notifications/")
+        self.assertFalse(Notification.objects.filter(destinataire=self.parent).exists())  # l'essai n'ajoute rien à l'historique
+
+    def test_l_essai_est_en_arabe_pour_une_page_en_arabe(self):
+        from comptes.langues import NOM_COOKIE_LANGUE
+
+        self.abonner(self.parent)
+        self.client.force_login(self.parent)
+        self.client.cookies[NOM_COOKIE_LANGUE] = "ar"
+        with mock.patch("pywebpush.webpush") as envoi:
+            self.client.post(reverse("comptes:essai_push"), "{}", content_type="application/json")
+        self.assertEqual(json.loads(envoi.call_args.kwargs["data"])["message"], "الإشعارات تعمل على هذا الهاتف.")
+
+    def test_sans_appareil_active_l_essai_dit_non_sans_rien_envoyer(self):
+        with mock.patch("pywebpush.webpush") as envoi:
+            reponse = self.poster("comptes:essai_push", {})
+        self.assertEqual(reponse.json(), {"ok": False, "appareils": 0, "envoyees": 0})
+        envoi.assert_not_called()
+
+    def test_un_appareil_qui_refuse_l_essai_est_signale(self):
+        from pywebpush import WebPushException
+
+        self.abonner(self.parent)
+        with mock.patch("pywebpush.webpush", side_effect=WebPushException("refusé")):
+            reponse = self.poster("comptes:essai_push", {})
+        self.assertEqual(reponse.json(), {"ok": False, "appareils": 1, "envoyees": 0})
+
+    def test_dix_essais_par_heure_au_plus(self):
+        self.abonner(self.parent)
+        with mock.patch("pywebpush.webpush"):
+            for _ in range(10):
+                self.assertEqual(self.poster("comptes:essai_push", {}).status_code, 200)
+            self.assertEqual(self.poster("comptes:essai_push", {}).status_code, 429)
+
+    def test_l_essai_ne_s_obtient_que_par_post_et_connecte(self):
+        self.client.force_login(self.parent)
+        self.assertEqual(self.client.get(reverse("comptes:essai_push")).status_code, 405)
+        self.client.logout()
+        self.assertEqual(self.client.post(reverse("comptes:essai_push"), "{}", content_type="application/json").status_code, 302)
+
+    def test_la_page_arabe_de_la_carte_est_entierement_en_arabe(self):
+        from comptes.outils_test_arabe import client_en, restes_hors_textes_saisis
+
+        page = client_en(self.parent, "ar").get(reverse("comptes:liste_notifications")).content.decode("utf-8")
+        self.assertNotIn("Vérification de votre téléphone", page)
+        self.assertNotIn("Envoyer une notification d", page)
+        self.assertEqual(restes_hors_textes_saisis(page, ("Français",)), [])
+
+
+class EssaiEteintTests(PushBase):
+    def test_sans_cles_l_essai_est_refuse(self):
+        self.assertEqual(self.poster("comptes:essai_push", {}).status_code, 404)
+
+    def test_le_developpeur_voit_pourquoi_les_notifications_sont_eteintes(self):
+        developpeur = creer_compte(Role.DEVELOPPEUR, "developpeur@essai.test", self.ecole)
+        self.client.force_login(developpeur)
+        page = self.client.get(reverse("comptes:liste_notifications")).content.decode()
+        self.assertIn("sont éteintes sur ce site", page)
+        self.assertIn("VAPID_PUBLIC_KEY", page)
+        self.assertIn("VAPID_PRIVATE_KEY", page)
+        self.assertNotIn("data-push-carte", page)
+
+    def test_les_autres_roles_ne_voient_aucun_message_technique(self):
+        for compte in (self.parent, self.fondateur, self.t1, self.comptable):
+            with self.subTest(role=compte.role):
+                self.client.force_login(compte)
+                page = self.client.get(reverse("comptes:liste_notifications")).content.decode()
+                self.assertNotIn("VAPID", page)
+                self.assertNotIn("sont éteintes sur ce site", page)
+                self.assertNotIn("data-push-carte", page)
+
+    def test_le_message_du_developpeur_est_en_arabe_sans_lettre_latine(self):
+        from comptes.outils_test_arabe import client_en, restes_hors_textes_saisis
+
+        developpeur = creer_compte(Role.DEVELOPPEUR, "developpeur-ar@essai.test", self.ecole)
+        page = client_en(developpeur, "ar").get(reverse("comptes:liste_notifications")).content.decode("utf-8")
+        self.assertIn("VAPID_PUBLIC_KEY", page)  # les noms des variables se recopient tels quels
+        self.assertNotIn("sont éteintes sur ce site", page)
+        restes = [r for r in restes_hors_textes_saisis(page, ("Français",)) if "VAPID" not in r]
+        self.assertEqual(restes, [])

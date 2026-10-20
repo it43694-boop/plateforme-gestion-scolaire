@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Conseil de classe{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone or">{% icone "favori" 24 %}</div>
+        <div>
+            <h1>Conseil de classe</h1>
+            <p>{{ classe.nom }} - {{ trimestre_libelle }} - {{ classe.annee_scolaire.libelle }}</p>
+        </div>
+    </div>
+    <a href="{% url 'pedagogie:conseils' %}" class="btn btn-outline-secondary btn-sm">Toutes les classes</a>
+</div>
+
+{% if valide %}
+<div class="alert alert-success">
+    <p class="mb-1">Ce conseil est validé. Il ne peut plus être modifié.</p>
+    {% if conseil.valide_le %}<p class="mb-0 small">Validé le : {{ conseil.valide_le|date:"d/m/Y" }}</p>{% endif %}
+    {% if conseil.valide_par %}<p class="mb-0 small">Validé par : {{ conseil.valide_par.nom_complet }}</p>{% endif %}
+</div>
+{% elif not notes_cloturees %}
+<div class="alert alert-warning">Les notes de ce trimestre ne sont pas encore clôturées : le tableau peut encore changer. Clôturez les notes avant de valider le conseil.</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="card"><div class="card-body mini-stat">
+        <div class="mini-stat-label">Effectif</div>
+        <div class="mini-stat-valeur">{{ reperes.effectif }}</div>
+    </div></div></div>
+    <div class="col-6 col-md-3"><div class="card"><div class="card-body mini-stat">
+        <div class="mini-stat-label">Moyenne de la classe</div>
+        <div class="mini-stat-valeur">{% if reperes.moyenne_de_la_classe is not None %}{{ reperes.moyenne_de_la_classe|floatformat:2 }}{% else %}-{% endif %}</div>
+    </div></div></div>
+    <div class="col-6 col-md-3"><div class="card"><div class="card-body mini-stat">
+        <div class="mini-stat-label">Plus forte moyenne</div>
+        <div class="mini-stat-valeur">{% if reperes.plus_forte is not None %}{{ reperes.plus_forte|floatformat:2 }}{% else %}-{% endif %}</div>
+    </div></div></div>
+    <div class="col-6 col-md-3"><div class="card"><div class="card-body mini-stat">
+        <div class="mini-stat-label">Plus faible moyenne</div>
+        <div class="mini-stat-valeur">{% if reperes.plus_faible is not None %}{{ reperes.plus_faible|floatformat:2 }}{% else %}-{% endif %}</div>
+    </div></div></div>
+</div>
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    <div class="card mb-3"><div class="card-body">
+        <h2 class="titre-section">Réglages du conseil</h2>
+        <div class="row g-3">
+            <div class="col-12 col-md-3">
+                <label class="form-label" for="date-conseil">Date du conseil</label>
+                <input type="date" id="date-conseil" name="date_conseil" value="{% if saisie %}{{ saisie.date_conseil }}{% else %}{{ conseil.date_conseil|date:'Y-m-d' }}{% endif %}" class="form-control"{% if valide %} disabled{% endif %}>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label" for="seuil-honneur">Tableau d'honneur dès</label>
+                <input type="number" step="0.25" min="0" max="20" inputmode="decimal" id="seuil-honneur" name="seuil_tableau_d_honneur" value="{{ conseil.seuil_tableau_d_honneur|stringformat:'s' }}" class="form-control"{% if valide %} disabled{% endif %}>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label" for="seuil-encouragements">Encouragements dès</label>
+                <input type="number" step="0.25" min="0" max="20" inputmode="decimal" id="seuil-encouragements" name="seuil_encouragements" value="{{ conseil.seuil_encouragements|stringformat:'s' }}" class="form-control"{% if valide %} disabled{% endif %}>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label" for="seuil-felicitations">Félicitations dès</label>
+                <input type="number" step="0.25" min="0" max="20" inputmode="decimal" id="seuil-felicitations" name="seuil_felicitations" value="{{ conseil.seuil_felicitations|stringformat:'s' }}" class="form-control"{% if valide %} disabled{% endif %}>
+            </div>
+            {% if reperes.au_troisieme_trimestre %}
+            <div class="col-6 col-md-3">
+                <label class="form-label" for="seuil-passage">Passage dès (moyenne de l'année)</label>
+                <input type="number" step="0.25" min="0" max="20" inputmode="decimal" id="seuil-passage" name="seuil_passage" value="{{ conseil.seuil_passage|stringformat:'s' }}" class="form-control"{% if valide %} disabled{% endif %}>
+            </div>
+            {% endif %}
+        </div>
+        <p class="texte-secondaire mt-2 mb-0">Les moyennes ne font que suggérer une distinction ou un passage : c'est le conseil qui décide.</p>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-body">
+        <h2 class="titre-section">Les élèves</h2>
+        {% if lignes %}
+        <table class="table table-cartes table-large">
+            <thead><tr>
+                <th>Rang</th><th>Élève</th><th>Moyenne</th>{% if reperes.note_la_conduite %}<th>Conduite</th>{% endif %}<th>Absences non justifiées</th><th>Avertissements et blâmes</th>
+                {% if reperes.au_troisieme_trimestre %}<th>Moyenne de l'année</th>{% endif %}
+                <th>Distinction</th><th>Sanction</th>{% if reperes.au_troisieme_trimestre %}<th>Passage</th>{% endif %}<th>Observation</th>
+            </tr></thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                    <td class="montant-val">{% if ligne.rang %}{{ ligne.rang }}{% else %}-{% endif %}</td>
+                    <td>{{ ligne.eleve.nom_complet }} <span class="texte-matricule">({{ ligne.eleve.matricule }})</span></td>
+                    <td class="montant-val">{% if ligne.moyenne is not None %}{{ ligne.moyenne|floatformat:2 }}{% else %}-{% endif %}</td>
+                    {% if reperes.note_la_conduite %}<td class="montant-val">{% if ligne.conduite is not None %}{{ ligne.conduite|floatformat:2 }}{% else %}-{% endif %}</td>{% endif %}
+                    <td class="montant-val">{{ ligne.absences_non_justifiees }}</td>
+                    <td class="montant-val">{{ ligne.mesures }}</td>
+                    {% if reperes.au_troisieme_trimestre %}<td class="montant-val">{% if ligne.moyenne_annuelle is not None %}{{ ligne.moyenne_annuelle|floatformat:2 }}{% else %}-{% endif %}</td>{% endif %}
+                    <td>
+                        <select name="distinction_{{ ligne.eleve.pk }}" class="form-select form-select-sm select-conseil" aria-label="Distinction de {{ ligne.eleve.nom_complet }}"{% if valide %} disabled{% endif %}>
+                            <option value="">-</option>
+                            {% for valeur, libelle in distinctions %}<option value="{{ valeur }}"{% if ligne.distinction == valeur %} selected{% endif %}>{{ libelle }}</option>{% endfor %}
+                        </select>
+                        {% if not valide and ligne.distinction_suggeree_libelle and ligne.distinction_suggeree != ligne.distinction %}<div class="texte-secondaire">Suggestion : {{ ligne.distinction_suggeree_libelle }}</div>{% endif %}
+                    </td>
+                    <td>
+                        <select name="sanction_{{ ligne.eleve.pk }}" class="form-select form-select-sm select-conseil" aria-label="Sanction de {{ ligne.eleve.nom_complet }}"{% if valide %} disabled{% endif %}>
+                            <option value="">-</option>
+                            {% for valeur, libelle in sanctions %}<option value="{{ valeur }}"{% if ligne.sanction == valeur %} selected{% endif %}>{{ libelle }}</option>{% endfor %}
+                        </select>
+                    </td>
+                    {% if reperes.au_troisieme_trimestre %}
+                    <td>
+                        <select name="passage_{{ ligne.eleve.pk }}" class="form-select form-select-sm select-conseil" aria-label="Passage de {{ ligne.eleve.nom_complet }}"{% if valide %} disabled{% endif %}>
+                            <option value="">-</option>
+                            {% for valeur, libelle in passages %}<option value="{{ valeur }}"{% if ligne.decision_passage == valeur %} selected{% endif %}>{{ libelle }}</option>{% endfor %}
+                        </select>
+                        {% if not valide and ligne.passage_suggere_libelle and ligne.passage_suggere != ligne.decision_passage %}<div class="texte-secondaire">Suggestion : {{ ligne.passage_suggere_libelle }}</div>{% endif %}
+                    </td>
+                    {% endif %}
+                    <td><input type="text" name="observation_{{ ligne.eleve.pk }}" value="{{ ligne.observation }}" maxlength="255" class="form-control form-control-sm champ-observation" aria-label="Observation pour {{ ligne.eleve.nom_complet }}"{% if valide %} disabled{% endif %}></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="etat-vide"><p>Aucun élève n'est inscrit dans cette classe.</p></div>
+        {% endif %}
+    </div></div>
+
+    <div class="card mb-3"><div class="card-body">
+        <h2 class="titre-section">Observations générales</h2>
+        <label class="form-label visually-hidden" for="observations">Observations générales</label>
+        <textarea id="observations" name="observations" rows="3" maxlength="1000" class="form-control"{% if valide %} disabled{% endif %}>{% if saisie %}{{ saisie.observations }}{% else %}{{ conseil.observations }}{% endif %}</textarea>
+    </div></div>
+
+    {% if not valide %}
+    <div class="actions-ligne actions-ligne-debut mb-3">
+        <button type="submit" name="enregistrer" class="btn btn-primary">Enregistrer</button>
+        {% if lignes %}
+        <button type="submit" name="suggestions" class="btn btn-outline-secondary"
+                data-confirmer-bouton="Remplacer les distinctions{% if reperes.au_troisieme_trimestre %} et les décisions de passage{% endif %} de tous les élèves par celles que les moyennes suggèrent ?">Appliquer les suggestions</button>
+        {% endif %}
+        {% if enregistre %}
+        <button type="submit" name="valider" class="btn btn-success"
+                data-confirmer-bouton="Valider le conseil ? Il ne pourra plus être modifié sans être rouvert par la direction générale.">Valider le conseil</button>
+        {% endif %}
+    </div>
+    {% endif %}
+</form>
+
+{% if enregistre %}
+<div class="card"><div class="card-body">
+    <h2 class="titre-section">Documents</h2>
+    <div class="actions-ligne actions-ligne-debut">
+        <a href="{% url 'pedagogie:conseil_proces_verbal_pdf' classe.pk trimestre %}" class="btn btn-outline-secondary btn-sm" data-telechargement>Procès-verbal (PDF)</a>
+        <a href="{% url 'pedagogie:conseil_tableau_d_honneur_pdf' classe.pk trimestre %}" class="btn btn-outline-secondary btn-sm" data-telechargement>Tableau d'honneur (PDF)</a>
+        {% if reperes.au_troisieme_trimestre %}<a href="{% url 'scolarite:passage_de_classe' classe.pk %}" class="btn btn-outline-secondary btn-sm">Passage de classe</a>{% endif %}
+    </div>
+    {% if valide and peut_rouvrir %}
+    <form method="post" class="mt-3" data-confirmer="Rouvrir ce conseil ? Il pourra de nouveau être modifié.">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="rouvrir">
+        <button class="btn btn-sm btn-outline-danger">Rouvrir le conseil</button>
+    </form>
+    {% endif %}
+</div></div>
+{% endif %}
+{% endblock %}

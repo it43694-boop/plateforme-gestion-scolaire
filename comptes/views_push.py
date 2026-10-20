@@ -7,7 +7,12 @@ from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
 from comptes.models import AbonnementPush
-from comptes.push import push_actif
+from comptes.push import ADRESSE_PAR_DEFAUT, envoyer_a, push_actif
+
+MESSAGES_D_ESSAI = {
+    "fr": "Les notifications fonctionnent sur ce téléphone.",
+    "ar": "الإشعارات تعمل على هذا الهاتف.",
+}
 
 
 def _corps(request):
@@ -45,6 +50,25 @@ def abonner_push(request):
         },
     )
     return JsonResponse({"ok": True})
+
+
+@login_required
+@require_http_methods(["POST"])
+@ratelimit(key="user", rate="10/h", method="POST", block=False)
+def essai_push(request):
+    """
+    Envoie une notification d'essai aux appareils de la personne connectée, et seulement aux siens (rien n'est enregistré dans ses notifications).
+    Réponse : {"ok": au moins un appareil l'a reçue, "appareils": combien sont activés, "envoyees": combien l'ont acceptée}.
+    """
+    if not push_actif():
+        return JsonResponse({"ok": False}, status=404)
+    if getattr(request, "limited", False):
+        return JsonResponse({"ok": False}, status=429)
+    appareils = list(AbonnementPush.objects.filter(utilisateur=request.user))
+    langue = "ar" if getattr(request, "LANGUAGE_CODE", "fr") == "ar" else "fr"
+    charge = json.dumps({"titre": "Yelenova", "message": MESSAGES_D_ESSAI[langue], "url": ADRESSE_PAR_DEFAUT, "id": "essai"}, ensure_ascii=False)
+    envoyees = sum(1 for appareil in appareils if envoyer_a(appareil, charge))
+    return JsonResponse({"ok": envoyees > 0, "appareils": len(appareils), "envoyees": envoyees})
 
 
 @login_required

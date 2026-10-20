@@ -557,9 +557,14 @@ def passage_de_classe(request, classe_id):
     annee_destination = annees_destination.filter(pk=annee_destination_id).first() if annee_destination_id else None
     classes_destination = Classe.objects.filter(annee_scolaire=annee_destination) if annee_destination else Classe.objects.none()
 
-    eleves_en_cours = Inscription.objects.filter(
+    from pedagogie.conseils import decisions_de_passage_du_conseil
+
+    eleves_en_cours = list(Inscription.objects.filter(
         classe=classe_source, statut=Inscription.Statut.EN_COURS,
-    ).select_related("eleve").order_by("eleve__nom")
+    ).select_related("eleve").order_by("eleve__nom"))
+    decisions_du_conseil = decisions_de_passage_du_conseil(classe_source)  # décisions du conseil validé du 3ème trimestre, sinon vide
+    for inscription in eleves_en_cours:
+        inscription.decision_du_conseil = decisions_du_conseil.get(inscription.eleve_id, "")
 
     if request.method == "POST" and annee_destination:
         classe_admis_id = request.POST.get("classe_admis") or None
@@ -605,7 +610,7 @@ def passage_de_classe(request, classe_id):
     return render(request, "scolarite/passage_de_classe.html", {
         "classe_source": classe_source, "annees_destination": annees_destination,
         "annee_destination": annee_destination, "classes_destination": classes_destination,
-        "eleves_en_cours": eleves_en_cours,
+        "eleves_en_cours": eleves_en_cours, "decisions_du_conseil": bool(decisions_du_conseil),
     })
 
 

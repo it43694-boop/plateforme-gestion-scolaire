@@ -138,6 +138,16 @@
             {% endif %}
         </tr>
     </table>
+    {% if bulletin.conseil %}
+    <table class="recap">
+        <tr>
+            {% if bulletin.conseil.distinction %}<td><span class="libelle">Distinction du conseil de classe</span><span class="valeur">{{ bulletin.conseil.distinction }}</span></td>{% endif %}
+            {% if bulletin.conseil.sanction %}<td><span class="libelle">Sanction du conseil de classe</span><span class="valeur">{{ bulletin.conseil.sanction }}</span></td>{% endif %}
+            {% if bulletin.conseil.passage %}<td><span class="libelle">Décision de passage</span><span class="valeur">{{ bulletin.conseil.passage }}</span></td>{% endif %}
+            {% if bulletin.conseil.observation %}<td><span class="libelle">Observation du conseil de classe</span><span class="valeur">{{ bulletin.conseil.observation }}</span></td>{% endif %}
+        </tr>
+    </table>
+    {% endif %}
     {% empty %}
     <p>Aucune note enregistrée.</p>
     {% endfor %}

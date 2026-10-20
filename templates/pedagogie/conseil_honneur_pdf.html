@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+    @page { size: A4 portrait; margin: 1.8cm; }
+    body { font-family: Helvetica, sans-serif; font-size: 11px; color: #12203D; }
+    .entete { width: 100%; margin-bottom: 4px; }
+    .entete td { vertical-align: middle; padding: 0; border: none; }
+    .logo { width: 52px; height: 52px; }
+    h1 { font-size: 16px; margin: 0 0 3px; }
+    h2 { font-size: 13px; margin: 16px 0 5px; color: #8A6620; }
+    p.sous-titre { color: #55607A; margin: 0 0 2px; font-size: 10.5px; }
+    hr.separateur { border: none; border-top: 1.5px solid #B98B2E; margin: 8px 0 10px; }
+    table.liste { width: 100%; border-collapse: collapse; }
+    table.liste th { background-color: #12203D; color: #FFFFFF; text-align: left; padding: 4px 6px; font-size: 10px; }
+    table.liste td { border-bottom: 1px solid #DEE1E6; padding: 4px 6px; font-size: 10.5px; }
+    td.centre, th.centre { text-align: center; }
+    p.vide { color: #55607A; margin-top: 14px; }
+    .pied { margin-top: 16px; font-size: 8px; color: #8993A8; }
+    .projet { color: #9C3B2E; font-weight: bold; }
+</style>
+</head>
+<body>
+    <table class="entete">
+        <tr>
+            {% if logo %}<td style="width: 60px;"><img src="{{ logo }}" alt="{{ etablissement.nom }}" class="logo" /></td>{% endif %}
+            <td>
+                <h1>{{ etablissement.nom|default:"Établissement" }}</h1>
+                <p class="sous-titre">Tableau d'honneur{% if not valide %} <span class="projet">(projet, non validé)</span>{% endif %}</p>
+                <p class="sous-titre">Classe : {{ classe.nom }} - {{ trimestre_libelle }} - Année scolaire : {{ classe.annee_scolaire.libelle }}</p>
+            </td>
+        </tr>
+    </table>
+    <hr class="separateur">
+
+    {% for groupe in groupes %}
+    <h2>{{ groupe.libelle }}</h2>
+    <table class="liste">
+        <thead><tr><th class="centre" width="10%">Rang</th><th>Élève</th><th class="centre" width="18%">Moyenne</th></tr></thead>
+        <tbody>
+            {% for ligne in groupe.eleves %}
+            <tr>
+                <td class="centre">{% if ligne.rang %}{{ ligne.rang }}{% else %}-{% endif %}</td>
+                <td>{{ ligne.eleve.nom_complet }}</td>
+                <td class="centre">{% if ligne.moyenne is not None %}{{ ligne.moyenne|floatformat:2 }}{% else %}-{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% empty %}
+    <p class="vide">Aucun élève n'a reçu de distinction à ce conseil.</p>
+    {% endfor %}
+    <p class="pied">Édité le {{ edite_le|date:"d/m/Y" }}</p>
+</body>
+</html>

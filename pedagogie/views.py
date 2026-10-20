@@ -225,6 +225,20 @@ def _calculer_bulletin(eleve, inscription=None):
         coefficient_de_la_conduite = coefficient_conduite(inscription.classe.annee_scolaire.etablissement)
         conduites = {t: v for (_, t), v in conduite_des_eleves(inscription.classe, [eleve.pk]).items()}
 
+    # Ce que le conseil de classe a décidé pour cet élève (distinction, sanction, passage, observation) : seulement quand le conseil est validé.
+    decisions_du_conseil = {}
+    if inscription:
+        from pedagogie.models import DecisionConseil
+
+        for decision in DecisionConseil.objects.filter(
+            eleve=eleve, conseil__classe=inscription.classe, conseil__valide_le__isnull=False,
+        ).select_related("conseil"):
+            if decision.distinction or decision.sanction or decision.decision_passage or decision.observation:
+                decisions_du_conseil[decision.conseil.trimestre] = {
+                    "distinction": decision.get_distinction_display(), "sanction": decision.get_sanction_display(),
+                    "passage": decision.get_decision_passage_display(), "observation": decision.observation,
+                }
+
     moyennes_par_trimestre = []
     bulletins_trimestre = []
     total_pondere_general, poids_general = 0, 0
@@ -271,6 +285,7 @@ def _calculer_bulletin(eleve, inscription=None):
             "moyenne": moyenne, "appreciation": appreciation_pour(moyenne),
             "moyenne_plus_forte": moyenne_plus_forte, "moyenne_plus_faible": moyenne_plus_faible,
             "rang": rang_trimestre, "effectif_classe": effectif_trimestre,
+            "conseil": decisions_du_conseil.get(trimestre_valeur),
         })
         moyennes_par_trimestre.append({"trimestre": trimestre_label, "moyenne": moyenne})
         total_pondere_general += total_pondere

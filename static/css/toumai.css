@@ -1950,6 +1950,10 @@ td.cellule-actions-fixe, td.text-end:has(> .actions-ligne) { white-space: nowrap
 .menu-actions-formulaire { display: flex; gap: 0.4rem; align-items: center; padding: 0.2rem 0.5rem 0.4rem; }
 .menu-actions-formulaire .form-control { min-width: 9rem; }
 .select-formule { min-width: 16.5rem; font-size: 0.8rem; }
+/* Conseil de classe : listes assez larges pour lire « Tableau d'honneur », observation à l'aise ; sur téléphone, le tableau devient des cartes qui tiennent dans l'écran */
+.select-conseil { min-width: 11rem; }
+.champ-observation { min-width: 9rem; }
+@media (max-width: 720px) { .table-cartes.table-large { min-width: 0; } .select-conseil, .champ-observation { min-width: 0; width: 100%; max-width: 15rem; } }
 /* Liens de texte (noms dans les tableaux, liens de la page de connexion, pieds de page) : zone à toucher confortable sur écran tactile */
 @media (max-width: 900px), (pointer: coarse) {
   .table td a:not(.btn):not(.badge), .auth-carte a:not(.btn):not(.auth-lien-logo), .auth-lien-retour a, .legal-pied-liens a, .vitrine-ecole-autre {

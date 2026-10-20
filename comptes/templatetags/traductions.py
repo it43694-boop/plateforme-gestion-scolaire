@@ -18,6 +18,11 @@ TEXTES_JS = (
     "Les notifications sont activées sur cet appareil.", "Les notifications ne sont pas activées sur cet appareil.",
     "Les notifications sont bloquées : autorisez-les dans les réglages de votre navigateur.", "Activation impossible pour le moment. Réessayez plus tard.",
     "Aucune page ne correspond.",
+    "Ce navigateur ne permet pas les notifications sur téléphone. Ouvrez Yelenova avec Chrome (Android) ou installez l'application sur l'écran d'accueil (iPhone).",
+    "Le téléphone ne répond pas : fermez et rouvrez l'application, puis réessayez.",
+    "L'essai n'a pas pu être envoyé. Désactivez puis réactivez les notifications.",
+    "Trop d'essais : réessayez dans une heure.",
+    "Notification d'essai envoyée : elle doit arriver dans quelques secondes.",
 )
 
 

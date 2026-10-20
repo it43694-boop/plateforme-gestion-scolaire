@@ -3,13 +3,28 @@
 {% block contenu %}
 <div class="page-header"><div><h1>Notifications</h1><p>Historique de vos alertes internes.</p></div></div>
 {% if push_actif %}
-<div class="card mb-3" data-push-carte hidden>
+<div class="card mb-3" data-push-carte>
     <div class="card-body">
         <p class="titre-section">Notifications sur ce téléphone</p>
         <p class="text-muted small mb-2">Recevez les alertes de l'école (absence de votre enfant, paiement validé, annonce...) directement sur l'écran de ce téléphone, sans ouvrir l'application. Sur iPhone, installez d'abord l'application sur l'écran d'accueil (bouton Partager, puis « Sur l'écran d'accueil »).</p>
-        <p class="mb-2" data-push-etat></p>
-        <button type="button" class="btn btn-primary btn-sm" data-push-activer>Activer les notifications</button>
-        <button type="button" class="btn btn-outline-secondary btn-sm" data-push-desactiver hidden>Désactiver les notifications</button>
+        <p class="mb-2" data-push-etat>Vérification de votre téléphone...</p>
+        <div class="actions-ligne actions-ligne-debut">
+            <button type="button" class="btn btn-primary btn-sm" data-push-activer hidden>Activer les notifications</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-push-desactiver hidden>Désactiver les notifications</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-push-essai hidden>Envoyer une notification d'essai</button>
+        </div>
+    </div>
+</div>
+{% elif peut_voir_diagnostic_push %}
+<div class="card mb-3">
+    <div class="card-body">
+        <p class="titre-section">Notifications sur le téléphone</p>
+        <p class="mb-2">Les notifications sur téléphone sont éteintes sur ce site : les clés ne sont pas dans l'environnement du serveur.</p>
+        <ul class="mb-2">
+            <li translate="no" dir="ltr">VAPID_PUBLIC_KEY</li>
+            <li translate="no" dir="ltr">VAPID_PRIVATE_KEY</li>
+        </ul>
+        <p class="mb-0 small">Ajoutez-les dans l'hébergeur (Environment), puis redéployez le site.</p>
     </div>
 </div>
 {% endif %}

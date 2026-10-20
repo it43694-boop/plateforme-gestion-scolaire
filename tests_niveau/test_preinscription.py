@@ -8,6 +8,7 @@ from django.core import mail
 from django.core.cache import cache
 from django.test import Client, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from comptes.arabisation import invalider
 from comptes.langues import NOM_COOKIE_LANGUE
@@ -22,7 +23,7 @@ from tests_niveau.models import Candidat, CampagnePreinscription, Decision, Stat
 from tests_niveau.preinscription import classes_proposees, deposer_une_demande
 
 D = datetime.date
-AUJOURDHUI = D.today()
+AUJOURDHUI = timezone.localdate()  # la date du site (heure de Bamako), pas celle de l'ordinateur : entre minuit et 1 h elles diffèrent d'un jour
 
 
 def jours(n):
