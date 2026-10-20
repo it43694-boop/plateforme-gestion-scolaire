@@ -532,6 +532,10 @@ def saisir_absence_vue(request, classe_id):
             acteur=request.user, action="saisie_absence",
             cible=f"{eleve.matricule} - {absence.date_absence}", request=request,
         )
+        if cree:
+            from pedagogie.absences import prevenir_les_parents_de_l_absence
+
+            prevenir_les_parents_de_l_absence(absence)  # ne bloque jamais la saisie
         message = f"Absence {'enregistrée' if cree else 'mise à jour'} pour {eleve.nom_complet}."
         if est_ajax:
             return JsonResponse({

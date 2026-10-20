@@ -1,7 +1,7 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from comptes import views, views_noms_arabes
+from comptes import views, views_noms_arabes, views_push
 
 app_name = "comptes"
 
@@ -23,6 +23,8 @@ urlpatterns = [
     path("tableau-de-bord/", views.redirection_tableau_de_bord, name="redirection_tableau_de_bord"),
     path("portail-parent/", views.portail_parent, name="portail_parent"),
     path("notifications/", views.liste_notifications, name="liste_notifications"),
+    path("push/abonner/", views_push.abonner_push, name="abonner_push"),
+    path("push/desabonner/", views_push.desabonner_push, name="desabonner_push"),
     path("notifications/lues/", views.marquer_notifications_lues, name="marquer_notifications_lues"),
     path("notifications/<int:notification_id>/lue/", views.marquer_notification_lue, name="marquer_notification_lue"),
 

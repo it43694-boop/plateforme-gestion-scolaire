@@ -58,6 +58,8 @@ ICONES_DES_LIENS = {
     "pedagogie:devoirs": "livre",
     "finances:suivi_paiements": "tendance",
     "finances:liste_paiements": "carte",
+    "finances:declarer_paiement": "envoi",
+    "finances:declarations": "envoi",
     "finances:frais_annexes": "carte",
     "finances:arrieres": "alerte",
     "finances:tenues_vendre": "boutique",
@@ -180,7 +182,10 @@ def navigation(request):
     if "finances" in modules_autorises:
         finances.append({"label": "Suivi des paiements", "url": "finances:suivi_paiements"})
         finances.append({"label": "Paiements", "url": "finances:liste_paiements"})
+        if role == Role.PARENT.value:
+            finances.append({"label": "Déclarer un paiement", "url": "finances:declarer_paiement"})
         if role == Role.COMPTABLE.value or role in {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNEL}:
+            finances.append({"label": "Paiements déclarés", "url": "finances:declarations"})
             finances.append({"label": "Frais annexes", "url": "finances:frais_annexes"})
             finances.append({"label": "Arriérés", "url": "finances:arrieres"})
             finances.append({"label": "Vendre des tenues", "url": "finances:tenues_vendre"})
@@ -284,3 +289,12 @@ def identite_plateforme(request):
         "positionnement_plateforme": settings.POSITIONNEMENT_PLATEFORME,
         "description_plateforme": settings.DESCRIPTION_PLATEFORME,
     }
+
+
+def notifications_telephone(request):
+    """Les notifications sur le téléphone sont-elles disponibles (clés en place) ? La clé publique sert au navigateur pour s'abonner."""
+    from django.conf import settings
+
+    if not getattr(settings, "PUSH_ACTIF", False) or not getattr(request, "user", None) or not request.user.is_authenticated:
+        return {"push_actif": False}
+    return {"push_actif": True, "cle_push": settings.VAPID_PUBLIC_KEY}

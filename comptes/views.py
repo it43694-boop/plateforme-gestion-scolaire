@@ -462,6 +462,14 @@ def redirection_tableau_de_bord(request):
             "icone": "finances", "couleur": "vert",
         })
         actions_rapides.append({"label": "Enregistrer un paiement", "url": "finances:enregistrer_paiement"})
+    if Module.FINANCES.value in valeurs_autorisees and _peut_voir_les_encaissements_de_l_ecole(request.user):
+        from finances.models import PaiementDeclare, StatutDeclaration
+
+        a_valider = PaiementDeclare.objects.filter(etablissement=request.user.etablissement, statut=StatutDeclaration.EN_ATTENTE).count()
+        if a_valider:
+            indicateurs.append({
+                "label": "Paiements à valider", "valeur": a_valider, "icone": "alerte", "couleur": "or", "url": "finances:declarations",
+            })
     if Module.ABSENCES.value in valeurs_autorisees:
         from pedagogie.models import Absence
         # Un élève ne voit que SES absences ; les autres rôles, celles des classes qu'ils ont le droit de voir.

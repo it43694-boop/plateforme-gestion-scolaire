@@ -25,6 +25,30 @@ def reste_a_payer(inscription) -> int:
     return max(calculer_total_du(inscription) - paye, 0)
 
 
+def notifier_les_parents_du_paiement(paiement) -> int:
+    """Une notification interne (et sur le téléphone) par parent lié à l'élève : le reçu, et ce qui reste à payer. Ne lève jamais d'erreur."""
+    try:
+        from django.urls import reverse
+
+        from comptes.push import notifier
+
+        parents = list(paiement.eleve.parents_lies.filter(is_active=True, statut=StatutCompte.ACTIF))
+        if not parents:
+            return 0
+        etablissement = paiement.etablissement or paiement.eleve.etablissement
+        devise = getattr(etablissement, "code_devise", "FCFA")
+        solde = reste_a_payer(paiement.inscription)
+        reste = f"Reste à payer : {solde} {devise}." if solde > 0 else "La scolarité est entièrement réglée."
+        notifier(
+            parents, titre="Paiement enregistré", etablissement=etablissement, url=reverse("finances:liste_paiements"),
+            message=f"{paiement.montant} {devise} reçus pour {paiement.eleve.nom_complet}. Reçu n° {paiement.reference}. {reste}",
+        )
+        return len(parents)
+    except Exception:  # noqa: BLE001 - le paiement est déjà enregistré
+        logger.exception("Notification de paiement non créée (paiement %s)", getattr(paiement, "pk", None))
+        return 0
+
+
 def prevenir_les_parents_du_paiement(paiement) -> int:
     """
     Un courriel par parent, dans sa langue. Renvoie le nombre de parents prévenus.

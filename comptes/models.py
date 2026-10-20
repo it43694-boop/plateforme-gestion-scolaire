@@ -555,3 +555,27 @@ def notifications_visibles_pour(utilisateur):
     return notifications.filter(
         models.Q(etablissement_id=utilisateur.etablissement_id) | models.Q(etablissement__isnull=True),
     )
+
+
+class AbonnementPush(models.Model):
+    """
+    Un appareil (navigateur ou application installée) qui reçoit les notifications d'une personne (Web Push, voir comptes.push). L'adresse d'envoi
+    (`endpoint`) est propre à l'appareil : elle n'appartient qu'à un compte à la fois.
+    """
+
+    utilisateur = models.ForeignKey(Utilisateur, on_delete=models.CASCADE, related_name="abonnements_push")
+    endpoint = models.CharField(max_length=700, unique=True)
+    cle_p256dh = models.CharField(max_length=120)
+    cle_auth = models.CharField(max_length=40)
+    agent = models.CharField(max_length=200, blank=True)
+    cree_le = models.DateTimeField(auto_now_add=True)
+    dernier_succes = models.DateTimeField(null=True, blank=True)
+    echecs = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "appareil recevant les notifications"
+        verbose_name_plural = "appareils recevant les notifications"
+        ordering = ["-cree_le"]
+
+    def __str__(self):
+        return f"{self.utilisateur} - {self.endpoint[:40]}"

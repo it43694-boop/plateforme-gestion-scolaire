@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load icones montants %}
+{% block titre %}Refuser une déclaration{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone vert">{% icone "finances" 24 %}</div>
+        <div><h1>Refuser une déclaration de paiement</h1></div>
+    </div>
+</div>
+<div class="card mw-480">
+    <div class="card-body">
+        <p class="mb-1"><strong>{{ declaration.eleve.nom_complet }}</strong> ({{ declaration.inscription.classe.nom }})</p>
+        <ul>
+            <li><span>Montant :</span> {{ declaration.montant|montant }} {{ devise }}</li>
+            <li><span>Opérateur :</span> {{ declaration.get_operateur_display }}</li>
+            <li><span>Numéro de transaction :</span> <span translate="no" dir="ltr">{{ declaration.reference_transaction }}</span></li>
+        </ul>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {% for champ in formulaire %}
+            <div class="mb-3">
+                <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                {{ champ }}
+                {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-danger">Refuser la déclaration</button>
+            <a href="{% url 'finances:declarations' %}" class="btn btn-outline-secondary">Annuler</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

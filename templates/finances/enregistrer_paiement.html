@@ -10,8 +10,22 @@
 </div>
 <div class="card mw-480">
     <div class="card-body">
+        {% if declaration %}
+        <div class="alert alert-info">
+            <strong>Paiement déclaré par un parent.</strong>
+            <ul class="mb-2">
+                <li><span>Parent :</span> {{ declaration.declare_par.nom_complet }}</li>
+                <li><span>Montant :</span> {{ declaration.montant }}</li>
+                <li><span>Opérateur :</span> {{ declaration.get_operateur_display }}</li>
+                <li><span>Payé le :</span> {{ declaration.date_du_paiement|date:"d/m/Y" }}</li>
+                <li><span>Numéro de transaction :</span> <strong translate="no" dir="ltr">{{ declaration.reference_transaction }}</strong>{% if declaration.capture %} <a href="{{ declaration.capture.url }}" target="_blank" rel="noopener">Voir la capture</a>{% endif %}</li>
+            </ul>
+            <p class="mb-0">Vérifiez la transaction dans votre compte Mobile Money avant d'enregistrer.</p>
+        </div>
+        {% endif %}
         <form method="post" novalidate>
             {% csrf_token %}
+            {% if declaration %}<input type="hidden" name="declaration" value="{{ declaration.pk }}">{% endif %}
             <div class="mb-3">
                 <label class="form-label" for="recherche-eleve">Élève</label>
                 <div class="recherche-conteneur">

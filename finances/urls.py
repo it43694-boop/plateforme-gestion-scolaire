@@ -1,6 +1,6 @@
 from django.urls import path
 
-from finances import views, views_annexes, views_tenues
+from finances import views, views_annexes, views_declarations, views_tenues
 
 app_name = "finances"
 
@@ -8,6 +8,9 @@ urlpatterns = [
     path("suivi-paiements/", views.suivi_paiements, name="suivi_paiements"),
     path("paiements/", views.liste_paiements, name="liste_paiements"),
     path("paiements/enregistrer/", views.enregistrer_paiement_vue, name="enregistrer_paiement"),
+    path("paiements/declarer/", views_declarations.declarer_paiement, name="declarer_paiement"),
+    path("paiements/declares/", views_declarations.declarations, name="declarations"),
+    path("paiements/declares/<int:declaration_id>/refuser/", views_declarations.refuser_declaration, name="refuser_declaration"),
     path("frais-annexes/", views_annexes.frais_annexes, name="frais_annexes"),
     path("frais-annexes/<int:frais_id>/supprimer/", views_annexes.supprimer_frais_annexe, name="supprimer_frais_annexe"),
     path("arrieres/", views_annexes.arrieres, name="arrieres"),

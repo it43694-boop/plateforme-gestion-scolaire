@@ -6,7 +6,7 @@ from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from comptes.arabisation import invalider
-from comptes.models import Utilisateur
+from comptes.models import Notification, Utilisateur
 from etablissement.models import Etablissement
 from scolarite.models import Classe, ParentEnAttente
 from tests_niveau.models import Candidat
@@ -44,3 +44,12 @@ def parent_en_attente_modifie(sender, instance, **kwargs):
         invalider(instance.eleve.etablissement_id)
     except Exception:
         invalider(None)
+
+
+@receiver(post_save, sender=Notification)
+def notification_creee(sender, instance, created, **kwargs):
+    """Une notification interne créée une à une (voir `comptes.push.notifier` pour celles créées en lot) part aussi sur les téléphones de son destinataire."""
+    if created:
+        from comptes.push import programmer_envoi
+
+        programmer_envoi([instance])

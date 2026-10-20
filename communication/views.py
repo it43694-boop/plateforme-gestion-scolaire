@@ -42,7 +42,35 @@ def _destinataires(annonce) -> list[str]:
     return [email for email in emails if email and not email.lower().endswith(suffixe_automatique)]
 
 
+def _utilisateurs_destinataires(annonce):
+    """Les comptes qui doivent voir l'annonce : toute l'école, ou les élèves de la classe et leurs parents ; jamais son auteur."""
+    from comptes.roles import StatutCompte
+
+    if annonce.portee == Portee.TOUTE_ECOLE:
+        comptes = Utilisateur.objects.filter(etablissement=annonce.etablissement)
+    else:
+        eleves = Utilisateur.objects.filter(role=Role.ELEVE, inscriptions__classe=annonce.classe_ciblee)
+        comptes = Utilisateur.objects.filter(Q(pk__in=eleves) | Q(enfants_lies__in=eleves))
+    return comptes.filter(is_active=True, statut=StatutCompte.ACTIF).exclude(pk=annonce.auteur_id).distinct()
+
+
+def _notifier_les_appareils(annonce):
+    """Une notification interne par destinataire, qui part aussi sur son téléphone s'il l'a activé. Ne bloque jamais la publication."""
+    try:
+        from comptes.push import notifier
+
+        notifier(
+            _utilisateurs_destinataires(annonce), titre=annonce.titre, message=annonce.contenu[:200],
+            url=reverse("communication:liste_annonces"), etablissement=annonce.etablissement,
+        )
+    except Exception:  # noqa: BLE001 - l'annonce est déjà publiée
+        import logging
+
+        logging.getLogger(__name__).exception("Notifications de l'annonce %s non créées", getattr(annonce, "pk", None))
+
+
 def _envoyer_notifications(annonce):
+    _notifier_les_appareils(annonce)
     destinataires = _destinataires(annonce)
     if not destinataires:
         return

@@ -2,6 +2,17 @@
 {% block titre %}Notifications{% endblock %}
 {% block contenu %}
 <div class="page-header"><div><h1>Notifications</h1><p>Historique de vos alertes internes.</p></div></div>
+{% if push_actif %}
+<div class="card mb-3" data-push-carte hidden>
+    <div class="card-body">
+        <p class="titre-section">Notifications sur ce téléphone</p>
+        <p class="text-muted small mb-2">Recevez les alertes de l'école (absence de votre enfant, paiement validé, annonce...) directement sur l'écran de ce téléphone, sans ouvrir l'application. Sur iPhone, installez d'abord l'application sur l'écran d'accueil (bouton Partager, puis « Sur l'écran d'accueil »).</p>
+        <p class="mb-2" data-push-etat></p>
+        <button type="button" class="btn btn-primary btn-sm" data-push-activer>Activer les notifications</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-push-desactiver hidden>Désactiver les notifications</button>
+    </div>
+</div>
+{% endif %}
 <form method="post" action="{% url 'comptes:marquer_notifications_lues' %}" class="mb-3">
     {% csrf_token %}<button class="btn btn-outline-secondary" type="submit">Tout marquer comme lu</button>
 </form>

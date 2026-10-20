@@ -12,7 +12,7 @@ from comptes.langue import texte_pour_langue
 from comptes.pdf import creer_pdf
 from comptes.models import Utilisateur
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
-from finances.courriels import prevenir_les_parents_du_paiement
+from finances.courriels import notifier_les_parents_du_paiement, prevenir_les_parents_du_paiement
 from finances.forms import (
     CloturerContratForm, CorrigerPaiementForm, CreerBulletinPaieForm, CreerContratForm, EnregistrerCongeForm,
     EnregistrerPaiementForm, SaisirSalaireForm,
@@ -205,7 +205,24 @@ def enregistrer_paiement_vue(request):
             initial = {"matricule_eleve": eleve_prefill.matricule, "inscription_visee": arriere_vise.pk, "tranche": "versement"}
         else:
             eleve_prefill = None
+    # Valider un paiement déclaré par un parent : le formulaire arrive prérempli, et l'enregistrement relie la déclaration au reçu.
+    declaration = None
+    cle = request.POST.get("declaration") or request.GET.get("declaration") or ""
+    if cle.isdigit():
+        from finances.models import PaiementDeclare, StatutDeclaration
+
+        declaration = PaiementDeclare.objects.filter(
+            pk=int(cle), etablissement=request.user.etablissement, statut=StatutDeclaration.EN_ATTENTE,
+        ).select_related("eleve", "inscription__classe", "declare_par").first()
+        if declaration is None:  # déjà traitée (ou d'une autre école) : jamais un second paiement par erreur, par exemple en renvoyant la page
+            messages.info(request, "Cette déclaration a déjà été traitée.")
+            return redirect("finances:declarations")
+    if declaration is not None and request.method == "GET":
+        eleve_prefill = declaration.eleve
+        initial = {"matricule_eleve": declaration.eleve.matricule, "montant": declaration.montant, "mode_paiement": "mobile_money", "tranche": "versement"}
     formulaire = EnregistrerPaiementForm(request.POST or None, etablissement=request.user.etablissement, initial=initial)
+    if request.method == "POST" and formulaire.is_valid() and declaration is not None and formulaire.cleaned_data["eleve"].pk != declaration.eleve_id:
+        formulaire.add_error("matricule_eleve", "Cet élève n'est pas celui de la déclaration.")
     if request.method == "POST" and formulaire.is_valid():
         paiement = enregistrer_paiement(
             eleve=formulaire.cleaned_data["eleve"],
@@ -227,10 +244,22 @@ def enregistrer_paiement_vue(request):
             request=request,
         )
         prevenir_les_parents_du_paiement(paiement)  # courriel de reçu ; ne bloque jamais le paiement
+        if declaration is None:
+            notifier_les_parents_du_paiement(paiement)  # (pour une déclaration validée, le parent reçoit « Paiement validé » à la place)
+        if declaration is not None:
+            from finances.declarations import marquer_valide
+
+            marquer_valide(declaration, acteur=request.user, paiement=paiement)
+            enregistrer_action(
+                acteur=request.user, action="validation_paiement_declare", cible=paiement.reference,
+                details={"eleve": paiement.eleve.matricule, "montant": paiement.montant, "transaction": declaration.reference_transaction}, request=request,
+            )
+            messages.success(request, f"Déclaration validée. Paiement enregistré. Référence : {paiement.reference}")
+            return redirect("finances:declarations")
         messages.success(request, f"Paiement enregistré. Référence : {paiement.reference}")
         return redirect("finances:liste_paiements")
     return render(request, "finances/enregistrer_paiement.html", {
-        "formulaire": formulaire, "eleve_prefill": eleve_prefill, "arriere_vise": arriere_vise,
+        "formulaire": formulaire, "eleve_prefill": eleve_prefill, "arriere_vise": arriere_vise, "declaration": declaration,
         "inscription_visee": formulaire["inscription_visee"].value() if request.method == "POST" else None,
     })
 

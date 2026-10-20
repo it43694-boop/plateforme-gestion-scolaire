@@ -1,11 +1,15 @@
 import datetime
+import re
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.utils import timezone
 
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
+from comptes.uploads import chemin_upload_unique
+from comptes.validators import valider_contenu_fichier, valider_taille_image_2mo
 
 
 def _annee_courante():
@@ -861,3 +865,86 @@ class MouvementStockTenue(models.Model):
         verbose_name_plural = "mouvements de stock de tenues"
         ordering = ["-cree_le", "-pk"]
         constraints = [models.CheckConstraint(condition=~models.Q(quantite=0), name="mouvement_stock_tenue_non_nul")]
+
+
+# ---------------------------------------------------------------------------
+# Paiement déclaré par un parent (Mobile Money), à valider par la comptabilité
+# ---------------------------------------------------------------------------
+
+class OperateurMobileMoney(models.TextChoices):
+    ORANGE = "orange_money", "Orange Money"
+    MOOV = "moov_money", "Moov Money"
+    AUTRE = "autre", "Autre opérateur"
+
+
+class StatutDeclaration(models.TextChoices):
+    EN_ATTENTE = "en_attente", "À valider"
+    VALIDE = "valide", "Validé"
+    REFUSE = "refuse", "Refusé"
+
+
+def chemin_upload_capture_paiement(instance, nom_fichier):
+    return chemin_upload_unique("paiements_declares", instance.etablissement_id, nom_fichier)
+
+
+def normaliser_reference_transaction(texte) -> str:
+    """Le numéro de transaction sans espaces ni tirets, en majuscules : « mp 26.1018-ab12 » et « MP261018AB12 » sont le même numéro."""
+    return re.sub(r"[^A-Z0-9]", "", str(texte or "").upper())
+
+
+class PaiementDeclare(models.Model):
+    """
+    Un parent a payé par Mobile Money et le déclare, avec le numéro de transaction du SMS de l'opérateur. Rien n'entre en caisse tant que la comptabilité
+    n'a pas vérifié la transaction dans son propre compte Mobile Money : à la validation, le paiement est enregistré comme n'importe quel autre
+    (reçu numéroté, ligne de caisse) et relié ici. Un même numéro de transaction ne peut être déclaré qu'une fois (sauf s'il a été refusé).
+    """
+
+    etablissement = models.ForeignKey("etablissement.Etablissement", on_delete=models.PROTECT, related_name="paiements_declares")
+    eleve = models.ForeignKey("comptes.Utilisateur", on_delete=models.PROTECT, related_name="paiements_declares", limit_choices_to={"role": Role.ELEVE})
+    inscription = models.ForeignKey("scolarite.Inscription", on_delete=models.PROTECT, related_name="paiements_declares")
+    declare_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.SET_NULL, null=True, related_name="declarations_de_paiement")
+    montant = models.PositiveIntegerField(validators=[MinValueValidator(1), MaxValueValidator(100_000_000)])
+    operateur = models.CharField(max_length=20, choices=OperateurMobileMoney.choices)
+    reference_transaction = models.CharField("numéro de transaction", max_length=40)
+    date_du_paiement = models.DateField()
+    telephone_payeur = models.CharField("numéro utilisé pour payer", max_length=20, blank=True)
+    capture = models.ImageField(
+        "capture d'écran", upload_to=chemin_upload_capture_paiement, blank=True, null=True,
+        validators=[valider_taille_image_2mo, valider_contenu_fichier], help_text="Facultative : la capture du SMS ou de l'application. 2 Mo au plus.",
+    )
+    statut = models.CharField(max_length=12, choices=StatutDeclaration.choices, default=StatutDeclaration.EN_ATTENTE)
+    traite_par = models.ForeignKey("comptes.Utilisateur", on_delete=models.SET_NULL, null=True, blank=True, related_name="declarations_traitees")
+    traite_le = models.DateTimeField(null=True, blank=True)
+    motif_refus = models.CharField(max_length=200, blank=True)
+    paiement = models.OneToOneField(Paiement, on_delete=models.SET_NULL, null=True, blank=True, related_name="declaration")
+    cree_le = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "paiement déclaré"
+        verbose_name_plural = "paiements déclarés"
+        ordering = ["-cree_le", "-pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["etablissement", "operateur", "reference_transaction"], condition=~models.Q(statut="refuse"),
+                name="une_declaration_par_transaction", violation_error_message="Ce numéro de transaction a déjà été déclaré.",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.reference_transaction} - {self.eleve.nom_complet} - {self.montant}"
+
+    def clean(self):
+        super().clean()
+        if self.eleve_id and self.eleve.role != Role.ELEVE:
+            raise ValidationError("Seul un élève peut être associé à un paiement.")
+        if self.inscription_id and self.eleve_id and self.inscription.eleve_id != self.eleve_id:
+            raise ValidationError("L'inscription sélectionnée n'appartient pas à cet élève.")
+        if self.date_du_paiement and self.date_du_paiement > timezone.localdate():
+            raise ValidationError({"date_du_paiement": "La date du paiement ne peut pas être dans le futur."})
+
+    def save(self, *args, **kwargs):
+        self.reference_transaction = normaliser_reference_transaction(self.reference_transaction)
+        if not self.etablissement_id and self.eleve_id:
+            self.etablissement_id = self.eleve.etablissement_id
+        self.full_clean()
+        super().save(*args, **kwargs)

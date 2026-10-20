@@ -185,7 +185,7 @@ class ParametresEtablissementForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = Etablissement
         fields = [
-            "nom", "nom_ar", "devise", "devise_ar", "logo", "code_devise", "pas_montant", "coefficient_conduite", "moyenne_passage_premier_cycle", "email_facturation", "telephone_facturation", "langue_par_defaut",
+            "nom", "nom_ar", "devise", "devise_ar", "logo", "code_devise", "pas_montant", "instructions_mobile_money", "coefficient_conduite", "moyenne_passage_premier_cycle", "email_facturation", "telephone_facturation", "langue_par_defaut",
             "code_etablissement", "statut_juridique", "region", "cercle", "commune", "milieu",
             "rattachement_administratif", "numero_agrement",
             "sigle", "nom_signataire", "fonction_signataire", "signature", "cachet",

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load icones montants %}
+{% block titre %}Paiements déclarés{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone vert">{% icone "finances" 24 %}</div>
+        <div>
+            <h1>Paiements déclarés par les parents</h1>
+            <p>Vérifiez chaque transaction dans votre compte Mobile Money, puis validez : le paiement est enregistré avec son reçu et le parent est prévenu. Sinon, refusez avec un motif.</p>
+        </div>
+    </div>
+</div>
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <a href="?statut=en_attente" class="btn btn-sm {% if statut == 'en_attente' %}btn-primary{% else %}btn-outline-secondary{% endif %}">À valider ({{ a_valider }})</a>
+    <a href="?statut=valide" class="btn btn-sm {% if statut == 'valide' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Validés</a>
+    <a href="?statut=refuse" class="btn btn-sm {% if statut == 'refuse' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Refusés</a>
+    <a href="?statut=tous" class="btn btn-sm {% if statut == 'tous' %}btn-primary{% else %}btn-outline-secondary{% endif %}">Tous</a>
+</div>
+<div class="card"><div class="card-body">
+    {% if declarations %}
+    <div class="table-responsive">
+        <table class="table table-large">
+            <thead><tr><th>Déclaré le</th><th>Élève</th><th>Parent</th><th class="text-end">Montant</th><th>Opérateur</th><th>N° de transaction</th><th>Payé le</th><th>État</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                {% for d in declarations %}
+                <tr>
+                    <td>{{ d.cree_le|date:"d/m/Y H:i" }}</td>
+                    <td>{{ d.eleve.nom_complet }}<div class="small text-muted">{{ d.inscription.classe.nom }}</div></td>
+                    <td>{% if d.declare_par %}{{ d.declare_par.nom_complet }}{% if d.telephone_payeur %}<div class="small text-muted" dir="ltr">{{ d.telephone_payeur }}</div>{% endif %}{% else %}-{% endif %}</td>
+                    <td class="text-end montant-val">{{ d.montant|montant }} {{ devise }}</td>
+                    <td>{{ d.get_operateur_display }}</td>
+                    <td translate="no" dir="ltr">{{ d.reference_transaction }}{% if d.capture %}<div><a href="{{ d.capture.url }}" target="_blank" rel="noopener" class="small">Voir la capture</a></div>{% endif %}</td>
+                    <td>{{ d.date_du_paiement|date:"d/m/Y" }}</td>
+                    <td>
+                        {% if d.statut == "valide" %}<span class="badge bg-success">Validé</span>{% if d.paiement %}<div><a href="{% url 'finances:exporter_recu_paiement_pdf' d.paiement.id %}" class="small">Reçu {{ d.paiement.reference }}</a></div>{% endif %}
+                        {% elif d.statut == "refuse" %}<span class="badge bg-danger">Refusé</span><div class="small text-muted">{{ d.motif_refus }}</div>
+                        {% else %}<span class="badge bg-warning text-dark">À valider</span>{% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if d.statut == "en_attente" %}
+                        <a href="{% url 'finances:enregistrer_paiement' %}?declaration={{ d.pk }}" class="btn btn-primary btn-sm">Valider</a>
+                        <a href="{% url 'finances:refuser_declaration' d.pk %}" class="btn btn-outline-danger btn-sm">Refuser</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "_pagination.html" %}
+    {% else %}
+    <div class="etat-vide"><p>Aucun paiement déclaré dans cette liste.</p></div>
+    {% endif %}
+</div></div>
+{% endblock %}

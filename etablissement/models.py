@@ -151,6 +151,11 @@ class Etablissement(models.Model):
         validators=[valider_taille_image_2mo, valider_contenu_fichier],
         help_text="Image du cachet de l'école (de préférence PNG sur fond transparent), imprimée sur les documents si on le demande. Taille maximale : 2 Mo.",
     )
+    instructions_mobile_money = models.TextField(
+        "comment payer par Mobile Money", max_length=600, blank=True,
+        help_text="Montré aux parents quand ils déclarent un paiement : le numéro ou le code marchand de l'école pour Orange Money, Moov Money, etc. "
+                   "Exemple : « Orange Money : 70 00 00 00 (Groupe Scolaire X). Moov Money : 60 00 00 00. »",
+    )
     email_facturation = models.EmailField(
         "email pour les factures d'abonnement", blank=True,
         help_text="Adresse à laquelle la plateforme envoie les factures d'abonnement de l'école et leurs rappels. Laissée vide, "

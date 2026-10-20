@@ -25,6 +25,33 @@ self.addEventListener("install", function (evenement) {
     self.skipWaiting();
 });
 
+// Notifications sur le téléphone (Web Push, voir comptes/push.py) : le contenu arrive chiffré, le navigateur le déchiffre pour nous.
+self.addEventListener("push", function (evenement) {
+    var donnees = {};
+    try {
+        donnees = evenement.data ? evenement.data.json() : {};
+    } catch (erreur) {
+        donnees = {titre: "Yelenova", message: evenement.data ? evenement.data.text() : ""};
+    }
+    var adresse = donnees.url || "/comptes/notifications/";
+    if (adresse.charAt(0) !== "/" || adresse.indexOf("//") === 0) adresse = "/comptes/notifications/"; // jamais un autre site
+    evenement.waitUntil(self.registration.showNotification(donnees.titre || "Yelenova", {
+        body: donnees.message || "", icon: "/static/img/icons/icone-192.png", badge: "/static/img/icons/icone-192.png",
+        tag: "yelenova-" + (donnees.id || ""), data: {url: adresse},
+    }));
+});
+
+self.addEventListener("notificationclick", function (evenement) {
+    evenement.notification.close();
+    var adresse = (evenement.notification.data && evenement.notification.data.url) || "/comptes/notifications/";
+    evenement.waitUntil(self.clients.matchAll({type: "window", includeUncontrolled: true}).then(function (fenetres) {
+        for (var i = 0; i < fenetres.length; i++) {
+            if ("focus" in fenetres[i] && "navigate" in fenetres[i]) return fenetres[i].navigate(adresse).then(function (fenetre) { return fenetre && fenetre.focus(); });
+        }
+        return self.clients.openWindow(adresse);
+    }));
+});
+
 self.addEventListener("activate", function (evenement) {
     evenement.waitUntil(
         caches.keys().then(function (noms) {

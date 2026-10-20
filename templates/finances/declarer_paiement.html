@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load icones montants %}
+{% block titre %}Déclarer un paiement{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone vert">{% icone "finances" 24 %}</div>
+        <div>
+            <h1>Déclarer un paiement Mobile Money</h1>
+            <p>Vous avez payé par Orange Money ou Moov Money ? Déclarez-le ici avec le numéro de transaction : l'école le vérifie, enregistre le paiement et vous envoie le reçu.</p>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-lg-5 mb-3">
+        <div class="card">
+            <div class="card-body">
+                {% if instructions %}
+                <div class="alert alert-info"><strong>Comment payer :</strong><br>{{ instructions|linebreaksbr }}</div>
+                {% endif %}
+                {% if a_des_enfants %}
+                <form method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+                    {% for erreur in formulaire.non_field_errors %}<div class="alert alert-danger py-2">{{ erreur }}</div>{% endfor %}
+                    {% for champ in formulaire %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ champ.id_for_label }}">{{ champ.label }}</label>
+                        {{ champ }}
+                        {% if champ.help_text %}<div class="form-text">{{ champ.help_text }}</div>{% endif %}
+                        {% for erreur in champ.errors %}<div class="text-danger small mt-1">{{ erreur }}</div>{% endfor %}
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary w-100">Envoyer la déclaration</button>
+                </form>
+                {% else %}
+                <p class="mb-0 text-muted">Aucun de vos enfants n'a d'inscription en cours : il n'y a rien à déclarer.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <p class="titre-section">Mes déclarations</p>
+                {% if declarations %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead><tr><th>Enfant</th><th class="text-end">Montant</th><th>N° de transaction</th><th>État</th></tr></thead>
+                        <tbody>
+                            {% for d in declarations %}
+                            <tr>
+                                <td>{{ d.eleve.nom_complet }}<div class="small text-muted">{{ d.date_du_paiement|date:"d/m/Y" }}</div></td>
+                                <td class="text-end montant-val">{{ d.montant|montant }} {{ devise }}<div class="small text-muted">{{ d.get_operateur_display }}</div></td>
+                                <td translate="no" dir="ltr">{{ d.reference_transaction }}</td>
+                                <td>
+                                    {% if d.statut == "valide" %}<span class="badge bg-success">Validé</span>{% if d.paiement %}<div><a href="{% url 'finances:exporter_recu_paiement_pdf' d.paiement.id %}" class="small">Reçu</a></div>{% endif %}
+                                    {% elif d.statut == "refuse" %}<span class="badge bg-danger">Refusé</span><div class="small text-muted">{{ d.motif_refus }}</div>
+                                    {% else %}<span class="badge bg-warning text-dark">À valider</span>{% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="mb-0 text-muted">Vous n'avez encore déclaré aucun paiement.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
