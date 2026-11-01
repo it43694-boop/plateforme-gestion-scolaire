@@ -699,6 +699,29 @@ class GererEmploiDuTempsVueTests(TestCase):
         reponse = self.client.get(reverse("pedagogie:exporter_emploi_du_temps_pdf", args=[self.autre_classe.id]))
         self.assertEqual(reponse.status_code, 404)  # hors de son périmètre : introuvable (comme une classe d'une autre école), pas seulement interdit
 
+    def test_direction_voit_pourquoi_un_creneau_en_conflit_est_refuse(self):
+        """Un enseignant déjà en cours ailleurs, ou une salle occupée : le créneau n'est pas créé ET la page dit pourquoi (message affiché)."""
+        autre_classe_meme_heure = Classe.objects.create(nom="4ème année D", cycle=Cycle.PREMIER_CYCLE, annee_scolaire=self.annee)
+        affectation_ailleurs = Affectation.objects.create(enseignant=self.enseignant, classe=autre_classe_meme_heure, matiere="Sciences")
+        CreneauEmploiDuTemps.objects.create(
+            classe=autre_classe_meme_heure, affectation=affectation_ailleurs, jour_semaine=JourSemaine.LUNDI,
+            heure_debut=datetime.time(8, 0), heure_fin=datetime.time(9, 0), salle="Salle 3",
+        )
+        direction = creer_utilisateur_actif("direction-conflit-creneau@example.com", Role.FONDATEUR)
+        self.client.force_login(direction)
+        adresse = reverse("pedagogie:gerer_emploi_du_temps", args=[self.classe.id])
+
+        reponse = self.client.post(adresse, {
+            "affectation": self.affectation.id, "jour_semaine": JourSemaine.LUNDI, "heure_debut": "08:00", "heure_fin": "09:00", "salle": "Salle 5",
+        })
+        self.assertContains(reponse, "Cet enseignant a déjà un cours ailleurs à ce moment-là.")
+
+        reponse = self.client.post(adresse, {
+            "affectation": self.affectation_autre_prof.id, "jour_semaine": JourSemaine.LUNDI, "heure_debut": "08:00", "heure_fin": "09:00", "salle": "Salle 3",
+        })
+        self.assertContains(reponse, "est déjà occupée à ce moment-là.")
+        self.assertEqual(CreneauEmploiDuTemps.objects.filter(classe=self.classe).count(), 0)
+
     def test_direction_peut_supprimer_un_creneau(self):
         creneau = CreneauEmploiDuTemps.objects.create(
             classe=self.classe, affectation=self.affectation, jour_semaine=JourSemaine.LUNDI,

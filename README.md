@@ -2483,6 +2483,13 @@ Constat sur un vrai téléphone : la carte « Notifications sur ce téléphone �
 - **Pour le développeur seulement** : quand les clés ne sont pas dans l'environnement du serveur, la page Notifications le dit et nomme les deux variables à ajouter (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`) ; les autres rôles ne voient aucun message technique.
 - Tests : `comptes/test_push.py` (classes `EssaiEtCarteTests`, `EssaiEteintTests`). Arabe : 10 nouveaux textes (page et script).
 
+## État du projet : Phase 81 — Deux messages qui ne s'affichaient pas
+
+Constat en filmant une démonstration : deux messages utiles existaient dans le code mais n'arrivaient jamais jusqu'à l'écran.
+- **Emploi du temps** : un créneau en conflit (enseignant déjà en cours ailleurs, salle occupée, classe déjà prise) était bien refusé, mais **sans dire pourquoi** : l'erreur du modèle devient une erreur « non-champ » du formulaire et le gabarit `templates/pedagogie/emploi_du_temps.html` n'affichait que les erreurs par champ. Il affiche maintenant `formulaire.non_field_errors`.
+- **Saisie hors ligne** : le bandeau « N saisie(s) en attente de synchronisation (hors-ligne) » avec son bouton « Synchroniser maintenant » (et les alertes « session expirée » et « saisie(s) non synchronisée(s) ») restait invisible : la page le déclare avec l'attribut `hidden` et la règle `[hidden]{display:none!important}` de Bootstrap l'emporte sur `style.display = "block"`. `afficherEtatHorsLigne` (`static/js/app.js`) retire et remet maintenant l'attribut `hidden`.
+- Tests : `pedagogie/tests.py`, `test_direction_voit_pourquoi_un_creneau_en_conflit_est_refuse` (les deux messages de conflit sont dans la page et aucun créneau n'est créé). Le bandeau n'a pas de test automatique (le dépôt n'a pas de test de navigateur) : il a été vérifié à l'écran, dans un navigateur sans réseau.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque

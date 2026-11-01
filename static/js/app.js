@@ -315,6 +315,7 @@ document.addEventListener("DOMContentLoaded", function () {
             conteneur.appendChild(document.createTextNode(
                 t("Votre session a expiré : reconnectez-vous pour synchroniser") + " " + chiffres(enAttente) + " " + t("saisie(s) en attente.")
             ));
+            conteneur.hidden = false;
             conteneur.style.display = "block";
             return;
         }
@@ -323,6 +324,7 @@ document.addEventListener("DOMContentLoaded", function () {
             conteneur.appendChild(document.createTextNode(
                 chiffres(enErreur) + " " + t("saisie(s) n'ont pas pu être synchronisées et doivent être ressaisies.")
             ));
+            conteneur.hidden = false;
             conteneur.style.display = "block";
             return;
         }
@@ -337,9 +339,11 @@ document.addEventListener("DOMContentLoaded", function () {
             bouton.textContent = t("Synchroniser maintenant");
             bouton.addEventListener("click", function () { synchroniserFileHorsLigne(conteneur); });
             conteneur.appendChild(bouton);
+            conteneur.hidden = false;
             conteneur.style.display = "block";
             return;
         }
+        conteneur.hidden = true;
         conteneur.style.display = "none";
     }
 
