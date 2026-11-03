@@ -3,6 +3,7 @@ Cantine : le gérant (rôle « Personnel » avec le module Cantine) et la direct
 délivrent les reçus ; les parents et les élèves consultent seulement leur propre suivi.
 """
 import datetime
+from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -26,9 +27,25 @@ from comptes.models import Utilisateur
 from comptes.pdf import creer_pdf
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role
 from permissions_matrix.modules import Module
-from scolarite.models import AnneeScolaire, Classe, Inscription
+from scolarite.models import CYCLE_PAR_ROLE_CLOISONNE, AnneeScolaire, Inscription, classes_visibles_pour
+from scolarite.numeros_cycle import eleves_dont_le_numero_contient, numeros_des_eleves
 
 DIRECTION = {role.value for role in ROLES_ACCES_TOTAL_INCONDITIONNEL}
+ROLES_SANS_GESTION_CANTINE = {Role.PARENT.value, Role.ELEVE.value}
+
+
+def gestion_cantine(vue):
+    """
+    Le module Cantine, pour le personnel seulement : inscrire, encaisser et faire l'appel ne sont jamais le travail d'un parent ou d'un élève, qui ont
+    leur page « mon suivi » - même si l'école leur accorde le module (la matrice est réglable).
+    """
+    @module_requis(Module.CANTINE)
+    @wraps(vue)
+    def enveloppe(request, *args, **kwargs):
+        if request.user.role in ROLES_SANS_GESTION_CANTINE:
+            raise PermissionDenied("La gestion de la cantine est réservée au personnel.")
+        return vue(request, *args, **kwargs)
+    return enveloppe
 
 
 def _ecole(request):
@@ -41,10 +58,36 @@ def _annee(ecole):
     return AnneeScolaire.active(ecole)
 
 
+def _perimetre_limite(request) -> bool:
+    """Un directeur de cycle, le censeur, le surveillant ou un enseignant : la cantine qu'ils voient est celle de leurs classes, pas celle de l'école."""
+    return request.user.role == Role.ENSEIGNANT.value or request.user.role in CYCLE_PAR_ROLE_CLOISONNE
+
+
+def _ses_eleves(request, annee=None):
+    """
+    None quand la personne voit toute l'école (le gérant, la direction). Sinon la sous-requête des élèves inscrits dans une de ses classes (de
+    l'année `annee` si elle est donnée) : jamais ceux d'un autre cycle que le sien.
+    """
+    if not _perimetre_limite(request):
+        return None
+    classes = classes_visibles_pour(request.user)
+    if annee is not None:
+        classes = classes.filter(annee_scolaire=annee)
+    return Inscription.objects.filter(classe__in=classes).values("eleve_id")
+
+
+def _verifier_perimetre(request, inscription):
+    """Une inscription à la cantine dont l'élève n'est pas dans une classe de la personne (cette année-là) est introuvable, comme celle d'une autre école."""
+    ses_eleves = _ses_eleves(request, inscription.annee_scolaire)
+    if ses_eleves is not None and not ses_eleves.filter(eleve_id=inscription.eleve_id).exists():
+        raise Http404("Inscription introuvable.")
+    return inscription
+
+
 def _inscription_de_l_ecole(request, inscription_id):
-    return get_object_or_404(
+    return _verifier_perimetre(request, get_object_or_404(
         InscriptionCantine.objects.select_related("eleve", "formule", "annee_scolaire"), pk=inscription_id, etablissement=_ecole(request),
-    )
+    ))
 
 
 def _classes_des_eleves(eleves_ids, annee):
@@ -62,7 +105,7 @@ def _classes_des_eleves(eleves_ids, annee):
 # Tableau de bord et fiches
 # ---------------------------------------------------------------------------
 
-@module_requis(Module.CANTINE)
+@gestion_cantine
 def tableau(request):
     ecole = _ecole(request)
     annee = _annee(ecole)
@@ -71,8 +114,14 @@ def tableau(request):
     if etat not in {"ouvertes", "impayes", "terminees", "toutes"}:
         etat = "ouvertes"
     base = InscriptionCantine.objects.filter(etablissement=ecole, annee_scolaire=annee) if annee else InscriptionCantine.objects.none()
+    ses_eleves = _ses_eleves(request, annee)
+    if ses_eleves is not None:
+        base = base.filter(eleve_id__in=ses_eleves)
     if recherche:
-        base = base.filter(Q(eleve__nom__icontains=recherche) | Q(eleve__prenom__icontains=recherche) | Q(eleve__matricule__icontains=recherche))
+        base = base.filter(
+            Q(eleve__nom__icontains=recherche) | Q(eleve__prenom__icontains=recherche) | Q(eleve__matricule__icontains=recherche)
+            | Q(eleve_id__in=eleves_dont_le_numero_contient(ecole, recherche))
+        )
     lignes = services.avec_soldes(base)
     inscrits = sum(1 for ligne in lignes if ligne.ouverte)
     if etat == "ouvertes":
@@ -93,7 +142,7 @@ def tableau(request):
     })
 
 
-@module_requis(Module.CANTINE)
+@gestion_cantine
 def fiche_inscription(request, inscription_id):
     inscription = _inscription_de_l_ecole(request, inscription_id)
     solde = services.solde_de(inscription)
@@ -112,7 +161,7 @@ def fiche_inscription(request, inscription_id):
 # Inscription des élèves
 # ---------------------------------------------------------------------------
 
-@module_requis(Module.CANTINE)
+@gestion_cantine
 @require_http_methods(["GET", "POST"])
 def inscrire_eleves(request):
     ecole = _ecole(request)
@@ -124,7 +173,7 @@ def inscrire_eleves(request):
     if not formules.exists():
         messages.info(request, "Créez d'abord une formule (un tarif) de cantine.")
         return redirect("cantine:formules")
-    classes = Classe.objects.filter(annee_scolaire=annee).order_by("cycle", "nom")
+    classes = classes_visibles_pour(request.user).filter(annee_scolaire=annee).order_by("cycle", "nom")
     choisie = request.GET.get("classe") or request.POST.get("classe") or ""
     classe = classes.filter(pk=int(choisie)).first() if choisie.isdigit() else None
     formulaire, deja_inscrits = None, []
@@ -160,7 +209,7 @@ def inscrire_eleves(request):
     })
 
 
-@module_requis(Module.CANTINE)
+@gestion_cantine
 @require_POST
 def terminer_inscription(request, inscription_id):
     inscription = _inscription_de_l_ecole(request, inscription_id)
@@ -184,7 +233,7 @@ def terminer_inscription(request, inscription_id):
 # Paiements
 # ---------------------------------------------------------------------------
 
-@module_requis(Module.CANTINE)
+@gestion_cantine
 @require_http_methods(["GET", "POST"])
 def paiement(request, inscription_id):
     inscription = _inscription_de_l_ecole(request, inscription_id)
@@ -206,13 +255,17 @@ def paiement(request, inscription_id):
     return render(request, "cantine/paiement.html", {"inscription": inscription, "formulaire": formulaire, **services.solde_de(inscription)})
 
 
-@module_requis(Module.CANTINE)
+@gestion_cantine
 def recu_pdf(request, paiement_id):
     enregistre = get_object_or_404(
-        PaiementCantine.objects.select_related("inscription__eleve", "inscription__formule", "enregistre_par", "etablissement"),
+        PaiementCantine.objects.select_related("inscription__eleve", "inscription__formule", "inscription__annee_scolaire", "enregistre_par", "etablissement"),
         pk=paiement_id, etablissement=_ecole(request),
     )
-    html = render_to_string("cantine/recu_pdf.html", {"paiement": enregistre, "inscription": enregistre.inscription, "etablissement": enregistre.etablissement}, request=request)
+    inscription = _verifier_perimetre(request, enregistre.inscription)
+    html = render_to_string("cantine/recu_pdf.html", {
+        "paiement": enregistre, "inscription": inscription, "etablissement": enregistre.etablissement,
+        "numero_cycle": numeros_des_eleves([inscription.eleve_id], annee=inscription.annee_scolaire)[inscription.eleve_id],
+    }, request=request)
     reponse = HttpResponse(content_type="application/pdf")
     reponse["Content-Disposition"] = f'attachment; filename="{nom_fichier_sur("recu", enregistre.reference)}.pdf"'
     if creer_pdf(html, reponse, request=request).err:
@@ -220,12 +273,15 @@ def recu_pdf(request, paiement_id):
     return reponse
 
 
-@module_requis(Module.CANTINE)
+@gestion_cantine
 @require_POST
 def annuler_paiement(request, paiement_id):
     if request.user.role not in DIRECTION:
         raise PermissionDenied("Seule la direction peut annuler un paiement.")
-    enregistre = get_object_or_404(PaiementCantine.objects.select_related("inscription"), pk=paiement_id, etablissement=_ecole(request))
+    enregistre = get_object_or_404(
+        PaiementCantine.objects.select_related("inscription__annee_scolaire"), pk=paiement_id, etablissement=_ecole(request),
+    )
+    _verifier_perimetre(request, enregistre.inscription)
     formulaire = AnnulationForm(request.POST)
     if not formulaire.is_valid():
         messages.error(request, "Indiquez le motif de l'annulation.")
@@ -251,7 +307,7 @@ def _date_de_l_appel(valeur) -> datetime.date:
         return timezone.localdate()
 
 
-@module_requis(Module.CANTINE)
+@gestion_cantine
 @require_http_methods(["GET", "POST"])
 def appel(request):
     ecole = _ecole(request)
@@ -262,7 +318,9 @@ def appel(request):
     if request.method == "POST":
         presents = [int(valeur) for valeur in request.POST.getlist("presents") if valeur.isdigit()]
         try:
-            ajoutes, retires = services.enregistrer_appel(etablissement=ecole, date=date, presents_ids=presents, acteur=request.user)
+            ajoutes, retires = services.enregistrer_appel(
+                etablissement=ecole, date=date, presents_ids=presents, acteur=request.user, eleves=_ses_eleves(request, _annee(ecole)),
+            )
         except ValidationError as erreur:
             messages.error(request, erreur.messages[0])
         else:
@@ -271,12 +329,14 @@ def appel(request):
             )
             messages.success(request, "Appel de la cantine enregistré.")
             return redirect(f"{reverse('cantine:appel')}?date={date.isoformat()}")
-    inscrits = list(services.inscrits_ce_jour(ecole, date))
+    inscrits = list(services.inscrits_ce_jour(ecole, date, eleves=_ses_eleves(request, _annee(ecole))))
     ont_mange = set(RepasCantine.objects.filter(date_repas=date, inscription__in=inscrits).values_list("inscription_id", flat=True))
     annee = _annee(ecole)
     classes = _classes_des_eleves([inscription.eleve_id for inscription in inscrits], annee)
+    numeros = numeros_des_eleves([inscription.eleve_id for inscription in inscrits], annee=annee)
     for inscription in inscrits:
         inscription.classe_nom = classes.get(inscription.eleve_id, "")
+        inscription.numero_cycle = numeros.get(inscription.eleve_id, "")
         inscription.a_mange = inscription.pk in ont_mange
     return render(request, "cantine/appel.html", {
         "date": date, "aujourdhui": timezone.localdate(), "inscrits": inscrits, "presents": len(ont_mange),
@@ -287,7 +347,7 @@ def appel(request):
 # Formules (tarifs)
 # ---------------------------------------------------------------------------
 
-@module_requis(Module.CANTINE)
+@gestion_cantine
 @require_http_methods(["GET", "POST"])
 def formules(request):
     ecole = _ecole(request)
@@ -303,7 +363,7 @@ def formules(request):
     return render(request, "cantine/formules.html", {"formulaire": formulaire, "liste": liste})
 
 
-@module_requis(Module.CANTINE)
+@gestion_cantine
 @require_POST
 def basculer_formule(request, formule_id):
     formule = get_object_or_404(FormuleCantine, pk=formule_id, etablissement=_ecole(request))

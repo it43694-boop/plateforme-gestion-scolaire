@@ -3,7 +3,7 @@ from django import forms
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
@@ -15,6 +15,7 @@ from finances.models import FraisAnnexe, Paiement
 from finances.views import _peut_gerer_les_paiements
 from permissions_matrix.modules import Module
 from scolarite.models import AnneeScolaire, Classe, Inscription
+from scolarite.numeros_cycle import ajouter_les_numeros
 
 
 class FraisAnnexeForm(BootstrapFormMixin, forms.ModelForm):
@@ -110,9 +111,14 @@ def arrieres(request):
     if annee_id.isdigit():
         inscriptions = inscriptions.filter(classe__annee_scolaire_id=int(annee_id))
     if recherche:
-        inscriptions = inscriptions.filter(Q(eleve__nom__icontains=recherche) | Q(eleve__prenom__icontains=recherche) | Q(eleve__matricule__icontains=recherche))
+        inscriptions = inscriptions.filter(
+            Q(eleve__nom__icontains=recherche) | Q(eleve__prenom__icontains=recherche) | Q(eleve__matricule__icontains=recherche)
+            # le numéro du cycle de CETTE classe (les deux conditions portent sur la même ligne de numéro)
+            | Q(eleve__numeros_cycle__numero__icontains=recherche, eleve__numeros_cycle__cycle=F("classe__cycle"))
+        ).distinct()
     lignes = lignes_d_arrieres(inscriptions)
     page_obj = Paginator(lignes, 30).get_page(request.GET.get("page"))
+    ajouter_les_numeros([ligne["inscription"] for ligne in page_obj.object_list])
     return render(request, "finances/arrieres.html", {
         "page_obj": page_obj, "lignes": page_obj.object_list, "total": sum(ligne["solde"] for ligne in lignes),
         "annees": AnneeScolaire.objects.filter(etablissement=request.user.etablissement).order_by("-date_debut"),

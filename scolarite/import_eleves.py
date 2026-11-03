@@ -169,8 +169,11 @@ def _texte(valeur):
     return " ".join(propre.split())
 
 
-def lire_classeur(fichier):
-    """Lit le premier classeur Excel envoyé ; lève ErreurFichier avec un message clair si on ne peut pas s'en servir."""
+def lire_rangees(fichier):
+    """
+    Les lignes non vides de la première feuille d'un classeur Excel envoyé : `[(numéro de ligne, valeurs)]`, titres compris. Lève ErreurFichier
+    avec un message clair si on ne peut pas s'en servir (format, taille, abîmé, trop long, vide). Sert à tous les imports Excel.
+    """
     nom = (getattr(fichier, "name", "") or "").lower()
     if not nom.endswith(".xlsx"):
         raise ErreurFichier("Le fichier doit être un classeur Excel au format .xlsx (pas .xls ni .csv).")
@@ -196,6 +199,12 @@ def lire_classeur(fichier):
 
     if not rangees:
         raise ErreurFichier("Le fichier est vide.")
+    return rangees
+
+
+def lire_classeur(fichier):
+    """Lit le premier classeur Excel envoyé ; lève ErreurFichier avec un message clair si on ne peut pas s'en servir."""
+    rangees = lire_rangees(fichier)
     (_, entete), *donnees = rangees
     colonnes, ignorees = {}, []
     for position, titre in enumerate(entete):

@@ -120,11 +120,20 @@ def eleves_de_la_classe(classe):
     )
 
 
-def _index_des_eleves(eleves):
-    """Clés de recherche d'un fichier : le matricule, puis « prénom nom » et « nom prénom » (sans accent, sans casse)."""
+def _index_des_eleves(eleves, classe_id=None):
+    """
+    Clés de recherche d'un fichier : le matricule, le numéro du cycle de la classe (celui des listes), puis « prénom nom » et
+    « nom prénom » (sans accent, sans casse).
+    """
+    from scolarite.numeros_cycle import ajouter_les_numeros_de_la_classe
+
     par_matricule, par_nom = {}, {}
+    eleves = ajouter_les_numeros_de_la_classe(eleves, classe_id) if classe_id is not None else list(eleves)
     for eleve in eleves:
         par_matricule[normaliser_nom(eleve.matricule or "")] = eleve
+        numero = normaliser_nom(getattr(eleve, "numero_cycle", "") or "")
+        if numero:
+            par_matricule.setdefault(numero, eleve)
         for cle in (f"{eleve.prenom} {eleve.nom}", f"{eleve.nom} {eleve.prenom}"):
             par_nom.setdefault(normaliser_nom(cle), []).append(eleve)
     return par_matricule, par_nom
@@ -146,7 +155,7 @@ def importer_archive(classe, archive) -> BilanImportPhotos:
             raise ValidationError(f"L'archive contient trop de fichiers (plus de {LIMITE_FICHIERS_ARCHIVE}).")
         if sum(entree.file_size for entree in entrees) > LIMITE_TAILLE_ARCHIVE_DECOMPRESSEE:
             raise ValidationError("L'archive est trop volumineuse une fois décompressée (plus de 200 Mo).")
-        par_matricule, par_nom = _index_des_eleves(eleves_de_la_classe(classe))
+        par_matricule, par_nom = _index_des_eleves(eleves_de_la_classe(classe), classe.pk)
         bilan = BilanImportPhotos()
         deja_pris = set()
         for entree in entrees:

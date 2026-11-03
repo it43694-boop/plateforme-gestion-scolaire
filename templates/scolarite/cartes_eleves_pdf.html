@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load numeros %}<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -97,7 +97,7 @@
                         </td>
                     </tr></table>
                 </td></tr>
-                <tr><td class="matricule{% if arabe %} arabe{% endif %}"><span>Mat :</span> {{ carte.eleve.matricule }}</td></tr>
+                <tr><td class="matricule{% if arabe %} arabe{% endif %}"><span>Mat :</span> {{ carte.eleve|numero_du_cycle:carte.classe.cycle }}</td></tr>
                 <tr><td class="bande">{% if etablissement.devise %}{{ etablissement.devise }}{% else %}Carte d'élève{% endif %}</td></tr>
             </table>
         </td>
@@ -118,7 +118,7 @@
                         </td>
                     </tr></table>
                 </td></tr>
-                <tr><td class="identite">{{ carte.eleve.nom }} {{ carte.eleve.prenom }} - {{ carte.eleve.matricule }}</td></tr>
+                <tr><td class="identite">{{ carte.eleve.nom }} {{ carte.eleve.prenom }} - {{ carte.eleve|numero_du_cycle:carte.classe.cycle }}</td></tr>
                 <tr><td class="bande">Valable pour l'année scolaire {{ carte.annee.libelle }}</td></tr>
             </table>
         </td>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load icones %}
+{% load icones numeros %}
 {% block titre %}Conseil de classe{% endblock %}
 {% block contenu %}
 <div class="page-header">
@@ -86,7 +86,7 @@
                 {% for ligne in lignes %}
                 <tr>
                     <td class="montant-val">{% if ligne.rang %}{{ ligne.rang }}{% else %}-{% endif %}</td>
-                    <td>{{ ligne.eleve.nom_complet }} <span class="texte-matricule">({{ ligne.eleve.matricule }})</span></td>
+                    <td>{{ ligne.eleve.nom_complet }} <span class="texte-matricule">({{ ligne.eleve|numero_du_cycle:classe.cycle }})</span></td>
                     <td class="montant-val">{% if ligne.moyenne is not None %}{{ ligne.moyenne|floatformat:2 }}{% else %}-{% endif %}</td>
                     {% if reperes.note_la_conduite %}<td class="montant-val">{% if ligne.conduite is not None %}{{ ligne.conduite|floatformat:2 }}{% else %}-{% endif %}</td>{% endif %}
                     <td class="montant-val">{{ ligne.absences_non_justifiees }}</td>

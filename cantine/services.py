@@ -96,24 +96,26 @@ def terminer(*, inscription, date_fin, acteur) -> None:
 # Appel du jour
 # ---------------------------------------------------------------------------
 
-def inscrits_ce_jour(etablissement, date):
-    """Les inscriptions qui mangent à la cantine ce jour-là (commencées, pas terminées)."""
-    return (
+def inscrits_ce_jour(etablissement, date, eleves=None):
+    """Les inscriptions qui mangent à la cantine ce jour-là (commencées, pas terminées) ; `eleves` (sous-requête d'ids) limite aux élèves de la personne."""
+    inscriptions = (
         InscriptionCantine.objects.filter(etablissement=etablissement, date_debut__lte=date, annee_scolaire__est_archivee=False)
         .filter(Q(date_fin__isnull=True) | Q(date_fin__gte=date))
         .select_related("eleve", "formule").order_by("eleve__nom", "eleve__prenom", "pk")
     )
+    return inscriptions if eleves is None else inscriptions.filter(eleve_id__in=eleves)
 
 
-def enregistrer_appel(*, etablissement, date, presents_ids, acteur) -> tuple[int, int]:
+def enregistrer_appel(*, etablissement, date, presents_ids, acteur, eleves=None) -> tuple[int, int]:
     """
     Enregistre l'appel d'un jour : seuls les élèves cochés ont mangé. Rejoue sans doublon (refaire l'appel le même jour corrige le
-    précédent). Rend (repas ajoutés, repas retirés). Pas de date future.
+    précédent). Rend (repas ajoutés, repas retirés). Pas de date future. `eleves` limite l'appel aux élèves de la personne qui le fait : elle ne
+    coche ni ne décoche jamais un repas d'un élève qui n'est pas dans ses classes.
     """
     if date > timezone.localdate():
         raise ValidationError("On ne peut pas faire l'appel d'un jour qui n'est pas encore venu.")
     with transaction.atomic():
-        valides = {inscription.pk for inscription in inscrits_ce_jour(etablissement, date)}
+        valides = {inscription.pk for inscription in inscrits_ce_jour(etablissement, date, eleves)}
         presents = set(presents_ids) & valides
         deja = set(RepasCantine.objects.filter(inscription__in=valides, date_repas=date).values_list("inscription_id", flat=True))
         a_ajouter = presents - deja

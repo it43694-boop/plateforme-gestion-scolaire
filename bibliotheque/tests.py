@@ -85,6 +85,41 @@ class BibliothequeTests(TestCase):
         self.assertEqual(reponse.status_code, 403)
 
 
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class ExportZipRobusteTests(TestCase):
+    """L'export ne s'arrête plus sur un fichier absent du stockage ni sur une sélection mal écrite."""
+
+    def setUp(self):
+        self.bibliothecaire = creer_utilisateur_actif("biblio-export@example.com", Role.BIBLIOTHECAIRE)
+        self.client.force_login(self.bibliothecaire)
+
+    def noms_du_zip(self, reponse):
+        with zipfile.ZipFile(io.BytesIO(reponse.content)) as zip_fichier:
+            return zip_fichier.namelist()
+
+    def test_un_fichier_absent_du_stockage_est_ecarte_au_lieu_de_tout_refuser(self):
+        present = Document.objects.create(titre="P", fichier=SimpleUploadedFile("present.pdf", b"PPP"), ajoute_par=self.bibliothecaire)
+        perdu = Document.objects.create(titre="M", fichier=SimpleUploadedFile("perdu.pdf", b"MMM"), ajoute_par=self.bibliothecaire)
+        perdu.fichier.storage.delete(perdu.fichier.name)
+        reponse = self.client.get(reverse("bibliotheque:exporter_zip"))
+        self.assertEqual(reponse.status_code, 200)
+        self.assertEqual(self.noms_du_zip(reponse), [present.nom_fichier])
+        suivant = self.client.get(reverse("bibliotheque:liste_documents"))
+        self.assertIn("1 document(s) introuvable(s)", " ".join(str(m) for m in suivant.context["messages"]))
+
+    def test_une_selection_qui_n_est_pas_un_numero_ne_plante_pas(self):
+        Document.objects.create(titre="P", fichier=SimpleUploadedFile("present.pdf", b"PPP"), ajoute_par=self.bibliothecaire)
+        reponse = self.client.get(reverse("bibliotheque:exporter_zip") + "?id=abc")
+        self.assertEqual(reponse.status_code, 200)
+        self.assertEqual(self.noms_du_zip(reponse), [])  # « abc » ne désigne aucun document : on n'exporte pas toute la bibliothèque à sa place
+
+    def test_deux_documents_de_meme_nom_ne_s_ecrasent_pas(self):
+        Document.objects.create(titre="A", fichier=SimpleUploadedFile("cours.pdf", b"AAA"), ajoute_par=self.bibliothecaire)
+        Document.objects.create(titre="B", fichier=SimpleUploadedFile("cours.pdf", b"BBB"), ajoute_par=self.bibliothecaire)
+        reponse = self.client.get(reverse("bibliotheque:exporter_zip"))
+        self.assertEqual(len(set(self.noms_du_zip(reponse))), 2)
+
+
 class GestionBibliothequeRoleTests(TestCase):
     """
     Correctif de sécurité : un enseignant ou un élève a accès au module

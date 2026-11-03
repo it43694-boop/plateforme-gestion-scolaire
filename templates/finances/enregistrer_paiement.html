@@ -29,7 +29,7 @@
             <div class="mb-3">
                 <label class="form-label" for="recherche-eleve">Élève</label>
                 <div class="recherche-conteneur">
-                    <input type="text" id="recherche-eleve" class="form-control" autocomplete="off"{% if eleve_prefill %} value="{{ eleve_prefill.nom_complet }} ({{ eleve_prefill.matricule }})"{% endif %}
+                    <input type="text" id="recherche-eleve" class="form-control" autocomplete="off"{% if eleve_prefill %} value="{{ eleve_prefill.nom_complet }} ({{ numero_prefill }})"{% endif %}
                            placeholder="Rechercher par nom ou matricule..."
                            data-recherche-url="{% url 'finances:rechercher_eleve_json' %}"
                            data-recherche-cible="{{ formulaire.matricule_eleve.id_for_label }}"

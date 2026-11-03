@@ -37,7 +37,7 @@
             <tbody>
                 {% for ligne in lignes %}
                 <tr>
-                    <td>{{ ligne.inscription.eleve.nom_complet }} <span class="text-muted">({{ ligne.inscription.eleve.matricule }})</span></td>
+                    <td>{{ ligne.inscription.eleve.nom_complet }} <span class="text-muted">({{ ligne.inscription.numero_cycle }})</span></td>
                     <td>{{ ligne.inscription.classe }}</td>
                     <td class="text-end montant-val">{{ ligne.total_du|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>
                     <td class="text-end montant-val">{{ ligne.total_paye|montant }} {{ etablissement.code_devise|default:"FCFA" }}</td>

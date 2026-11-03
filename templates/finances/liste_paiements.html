@@ -25,7 +25,7 @@
                 {% for paiement in paiements %}
                 <tr>
                     <td class="reference-val">{{ paiement.reference }}</td>
-                    <td>{{ paiement.eleve.nom_complet }} <span class="texte-matricule">({{ paiement.eleve.matricule }})</span></td>
+                    <td>{{ paiement.eleve.nom_complet }} <span class="texte-matricule">({{ paiement.inscription.numero_cycle }})</span></td>
                     <td>
                         {{ paiement.get_tranche_display }}
                         {% if paiement.frais_annexe %}<br><span class="texte-secondaire">{{ paiement.frais_annexe.libelle }}</span>{% endif %}

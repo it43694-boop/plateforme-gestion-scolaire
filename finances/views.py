@@ -25,6 +25,7 @@ from finances.models import (
     solde_conges_payes, supprimer_paiement, supprimer_salaire,
 )
 from permissions_matrix.modules import Module
+from scolarite.numeros_cycle import ajouter_les_numeros, numero_de_l_inscription, numeros_des_eleves
 
 
 def _est_direction(utilisateur) -> bool:
@@ -67,14 +68,19 @@ def rechercher_eleve_json(request):
     terme = request.GET.get("q", "").strip()
     if len(terme) < 2:
         return JsonResponse({"resultats": []})
-    eleves = filtrer(Utilisateur.objects.filter(
+    candidats = list(Utilisateur.objects.filter(
         role=Role.ELEVE, etablissement=request.user.etablissement,
         inscriptions__classe__in=classes_visibles_pour(request.user),
         inscriptions__statut=Inscription.Statut.EN_COURS,
-    ).distinct().order_by("nom", "prenom"), terme, "nom", "prenom", "matricule", limite=10)
+    ).distinct().order_by("nom", "prenom"))
+    # Le numéro affiché (et cherché) est celui du cycle de la classe de l'élève ; la valeur envoyée reste son matricule d'origine, qui le désigne.
+    numeros = numeros_des_eleves([e.pk for e in candidats])
+    for e in candidats:
+        e.numero_cycle = numeros.get(e.pk) or e.matricule
+    eleves = filtrer(candidats, terme, "nom", "prenom", "matricule", "numero_cycle", limite=10)
     return JsonResponse({
         "resultats": [
-            {"matricule": e.matricule, "nom_complet": texte_pour_langue(request, f"{e.nom_complet} ({e.matricule})")}
+            {"matricule": e.matricule, "nom_complet": texte_pour_langue(request, f"{e.nom_complet} ({e.numero_cycle})")}
             for e in eleves
         ],
     })
@@ -134,6 +140,8 @@ def suivi_paiements(request):
 
     if request.user.role == Role.PARENT:
         inscriptions = inscriptions.filter(eleve__parents_lies=request.user)
+    elif request.user.role == Role.ELEVE:  # le solde de ses camarades de classe ne le regarde pas
+        inscriptions = inscriptions.filter(eleve=request.user)
 
     if classe_id:
         inscriptions = inscriptions.filter(classe_id=classe_id)
@@ -179,6 +187,7 @@ def suivi_paiements(request):
     arrieres = arrieres_des_eleves([ligne["inscription"].eleve for ligne in page_obj.object_list], request.user) if page_obj.object_list else {}
     for ligne in page_obj.object_list:
         ligne["arrieres"] = arrieres.get(ligne["inscription"].eleve_id, 0)
+    ajouter_les_numeros([ligne["inscription"] for ligne in page_obj.object_list])  # le numéro du cycle de sa classe, pas le matricule d'origine
     return render(request, "finances/suivi_paiements.html", {
         "page_obj": page_obj, "lignes": page_obj.object_list,
         "classes": classes_visibles_pour(request.user) if request.user.role != Role.PARENT else classes_visibles_pour(request.user).filter(
@@ -260,20 +269,25 @@ def enregistrer_paiement_vue(request):
         return redirect("finances:liste_paiements")
     return render(request, "finances/enregistrer_paiement.html", {
         "formulaire": formulaire, "eleve_prefill": eleve_prefill, "arriere_vise": arriere_vise, "declaration": declaration,
+        "numero_prefill": numeros_des_eleves([eleve_prefill.pk], annee=arriere_vise.classe.annee_scolaire if arriere_vise else None)[eleve_prefill.pk] if eleve_prefill else "",
         "inscription_visee": formulaire["inscription_visee"].value() if request.method == "POST" else None,
     })
 
 
 @module_requis(Module.FINANCES)
 def exporter_recu_paiement_pdf(request, paiement_id):
-    from scolarite.models import eleve_visible_pour
+    from scolarite.models import classes_visibles_pour, eleve_visible_pour
 
     paiement = get_object_or_404(
         Paiement, id=paiement_id, est_supprime=False, etablissement=request.user.etablissement,
     )
     if not eleve_visible_pour(request.user, paiement.eleve):
         raise PermissionDenied("Vous n'avez pas accès à ce reçu.")
-    html = render_to_string("finances/recu_paiement_pdf.html", {"paiement": paiement}, request=request)
+    # Le reçu d'une classe hors du périmètre de la personne (le cycle suivant d'un élève qu'elle a eu) : introuvable, comme celui d'une autre école.
+    get_object_or_404(classes_visibles_pour(request.user), pk=paiement.inscription.classe_id)
+    html = render_to_string("finances/recu_paiement_pdf.html", {
+        "paiement": paiement, "numero_cycle": numero_de_l_inscription(paiement.inscription),
+    }, request=request)
 
     reponse = HttpResponse(content_type="application/pdf")
     reponse["Content-Disposition"] = f'attachment; filename="recu_{paiement.reference}.pdf"'
@@ -287,10 +301,17 @@ def exporter_recu_paiement_pdf(request, paiement_id):
 def liste_paiements(request):
     paiements = Paiement.objects.filter(
         est_supprime=False, etablissement=request.user.etablissement,
-    ).select_related("eleve", "inscription__classe", "frais_annexe")
+    ).select_related("eleve", "inscription__classe", "inscription__eleve", "frais_annexe")
     if request.user.role == Role.PARENT:
         paiements = paiements.filter(eleve__parents_lies=request.user)
+    elif request.user.role == Role.ELEVE:
+        paiements = paiements.filter(eleve=request.user)
+    else:  # seulement les paiements des classes de la personne : jamais ceux d'un autre cycle que le sien
+        from scolarite.models import classes_visibles_pour
+
+        paiements = paiements.filter(inscription__classe__in=classes_visibles_pour(request.user))
     page_obj = Paginator(paiements, 25).get_page(request.GET.get("page"))
+    ajouter_les_numeros([paiement.inscription for paiement in page_obj.object_list])
     return render(request, "finances/liste_paiements.html", {
         "page_obj": page_obj, "paiements": page_obj.object_list, "est_direction": _est_direction(request.user),
         "peut_gerer_les_paiements": _peut_gerer_les_paiements(request.user),

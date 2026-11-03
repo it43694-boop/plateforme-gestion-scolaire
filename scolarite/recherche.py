@@ -49,7 +49,8 @@ def trouver_eleve(saisie, eleves):
     """
     Résout ce que la personne a tapé en UN élève de la liste `eleves` : (élève, None), ou (None, INTROUVABLE / PLUSIEURS).
 
-    Accepté : le matricule seul ; « NOM Prénom (matricule) » ou « NOM Prénom - matricule » (le dernier mot est le matricule) ;
+    Accepté : le matricule seul, ou le numéro du cycle de la classe quand la liste le porte (attribut `numero_cycle`, voir
+    scolarite.numeros_cycle) ; « NOM Prénom (matricule) » ou « NOM Prénom - matricule » (le dernier mot est le matricule) ;
     le nom complet, dans un sens ou dans l'autre, si un seul élève de la liste le porte. Jamais un bout de nom : une saisie
     à moitié tapée ne doit pas pouvoir noter ou marquer absent le mauvais élève.
     """
@@ -57,7 +58,11 @@ def trouver_eleve(saisie, eleves):
     saisie = (saisie or "").strip()
     if not saisie:
         return None, INTROUVABLE
-    par_matricule = {eleve.matricule: eleve for eleve in eleves if eleve.matricule}
+    par_matricule = {}
+    for eleve in eleves:
+        for numero in (eleve.matricule, getattr(eleve, "numero_cycle", "")):
+            if numero:
+                par_matricule.setdefault(numero, eleve)
     if saisie in par_matricule:
         return par_matricule[saisie], None
     mots = re.sub(r"[()]", " ", saisie).split()
@@ -76,11 +81,12 @@ def trouver_eleve(saisie, eleves):
 def options_de_saisie(eleves) -> list[str]:
     """
     Les propositions d'une liste déroulante de saisie : « NOM Prénom », triées par nom. Le matricule n'est ajouté que pour
-    distinguer des homonymes : il n'a pas à s'afficher pour tout le monde (c'est aussi l'identifiant de connexion de l'élève).
+    distinguer des homonymes : il n'a pas à s'afficher pour tout le monde (c'est aussi l'identifiant de connexion de l'élève). Quand la liste
+    porte le numéro du cycle de la classe (`numero_cycle`), c'est lui qui s'affiche : c'est celui des listes et des documents de la classe.
     """
     ordonnes = sorted(eleves, key=lambda e: (normaliser(e.nom), normaliser(e.prenom)))
     homonymes = Counter(normaliser(f"{e.nom} {e.prenom}") for e in ordonnes)
     return [
-        f"{e.nom} {e.prenom} ({e.matricule})" if homonymes[normaliser(f"{e.nom} {e.prenom}")] > 1 else f"{e.nom} {e.prenom}"
+        f"{e.nom} {e.prenom} ({getattr(e, 'numero_cycle', '') or e.matricule})" if homonymes[normaliser(f"{e.nom} {e.prenom}")] > 1 else f"{e.nom} {e.prenom}"
         for e in ordonnes
     ]

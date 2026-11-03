@@ -12,6 +12,7 @@
         <div>
             <h1>{{ eleve.nom_complet }}</h1>
             <p>Matricule {{ eleve.matricule }} - {{ eleve.get_sexe_display|default:"Sexe non renseigné" }}</p>
+            {% if numero_cycle_actuel %}<p class="text-muted small mb-0">Numéro du cycle actuel : {{ numero_cycle_actuel }}</p>{% endif %}
             {% if peut_voir_etat_civil and eleve.handicap or peut_voir_etat_civil and eleve.statut_deplacement %}
             <p class="text-muted small mb-0">
                 {% if eleve.handicap %}Situation de handicap : {{ eleve.get_handicap_display }}{% endif %}
@@ -208,12 +209,13 @@
     <div class="card-body">
         <h2 class="titre-section">Historique des classes</h2>
         <table class="table">
-            <thead><tr><th>Année scolaire</th><th>Classe</th><th>Statut</th><th>Détails</th></tr></thead>
+            <thead><tr><th>Année scolaire</th><th>Classe</th><th>Numéro du cycle</th><th>Statut</th><th>Détails</th></tr></thead>
             <tbody>
                 {% for inscription in inscriptions %}
                 <tr>
                     <td>{{ inscription.classe.annee_scolaire.libelle }}</td>
                     <td>{{ inscription.classe.nom }}</td>
+                    <td>{{ inscription.numero_visible|default:"-" }}</td>
                     <td>{{ inscription.get_statut_display }}</td>
                     <td class="text-muted small">
                         {% if inscription.transfert %}
@@ -225,7 +227,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="4">Aucune inscription enregistrée.</td></tr>
+                <tr><td colspan="5">Aucune inscription enregistrée.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

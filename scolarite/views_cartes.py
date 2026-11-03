@@ -15,7 +15,9 @@ from scolarite.cartes import ajouter_les_signataires, construire_cartes, pages
 from scolarite.documents import logo_en_donnees, ville_de_l_ecole
 from scolarite.models import (
     ROLES_ETAT_CIVIL_ELEVE, Inscription, classes_visibles_pour, eleve_de_l_etablissement_ou_404, eleve_visible_pour,
+    inscriptions_visibles_pour,
 )
+from scolarite.numeros_cycle import numero_de_l_inscription
 
 
 def _verifier_droit(utilisateur):
@@ -53,7 +55,7 @@ def cartes_classe_pdf(request, classe_id):
     classe = get_object_or_404(classes_visibles_pour(request.user), id=classe_id)
     inscriptions = list(
         Inscription.objects.filter(classe=classe, statut=Inscription.Statut.EN_COURS)
-        .select_related("eleve", "classe__annee_scolaire").order_by("eleve__nom", "eleve__prenom")
+        .select_related("eleve", "classe__annee_scolaire").prefetch_related("eleve__numeros_cycle").order_by("eleve__nom", "eleve__prenom")
     )
     reponse = _reponse_pdf(request, inscriptions, nom_fichier_sur("cartes", classe.nom, classe.annee_scolaire.libelle), str(classe))
     if reponse is None:
@@ -68,10 +70,11 @@ def carte_eleve_pdf(request, matricule):
     eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
     if not eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès à cet élève.")
-    inscriptions = list(
-        Inscription.objects.filter(eleve=eleve, statut=Inscription.Statut.EN_COURS).select_related("eleve", "classe__annee_scolaire")[:1]
+    inscriptions = list(  # la carte de la classe en cours, si elle est dans le périmètre de la personne (jamais celle d'un autre cycle)
+        inscriptions_visibles_pour(request.user, eleve).filter(statut=Inscription.Statut.EN_COURS).select_related("eleve", "classe__annee_scolaire")[:1]
     )
-    reponse = _reponse_pdf(request, inscriptions, nom_fichier_sur("carte", eleve.matricule), eleve.matricule)
+    numero = numero_de_l_inscription(inscriptions[0]) if inscriptions else eleve.matricule  # le fichier porte le numéro imprimé sur la carte
+    reponse = _reponse_pdf(request, inscriptions, nom_fichier_sur("carte", numero), eleve.matricule)
     if reponse is None:
         messages.error(request, "Aucune inscription en cours pour cet élève : aucune carte à imprimer.")
         return redirect("scolarite:dossier_eleve", matricule=eleve.matricule)

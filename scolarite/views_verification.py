@@ -4,6 +4,7 @@ from django_ratelimit.core import ALL
 from django_ratelimit.decorators import ratelimit
 
 from scolarite.models import VerificationDocument, normaliser_code_verification
+from scolarite.numeros_cycle import numero_du_cycle
 
 
 @ratelimit(key="ip", rate="20/m", method=ALL, block=False)
@@ -27,7 +28,7 @@ def verifier(request):
         else:
             contexte["resultat"] = {
                 "type_document": verification.get_type_document_display(), "eleve": verification.eleve.nom_complet,
-                "matricule": verification.eleve.matricule, "classe": verification.inscription.classe,
+                "matricule": numero_du_cycle(verification.eleve, verification.inscription.classe.cycle), "classe": verification.inscription.classe,
                 "etablissement": verification.inscription.classe.annee_scolaire.etablissement.nom, "emis_le": verification.cree_le,
                 "code": verification.code,
             }

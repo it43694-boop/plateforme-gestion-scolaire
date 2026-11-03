@@ -10,7 +10,9 @@ from finances.models import Paiement
 from pedagogie.models import Absence, Note
 from permissions_matrix.models import PermissionMatrix
 from permissions_matrix.modules import Module
-from scolarite.models import Inscription, dossier_complet, eleve_visible_pour, eleves_visibles_pour
+from scolarite.models import (
+    Inscription, classes_visibles_pour, dossier_complet, eleve_visible_pour, eleves_visibles_pour, inscriptions_visibles_pour,
+)
 from scolarite.recherche import PLUSIEURS, filtrer, trouver_eleve
 from assistant.services import (
     AssistantIndisponible,
@@ -150,9 +152,17 @@ def rechercher_eleve_json(request):
     terme = request.GET.get("q", "").strip()
     if len(terme) < 2:
         return JsonResponse({"resultats": []})
-    eleves = filtrer(eleves_visibles_pour(request.user).order_by("nom", "prenom"), terme, "nom", "prenom", "matricule", limite=10)
+    from scolarite.models import classes_visibles_pour
+    from scolarite.numeros_cycle import numeros_des_eleves
+
+    candidats = list(eleves_visibles_pour(request.user).order_by("nom", "prenom"))
+    # Le numéro affiché (et cherché) est celui du cycle d'une classe que la personne voit ; la valeur envoyée reste le matricule d'origine.
+    numeros = numeros_des_eleves([e.pk for e in candidats], classes=classes_visibles_pour(request.user))
+    for e in candidats:
+        e.numero_cycle = numeros.get(e.pk) or e.matricule
+    eleves = filtrer(candidats, terme, "nom", "prenom", "matricule", "numero_cycle", limite=10)
     return JsonResponse({"resultats": [
-        {"matricule": e.matricule, "nom_complet": texte_pour_langue(request, f"{e.nom_complet} ({e.matricule})")} for e in eleves
+        {"matricule": e.matricule, "nom_complet": texte_pour_langue(request, f"{e.nom_complet} ({e.numero_cycle})")} for e in eleves
     ]})
 
 
@@ -236,19 +246,21 @@ def poser_question(request):
             erreur = "Vous n'avez pas accès aux informations de cet élève."
         else:
             resultat = {"eleve": eleve, "dossier_complet": dossier_complet(eleve)}
-            resultat["inscription"] = Inscription.objects.filter(
-                eleve=eleve, statut=Inscription.Statut.EN_COURS,
+            # Seulement ce qui s'est passé dans les classes de la personne : un directeur du 1er cycle n'apprend rien du cycle suivant de l'élève.
+            classes_visibles = classes_visibles_pour(request.user)
+            resultat["inscription"] = inscriptions_visibles_pour(request.user, eleve).filter(
+                statut=Inscription.Statut.EN_COURS,
             ).select_related("classe").first()
 
             if PermissionMatrix.a_acces(request.user.role, "notes_bulletins", etablissement=request.user.etablissement):
-                resultat["dernieres_notes"] = Note.objects.filter(eleve=eleve).select_related(
+                resultat["dernieres_notes"] = Note.objects.filter(eleve=eleve, affectation__classe__in=classes_visibles).select_related(
                     "affectation",
                 ).order_by("-modifie_le")[:5]
             if PermissionMatrix.a_acces(request.user.role, "absences", etablissement=request.user.etablissement):
-                resultat["total_absences"] = Absence.objects.filter(eleve=eleve).count()
+                resultat["total_absences"] = Absence.objects.filter(eleve=eleve, classe__in=classes_visibles).count()
             if PermissionMatrix.a_acces(request.user.role, "finances", etablissement=request.user.etablissement):
                 resultat["derniers_paiements"] = Paiement.objects.filter(
-                    eleve=eleve, est_supprime=False,
+                    eleve=eleve, est_supprime=False, inscription__classe__in=classes_visibles,
                 ).order_by("-date_paiement")[:5]
 
             if question_libre and ia_disponible():

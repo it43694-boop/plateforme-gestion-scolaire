@@ -142,22 +142,37 @@ def exporter_zip(request):
     ids_selection = request.GET.getlist("id")
     documents = Document.objects.filter(etablissement=request.user.etablissement)
     if ids_selection:
-        documents = documents.filter(id__in=ids_selection)
+        documents = documents.filter(id__in=[valeur for valeur in ids_selection if valeur.isdigit()])  # une valeur qui n'est pas un numéro ne désigne rien
 
     tampon = io.BytesIO()
     if documents.count() > 500:
         messages.error(request, "L'export est limité à 500 documents. Sélectionnez un sous-ensemble.")
         return redirect("bibliotheque:liste_documents")
+    ecrits, manquants, noms = 0, 0, set()
     with zipfile.ZipFile(tampon, "w", zipfile.ZIP_DEFLATED) as zip_fichier:
         for document in documents:
-            document.fichier.open("rb")
-            zip_fichier.writestr(document.nom_fichier, document.fichier.read())
-            document.fichier.close()
+            try:
+                document.fichier.open("rb")
+                try:
+                    contenu = document.fichier.read()
+                finally:
+                    document.fichier.close()
+            except (OSError, ValueError):  # le fichier n'est plus dans le stockage : on l'écarte au lieu de tout refuser
+                manquants += 1
+                continue
+            nom = document.nom_fichier
+            if nom in noms:  # deux documents de même nom ne s'écrasent pas dans l'archive
+                nom = f"{document.pk}_{nom}"
+            noms.add(nom)
+            zip_fichier.writestr(nom, contenu)
+            ecrits += 1
     tampon.seek(0)
+    if manquants:
+        messages.warning(request, f"{manquants} document(s) introuvable(s) dans le stockage n'ont pas été mis dans l'archive.")
 
     enregistrer_action(
         acteur=request.user, action="export_zip_bibliotheque",
-        details={"nombre_fichiers": documents.count()}, request=request,
+        details={"nombre_fichiers": ecrits, "manquants": manquants}, request=request,
     )
     reponse = HttpResponse(tampon.getvalue(), content_type="application/zip")
     reponse["Content-Disposition"] = 'attachment; filename="bibliotheque.zip"'

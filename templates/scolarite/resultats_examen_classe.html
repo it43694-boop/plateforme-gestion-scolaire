@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load icones %}
+{% load icones numeros %}
 {% block titre %}Résultats d'examen - {{ classe.nom }}{% endblock %}
 {% block contenu %}
 <div class="page-header">
@@ -31,7 +31,7 @@
                     {% for ligne in lignes %}
                     <tr>
                         <td>{{ ligne.inscription.eleve.nom_complet }}</td>
-                        <td>{{ ligne.inscription.eleve.matricule }}</td>
+                        <td>{{ ligne.inscription.eleve|numero_du_cycle:classe.cycle }}</td>
                         <td>
                             <select name="resultat_{{ ligne.inscription.id }}" class="form-select form-select-sm" aria-label="Résultat de {{ ligne.inscription.eleve.nom_complet }}">
                                 <option value="" {% if not ligne.resultat %}selected{% endif %}>— Non renseigné —</option>

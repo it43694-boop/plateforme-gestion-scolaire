@@ -15,7 +15,7 @@ from scolarite.photos import preparer_photo
 from scolarite.models import (
     DEVISE_PAR_DEFAUT, NOMBRE_VERSEMENTS_FIXE, AnneeScolaire, Classe, Cycle, DomaineProfessionnel, EcheancierFrais,
     EvenementCalendrier, FiliereProfessionnelle,
-    Inscription, NIVEAUX_PAR_CYCLE, Niveau, ParentEnAttente, Periodicite, Serie, cycles_autorises_pour,
+    Inscription, NIVEAUX_PAR_CYCLE, Niveau, NumeroCycle, ParentEnAttente, Periodicite, Serie, cycles_autorises_pour,
 )
 
 
@@ -242,6 +242,13 @@ class InscrireEleveForm(BootstrapFormMixin, forms.Form):
         if email_1 and email_2 and email_1.strip().lower() == email_2.strip().lower():
             self.add_error("parent_email_2", "Les deux parents doivent avoir des emails différents.")
             return cleaned
+        # Un matricule ne reprend pas le numéro, dans le cycle de cette classe, d'un autre élève de l'école : une recherche trouverait deux personnes.
+        # Seul le cycle de la classe choisie est regardé : le numéro d'un autre cycle ne concerne pas la personne qui inscrit.
+        classe, matricule = cleaned.get("classe"), (cleaned.get("matricule") or "").strip()
+        if classe is not None and matricule and NumeroCycle.objects.filter(
+            etablissement=self._etablissement, cycle=classe.cycle, numero__iexact=matricule,
+        ).exists():
+            self.add_error("matricule", "Ce matricule est déjà utilisé par un autre élève.")
         parent_1, en_attente_1 = self._resoudre_parent("1", email_1)
         parent_2, en_attente_2 = self._resoudre_parent("2", email_2)
         if parent_1 and parent_2 and parent_1.pk == parent_2.pk:

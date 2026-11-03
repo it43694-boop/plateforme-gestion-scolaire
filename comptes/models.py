@@ -135,10 +135,13 @@ def generer_matricule():
     `creer_avec_matricule_unique` ci-dessous, utilisé par les points
     d'entrée qui créent un élève).
     """
+    from scolarite.models import NumeroCycle  # import local : scolarite dépend déjà de comptes
+
     annee = timezone.now().year
     for _ in range(20):
         candidat = f"{annee}{random.randint(10000, 99999)}"
-        if not Utilisateur.objects.filter(matricule=candidat).exists():
+        # Ni un matricule existant, ni le numéro de cycle d'un élève (voir scolarite.numeros_cycle) : un numéro désigne une seule personne.
+        if not Utilisateur.objects.filter(matricule=candidat).exists() and not NumeroCycle.objects.filter(numero=candidat).exists():
             return candidat
     raise RuntimeError("Impossible de générer un matricule unique - réessayez.")
 

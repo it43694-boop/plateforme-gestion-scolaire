@@ -6,6 +6,7 @@ from django.views.decorators.http import require_http_methods
 
 from comptes.audit import enregistrer_action
 from comptes.decorators import module_requis
+from comptes.excel import nom_fichier_sur
 from comptes.models import Utilisateur, creer_avec_matricule_unique, generer_matricule
 from comptes.roles import ROLES_ACCES_TOTAL_INCONDITIONNEL, Role, StatutCompte
 from permissions_matrix.modules import Module
@@ -14,14 +15,16 @@ from scolarite.forms import (
     formset_parents_en_attente,
 )
 from scolarite.inscription_eleve import DOMAINE_EMAIL_AUTO_ELEVE, creer_eleve_inscrit  # noqa: F401 (réexporté)
+from scolarite.numeros_cycle import ajouter_les_numeros, numero_du_cycle
 from scolarite.views_exports import droits_export_listes
 from scolarite.models import (
     Affectation, AnneeScolaire, Classe, Inscription, ParentEnAttente, TypeDocumentVerifiable, VerificationDocument,
     classes_visibles_pour, cloturer_inscription, dossier_complet, eleve_visible_pour, lier_parent_a_eleve, passer_eleve,
     NIVEAUX_PAR_CYCLE, Examen, Niveau, ResultatExamen, eleve_de_l_etablissement_ou_404, examens_pour_classe,
     peut_voir_etat_civil_eleve, peut_corriger_dossier_eleve, lier_parents_en_attente, ROLES_ETAT_CIVIL_ELEVE,
-    calculer_total_du,
+    calculer_total_du, eleve_suivi_par, inscriptions_visibles_pour,
 )
+from scolarite.anciens import peut_reintegrer
 
 # Qui peut remettre un mot de passe provisoire à un élève : la direction et le secrétariat, qui gèrent
 # déjà les dossiers (jamais un enseignant, un parent, un comptable, le Censeur ou le Surveillant
@@ -104,7 +107,7 @@ def dossier_eleve(request, matricule):
     quatre écrans différents.
     """
     from django.core.exceptions import PermissionDenied
-    from django.db.models import Sum
+    from django.db.models import Sum, prefetch_related_objects
     from django.shortcuts import get_object_or_404
 
     eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
@@ -116,23 +119,32 @@ def dossier_eleve(request, matricule):
     peut_voir_absences = PermissionMatrix.a_acces(request.user.role, "absences", etablissement=request.user.etablissement)
     peut_voir_finances = PermissionMatrix.a_acces(request.user.role, "finances", etablissement=request.user.etablissement)
 
-    inscriptions = Inscription.objects.filter(eleve=eleve).select_related(
+    # Seul le parcours dans les classes de la personne : un directeur du 1er cycle ou un enseignant qui a eu l'élève ne lit pas ce qui s'est passé
+    # ensuite dans un autre cycle (classes, résultats, absences, paiements, documents). L'élève et ses parents voient tout.
+    inscriptions = inscriptions_visibles_pour(request.user, eleve).select_related(
         "classe", "classe__annee_scolaire",
     ).order_by("-classe__annee_scolaire__date_debut")
     inscription_active = inscriptions.filter(statut=Inscription.Statut.EN_COURS).first()
+    classes_visibles = classes_visibles_pour(request.user)
+
+    # Le numéro de chaque cycle ; sans numéro propre, c'est le matricule d'origine, déjà écrit en tête du dossier.
+    historique = list(inscriptions.select_related("transfert", "abandon"))
+    prefetch_related_objects([eleve], "numeros_cycle")
+    for inscription in historique:
+        inscription.numero_visible = numero_du_cycle(eleve, inscription.classe.cycle)
+    numero_actuel = next((i.numero_visible for i in historique if i.pk == getattr(inscription_active, "pk", None)), "")
 
     contexte = {
         "eleve": eleve, "dossier_complet": dossier_complet(eleve),
-        "inscriptions": inscriptions.select_related("transfert", "abandon"), "inscription_active": inscription_active,
+        "inscriptions": historique, "inscription_active": inscription_active,
+        "numero_cycle_actuel": numero_actuel if numero_actuel != eleve.matricule else "",
         "parents": eleve.parents_lies.all(), "parents_en_attente": eleve.parents_en_attente.all(),
         "peut_voir_etat_civil": peut_voir_etat_civil_eleve(request.user, eleve),
         "peut_voir_notes": peut_voir_notes, "peut_voir_absences": peut_voir_absences, "peut_voir_finances": peut_voir_finances,
         "peut_cloturer_inscription": request.user.role not in ROLES_INSCRIPTION_ELEVE_INTERDITE,
         "peut_corriger_dossier": peut_corriger_dossier_eleve(request.user, eleve),
         "peut_imprimer_carte": request.user.role in ROLES_ETAT_CIVIL_ELEVE,
-        "peut_reintegrer": request.user.role in ROLES_ETAT_CIVIL_ELEVE and not inscription_active and any(
-            i.statut in ("transfere", "abandon") for i in inscriptions
-        ),
+        "peut_reintegrer": request.user.role in ROLES_ETAT_CIVIL_ELEVE and peut_reintegrer(request.user, eleve),
         "documents_possibles": _documents_possibles(request.user, inscriptions),
         "peut_retirer_eleve": request.user.role == Role.DEVELOPPEUR.value,
         "peut_mot_de_passe_provisoire": request.user.role in ROLES_MOT_DE_PASSE_PROVISOIRE_ELEVE,
@@ -141,19 +153,19 @@ def dossier_eleve(request, matricule):
     if contexte["peut_voir_etat_civil"]:
         # Résultats aux examens : l'élève, ses parents et l'administration scolaire (comme l'état civil).
         contexte["resultats_examens"] = list(
-            ResultatExamen.objects.filter(inscription__eleve=eleve)
+            ResultatExamen.objects.filter(inscription__in=inscriptions)
             .select_related("inscription__classe__annee_scolaire")
             .order_by("-inscription__classe__annee_scolaire__date_debut", "examen")
         )
 
     if peut_voir_absences:
         from pedagogie.models import Absence
-        contexte["total_absences"] = Absence.objects.filter(eleve=eleve).count()
+        contexte["total_absences"] = Absence.objects.filter(eleve=eleve, classe__in=classes_visibles).count()
 
     if peut_voir_finances:
         from finances.models import Paiement
         contexte["total_paye"] = Paiement.objects.filter(
-            eleve=eleve, est_supprime=False,
+            eleve=eleve, est_supprime=False, inscription__in=inscriptions,
         ).aggregate(total=Sum("montant"))["total"] or 0
         if inscription_active:
             echeancier = getattr(inscription_active.classe, "echeancier", None)
@@ -241,7 +253,7 @@ def mot_de_passe_provisoire(request, matricule):
     if request.user.role not in ROLES_MOT_DE_PASSE_PROVISOIRE_ELEVE:
         raise PermissionDenied("Vous n'avez pas le droit de remettre un mot de passe à un élève.")
     eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
-    if not eleve_visible_pour(request.user, eleve):
+    if not eleve_suivi_par(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès à cet élève.")
 
     mot_de_passe = generer_mot_de_passe_provisoire()
@@ -282,7 +294,10 @@ def cloturer_inscription_vue(request, matricule):
     if not eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès au dossier de cet élève.")
 
-    inscription = get_object_or_404(Inscription, eleve=eleve, statut=Inscription.Statut.EN_COURS)
+    # L'inscription en cours doit être dans une classe de la personne : un directeur du 1er cycle ne clôture pas l'inscription d'un élève du lycée.
+    inscription = get_object_or_404(
+        inscriptions_visibles_pour(request.user, eleve).select_related("classe__annee_scolaire"), statut=Inscription.Statut.EN_COURS,
+    )
 
     formulaire = CloturerInscriptionForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and formulaire.is_valid():
@@ -330,8 +345,8 @@ def generer_attestation_scolarite(request, matricule):
     if not eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès à cet élève.")
 
-    inscription = Inscription.objects.filter(
-        eleve=eleve, statut=Inscription.Statut.EN_COURS,
+    inscription = inscriptions_visibles_pour(request.user, eleve).filter(
+        statut=Inscription.Statut.EN_COURS,
     ).select_related("classe", "classe__annee_scolaire").first()
     if inscription is None:
         messages.error(request, "Aucune inscription en cours pour cet élève : impossible d'émettre une attestation.")
@@ -367,7 +382,7 @@ def generer_attestation_scolarite(request, matricule):
     }, request=request)
 
     reponse = HttpResponse(content_type="application/pdf")
-    reponse["Content-Disposition"] = f'attachment; filename="attestation_{eleve.matricule}.pdf"'
+    reponse["Content-Disposition"] = f'attachment; filename="{nom_fichier_sur("attestation", numero_du_cycle(eleve, inscription.classe.cycle))}.pdf"'
     resultat = creer_pdf(html, reponse, request=request)
     if resultat.err:
         return HttpResponse("Erreur lors de la génération du PDF.", status=500)
@@ -396,7 +411,7 @@ def verifier_document(request, jeton):
         "valide": True,
         "type_document": verification.get_type_document_display(),
         "eleve": verification.eleve.nom_complet,
-        "matricule": verification.eleve.matricule,
+        "matricule": numero_du_cycle(verification.eleve, verification.inscription.classe.cycle),
         "classe": str(verification.inscription.classe),
         "etablissement": verification.inscription.classe.annee_scolaire.etablissement.nom,
         "emis_le": verification.cree_le.isoformat(),
@@ -445,7 +460,7 @@ def liste_eleves(request):
 
     page_obj = Paginator(inscriptions, 30).get_page(request.GET.get("page"))
     return render(request, "scolarite/liste_eleves.html", {
-        "page_obj": page_obj, "inscriptions": page_obj.object_list,
+        "page_obj": page_obj, "inscriptions": ajouter_les_numeros(page_obj.object_list),
         "classes": classes, "classe_id": classe_id,
         "peut_voir_bulletin": PermissionMatrix.a_acces(request.user.role, "notes_bulletins", etablissement=request.user.etablissement),
         "peut_voir_absences": PermissionMatrix.a_acces(request.user.role, "absences", etablissement=request.user.etablissement),
@@ -480,7 +495,8 @@ def recherche_globale(request):
         # Nom, prénom ou matricule, dans n'importe quel ordre et sans tenir compte des accents (« aissata » trouve « Aïssata »).
         from scolarite.recherche import filtrer
 
-        resultats = filtrer(inscriptions, terme, "eleve.nom", "eleve.prenom", "eleve.matricule", limite=25)
+        # Le numéro du cycle de la classe se cherche comme le matricule d'origine (chaque cycle donne le sien).
+        resultats = filtrer(ajouter_les_numeros(inscriptions), terme, "eleve.nom", "eleve.prenom", "eleve.matricule", "numero_cycle", limite=25)
 
     return render(request, "scolarite/recherche_globale.html", {"terme": terme, "resultats": resultats})
 
@@ -559,9 +575,9 @@ def passage_de_classe(request, classe_id):
 
     from pedagogie.conseils import decisions_de_passage_du_conseil
 
-    eleves_en_cours = list(Inscription.objects.filter(
+    eleves_en_cours = ajouter_les_numeros(Inscription.objects.filter(
         classe=classe_source, statut=Inscription.Statut.EN_COURS,
-    ).select_related("eleve").order_by("eleve__nom"))
+    ).select_related("eleve", "classe").order_by("eleve__nom"))
     decisions_du_conseil = decisions_de_passage_du_conseil(classe_source)  # décisions du conseil validé du 3ème trimestre, sinon vide
     for inscription in eleves_en_cours:
         inscription.decision_du_conseil = decisions_du_conseil.get(inscription.eleve_id, "")
@@ -605,6 +621,12 @@ def passage_de_classe(request, classe_id):
                 f"Passage de classe effectué : {compteurs['admis']} admis, "
                 f"{compteurs['redouble']} redoublant(s), {compteurs['transfere']} transfert(s).",
             )
+            if classe_admis and compteurs["admis"] and classe_admis.cycle != classe_source.cycle:
+                messages.info(
+                    request,
+                    f"Les élèves admis changent de cycle ({classe_admis.get_cycle_display()}) : renseignez leur nouveau numéro "
+                    f"dans le menu « Actions » de la classe « {classe_admis.nom} », rubrique « Numéros du cycle ».",
+                )
             return redirect("scolarite:liste_classes")
 
     return render(request, "scolarite/passage_de_classe.html", {
@@ -671,6 +693,7 @@ def liste_classes(request):
         "peut_voir_emploi_du_temps": PermissionMatrix.a_acces(request.user.role, "emploi_du_temps", etablissement=request.user.etablissement),
         "peut_voir_statistiques": PermissionMatrix.a_acces(request.user.role, "statistiques", etablissement=request.user.etablissement),
         "peut_saisir_resultats": request.user.role in ROLES_RESULTATS_EXAMEN,
+        "peut_saisir_numeros": request.user.role in ROLES_ETAT_CIVIL_ELEVE,
         **droits_export_listes(request.user),
     })
 
@@ -747,7 +770,7 @@ def saisir_resultats_examen(request, classe_id):
     inscriptions = list(
         Inscription.objects.filter(classe=classe)
         .exclude(statut__in=[Inscription.Statut.ABANDON, Inscription.Statut.TRANSFERE])
-        .select_related("eleve").order_by("eleve__nom", "eleve__prenom")
+        .select_related("eleve").prefetch_related("eleve__numeros_cycle").order_by("eleve__nom", "eleve__prenom")
     )
     existants = {
         resultat.inscription_id: resultat
@@ -808,4 +831,110 @@ def saisir_resultats_examen(request, classe_id):
             for inscription in inscriptions
         ],
         "choix": ResultatExamen.Resultat.choices,
+    })
+
+
+def _classe_des_numeros(request, classe_id):
+    """La classe dont la personne règle les numéros : droit de l'administration des dossiers, classe de son périmètre (sinon introuvable)."""
+    from django.core.exceptions import PermissionDenied
+
+    if request.user.role not in ROLES_ETAT_CIVIL_ELEVE:
+        raise PermissionDenied("Vous n'avez pas le droit de modifier les numéros des élèves.")
+    return get_object_or_404(classes_visibles_pour(request.user).select_related("annee_scolaire"), id=classe_id)
+
+
+def _numeros_propres(classe, eleves_ids) -> dict:
+    from scolarite.models import NumeroCycle
+
+    return {ligne.eleve_id: ligne.numero for ligne in NumeroCycle.objects.filter(eleve_id__in=list(eleves_ids), cycle=classe.cycle)}
+
+
+@module_requis(Module.ELEVES)
+def modele_numeros_cycle(request, classe_id):
+    """Le classeur Excel de la classe, à remplir puis renvoyer sur la page « Numéros du cycle » (voir scolarite.import_numeros)."""
+    from comptes.excel import nom_fichier_sur, reponse_xlsx
+    from scolarite.import_numeros import modele_xlsx
+    from scolarite.numeros_cycle import eleves_de_la_classe
+
+    classe = _classe_des_numeros(request, classe_id)
+    eleves = eleves_de_la_classe(classe)
+    classeur = modele_xlsx(classe, eleves, _numeros_propres(classe, eleves))
+    return reponse_xlsx(classeur, nom_fichier_sur("numeros", classe.nom, classe.annee_scolaire.libelle), request)
+
+
+@module_requis(Module.ELEVES)
+@require_http_methods(["GET", "POST"])
+def saisir_numeros_cycle(request, classe_id):
+    """
+    Saisie par classe du numéro (matricule) de chaque élève dans le cycle de cette classe : chaque cycle donne le sien. Le matricule
+    d'origine ne change jamais ; un champ vide le laisse en place. Réservé à l'administration qui gère déjà les dossiers, et à une
+    classe de son périmètre (un directeur de cycle ne voit que son cycle). Le journal note combien de numéros ont changé, jamais lesquels.
+
+    Un fichier Excel rempli (action « importer ») ne fait que poser ses numéros dans les champs de la page : rien n'est enregistré avant
+    que la personne les ait vérifiés et cliqué sur « Enregistrer les numéros ».
+    """
+    from scolarite.import_eleves import ErreurFichier
+    from scolarite.import_numeros import associer, lire_numeros
+    from scolarite.numeros_cycle import eleves_de_la_classe, enregistrer_les_numeros, verifier_les_numeros
+
+    classe = _classe_des_numeros(request, classe_id)
+    inscriptions = list(
+        Inscription.objects.filter(classe=classe)
+        .exclude(statut__in=[Inscription.Statut.ABANDON, Inscription.Statut.TRANSFERE])
+        .select_related("eleve").order_by("eleve__nom", "eleve__prenom")
+    )
+    propres = _numeros_propres(classe, [inscription.eleve_id for inscription in inscriptions])
+    erreurs = {}
+    saisies = {}
+    erreurs_fichier = []
+    if request.method == "POST" and request.POST.get("action") == "importer":
+        fichier = request.FILES.get("fichier")
+        if fichier is None:
+            messages.error(request, "Choisissez d'abord le fichier Excel à importer.")
+        else:
+            try:
+                saisies, erreurs_fichier = associer(eleves_de_la_classe(classe), lire_numeros(fichier))
+            except ErreurFichier as erreur:
+                messages.error(request, str(erreur))
+            else:
+                if erreurs_fichier:
+                    messages.error(request, "Le fichier n'a pas été lu en entier : corrigez les lignes signalées, puis renvoyez-le.")
+                    saisies = {}
+                elif not saisies:
+                    messages.warning(request, "Aucun numéro à lire dans ce fichier : écrivez-les dans la colonne « Numéro du cycle ».")
+                else:
+                    erreurs = verifier_les_numeros(classe, saisies)
+                    messages.info(
+                        request,
+                        f"Fichier lu : {len(saisies)} numéro(s) placé(s) dans les champs. Rien n'est enregistré : vérifiez, "
+                        "puis cliquez sur « Enregistrer les numéros ».",
+                    )
+    elif request.method == "POST":
+        saisies = {inscription.eleve_id: request.POST.get(f"numero_{inscription.eleve_id}", "") for inscription in inscriptions
+                   if f"numero_{inscription.eleve_id}" in request.POST}
+        compteurs, erreurs = enregistrer_les_numeros(classe, saisies)
+        if not erreurs:
+            if any(compteurs.values()):
+                enregistrer_action(
+                    acteur=request.user, action="numeros_cycle_saisis", cible=f"{classe.nom} - {classe.get_cycle_display()}",
+                    details=compteurs, request=request,
+                )
+                messages.success(
+                    request,
+                    f"Numéros enregistrés : {compteurs['ajoutes']} ajouté(s), {compteurs['modifies']} modifié(s), {compteurs['supprimes']} retiré(s).",
+                )
+            else:
+                messages.info(request, "Aucun changement.")
+            return redirect("scolarite:saisir_numeros_cycle", classe_id=classe.id)
+        messages.error(request, "Rien n'a été enregistré : corrigez les lignes signalées.")
+
+    lignes = []
+    for inscription in inscriptions:
+        valeur = saisies.get(inscription.eleve_id, propres.get(inscription.eleve_id, ""))
+        lignes.append({
+            "inscription": inscription, "valeur": valeur, "erreur": erreurs.get(inscription.eleve_id, ""),
+            "modifie": (valeur or "") != propres.get(inscription.eleve_id, ""),
+        })
+    return render(request, "scolarite/numeros_cycle_classe.html", {
+        "classe": classe, "lignes": lignes, "erreurs_fichier": erreurs_fichier,
     })

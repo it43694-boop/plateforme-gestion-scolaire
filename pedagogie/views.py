@@ -7,7 +7,7 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -31,10 +31,11 @@ from pedagogie.models import (
     appreciation_pour, saisir_note,
 )
 from permissions_matrix.modules import Module
+from scolarite.numeros_cycle import numero_de_l_inscription, numero_du_cycle
 from scolarite.views_exports import droits_export_listes
 from scolarite.models import (
     Affectation, Classe, CYCLE_PAR_ROLE_DIRECTION, Inscription, classes_visibles_pour, eleve_de_l_etablissement_ou_404,
-    eleve_visible_pour,
+    eleve_visible_pour, inscriptions_visibles_pour,
 )
 
 
@@ -198,7 +199,7 @@ def saisir_note_vue(request, affectation_id):
     })
 
 
-def _calculer_bulletin(eleve, inscription=None):
+def _calculer_bulletin(eleve, inscription=None, classes=None):
     """
     Format conforme à un bulletin malien réel (vérifié sur des bulletins
     authentiques, lycée et fondamental) : pour chaque trimestre, un bloc
@@ -209,10 +210,15 @@ def _calculer_bulletin(eleve, inscription=None):
     repère. La moyenne générale (tous trimestres confondus) reste
     pondérée par le coefficient de chaque matière
     (scolarite.models.Affectation.coefficient, 1 par défaut).
+
+    Sans inscription précise, ce sont les notes de toutes ses classes - mais seulement de celles de `classes` (le périmètre de la personne) quand
+    il est donné : jamais les notes d'un cycle qu'elle ne voit pas.
     """
     notes = Note.objects.filter(eleve=eleve)
     if inscription:
         notes = notes.filter(affectation__classe=inscription.classe)
+    elif classes is not None:
+        notes = notes.filter(affectation__classe__in=classes)
     notes = notes.select_related("affectation").order_by("trimestre", "affectation__matiere")
 
     notes_par_trimestre = {}
@@ -383,19 +389,30 @@ def _reperes_classe(inscription, trimestre):
     )
 
 
+def _bulletin_demande(request, eleve):
+    """
+    (inscriptions que la personne peut consulter, celle du bulletin demandé). Le bulletin d'une classe hors de son périmètre (un autre cycle que le
+    sien) est introuvable, comme celui d'une autre école ; sans demande précise, c'est celui de l'inscription en cours.
+    """
+    inscriptions = inscriptions_visibles_pour(request.user, eleve).select_related("classe", "classe__annee_scolaire")
+    inscription_id = request.GET.get("inscription")
+    if inscription_id:
+        inscription = inscriptions.filter(pk=inscription_id).first() if inscription_id.isdigit() else None
+        if inscription is None:
+            raise Http404("Bulletin introuvable.")
+        return inscriptions, inscription
+    return inscriptions, inscriptions.filter(statut=Inscription.Statut.EN_COURS).first()
+
+
 @module_requis(Module.NOTES_BULLETINS)
 def bulletin_eleve(request, matricule):
     eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
     if not _eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès au bulletin de cet élève.")
-    inscription_id = request.GET.get("inscription")
-    inscriptions = Inscription.objects.filter(eleve=eleve).select_related("classe", "classe__annee_scolaire")
-    inscription = inscriptions.filter(pk=inscription_id).first() if inscription_id else inscriptions.filter(
-        statut=Inscription.Statut.EN_COURS,
-    ).first()
+    inscriptions, inscription = _bulletin_demande(request, eleve)
     return render(request, "pedagogie/bulletin_eleve.html", {
         "eleve": eleve, "inscriptions": inscriptions, "inscription": inscription,
-        **_calculer_bulletin(eleve, inscription),
+        **_calculer_bulletin(eleve, inscription, classes=classes_visibles_pour(request.user)),
     })
 
 
@@ -423,7 +440,7 @@ def _html_du_bulletin(request, eleve, inscription):
     return render_to_string("pedagogie/bulletin_pdf.html", {
         "eleve": eleve, "inscription": inscription, "verification": verification,
         "verification_url": verification_url, "qr_code": qr_code,
-        **_calculer_bulletin(eleve, inscription),
+        **_calculer_bulletin(eleve, inscription, classes=classes_visibles_pour(request.user)),
     }, request=request)
 
 
@@ -475,15 +492,13 @@ def exporter_bulletin_pdf(request, matricule):
     if not _eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès au bulletin de cet élève.")
 
-    inscription_id = request.GET.get("inscription")
-    inscriptions = Inscription.objects.filter(eleve=eleve).select_related("classe", "classe__annee_scolaire")
-    inscription = inscriptions.filter(pk=inscription_id).first() if inscription_id else inscriptions.filter(
-        statut=Inscription.Statut.EN_COURS,
-    ).first()
+    _, inscription = _bulletin_demande(request, eleve)
     html = _html_du_bulletin(request, eleve, inscription)
 
     reponse = HttpResponse(content_type="application/pdf")
-    reponse["Content-Disposition"] = f'attachment; filename="bulletin_{eleve.matricule}.pdf"'
+    # Le fichier porte le numéro du cycle du bulletin (celui qui est imprimé dessus), pas le matricule d'origine.
+    numero = numero_de_l_inscription(inscription) if inscription else eleve.matricule
+    reponse["Content-Disposition"] = f'attachment; filename="{nom_fichier_sur("bulletin", numero)}.pdf"'
     resultat = creer_pdf(html, reponse, request=request, link_callback=_lien_pdf)
     if resultat.err:
         return HttpResponse("Erreur lors de la génération du PDF.", status=500)
@@ -498,7 +513,7 @@ def verifier_bulletin(request, jeton):
     return JsonResponse({
         "valide": True,
         "eleve": verification.eleve.nom_complet,
-        "matricule": verification.eleve.matricule,
+        "matricule": numero_du_cycle(verification.eleve, verification.inscription.classe.cycle),
         "classe": str(verification.inscription.classe),
         "etablissement": verification.inscription.classe.annee_scolaire.etablissement.nom,
         "emis_le": verification.cree_le.isoformat(),
@@ -574,7 +589,7 @@ def historique_absences_eleve(request, matricule):
     eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
     if not _eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès à l'historique de cet élève.")
-    absences_qs = Absence.objects.filter(eleve=eleve).order_by("-date_absence")
+    absences_qs = Absence.objects.filter(eleve=eleve, classe__in=classes_visibles_pour(request.user)).order_by("-date_absence")  # pas celles d'un autre cycle
     total = absences_qs.count()
     justifiees = absences_qs.filter(justifiee=True).count()
     page_obj = Paginator(absences_qs, 30).get_page(request.GET.get("page"))

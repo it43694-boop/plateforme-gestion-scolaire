@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load numeros %}<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -36,7 +36,7 @@
     <h2>NOTES ET APPRÉCIATIONS</h2>
     <p class="titre-mois"><span>Composition du mois de</span> <strong>{{ mois|date:"F Y" }}</strong></p>
     <table class="entete">
-        <tr><td><strong>Élève</strong> : {{ ligne.eleve.nom_complet }}</td><td><strong>Matricule</strong> : {{ ligne.eleve.matricule }}</td></tr>
+        <tr><td><strong>Élève</strong> : {{ ligne.eleve.nom_complet }}</td><td><strong>Matricule</strong> : {{ ligne.eleve|numero_du_cycle:"1er_cycle" }}</td></tr>
         <tr><td><strong>Classe</strong> : {{ classe.nom }}</td><td><strong>Année scolaire</strong> : {{ annee.libelle }}</td></tr>
     </table>
     <br>

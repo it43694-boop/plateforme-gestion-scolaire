@@ -25,7 +25,7 @@
 
     <table>
         <tr><td class="libelle">Référence</td><td class="valeur">{{ vente.reference }}</td></tr>
-        <tr><td class="libelle">Acheteur</td><td class="valeur">{{ vente.nom_acheteur }}{% if vente.eleve %} ({{ vente.eleve.matricule }}){% endif %}</td></tr>
+        <tr><td class="libelle">Acheteur</td><td class="valeur">{{ vente.nom_acheteur }}{% if vente.eleve %} ({{ numero_cycle }}){% endif %}</td></tr>
         <tr><td class="libelle">Date</td><td class="valeur">{{ vente.date_vente|date:"d/m/Y à H:i" }}</td></tr>
         <tr><td class="libelle">Mode de paiement</td><td class="valeur">{{ vente.get_mode_paiement_display }}</td></tr>
         <tr><td class="libelle">Enregistré par</td><td class="valeur">{{ vente.enregistre_par.nom_complet|default:"-" }}</td></tr>

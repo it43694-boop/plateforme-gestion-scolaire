@@ -102,13 +102,13 @@ def historique_discipline(request, matricule):
     eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
     if not eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès à l'historique de cet élève.")
-    mesures = MesureDiscipline.objects.filter(eleve=eleve).select_related("classe")
+    mesures = MesureDiscipline.objects.filter(eleve=eleve, classe__in=classes_visibles_pour(request.user)).select_related("classe")  # pas celles d'un autre cycle
     par_type = {ligne["type_mesure"]: ligne["total"] for ligne in mesures.values("type_mesure").annotate(total=Count("pk"))}
     page_obj = Paginator(mesures.order_by("-date_mesure", "-pk"), 30).get_page(request.GET.get("page"))
     return render(request, "pedagogie/discipline_eleve.html", {
         "eleve": eleve, "mesures": page_obj.object_list, "page_obj": page_obj, "total": mesures.count(),
         "totaux": [(libelle, par_type.get(code, 0)) for code, libelle in TypeMesureDiscipline.choices],
-        "retards_ce_mois": retards_du_mois(eleve, datetime.date.today()), "seuil_de_retards": SEUIL_DE_RETARDS,
+        "retards_ce_mois": retards_du_mois(eleve, datetime.date.today(), classes_visibles_pour(request.user)), "seuil_de_retards": SEUIL_DE_RETARDS,
         "peut_supprimer": request.user.role in ROLES_SUPPRESSION_DISCIPLINE,
     })
 

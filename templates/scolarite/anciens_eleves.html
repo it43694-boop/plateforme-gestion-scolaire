@@ -29,7 +29,7 @@
             <tbody>
                 {% for ligne in lignes %}
                 <tr>
-                    <td><a href="{% url 'scolarite:dossier_eleve' ligne.eleve.matricule %}">{{ ligne.eleve.nom_complet }}</a> <span class="text-muted">({{ ligne.eleve.matricule }})</span></td>
+                    <td><a href="{% url 'scolarite:dossier_eleve' ligne.eleve.matricule %}">{{ ligne.eleve.nom_complet }}</a> <span class="text-muted">({{ ligne.inscription.numero_cycle }})</span></td>
                     <td>{{ ligne.inscription.classe }}</td>
                     <td>{{ ligne.type }}{% if ligne.destination %}<div class="text-muted small">{{ ligne.destination }}</div>{% endif %}</td>
                     <td>{% if ligne.date %}{{ ligne.date|date:"d/m/Y" }}{% else %}-{% endif %}</td>

@@ -24,8 +24,9 @@ from scolarite.documents import (
     TYPES, emettre, fusionner_pdf, image_en_donnees, inscription_concernee, logo_en_donnees, ville_de_l_ecole,
 )
 from scolarite.models import (
-    ROLES_ETAT_CIVIL_ELEVE, Inscription, eleve_de_l_etablissement_ou_404, eleve_visible_pour,
+    ROLES_ETAT_CIVIL_ELEVE, Inscription, classes_visibles_pour, eleve_de_l_etablissement_ou_404, eleve_visible_pour,
 )
+from scolarite.numeros_cycle import numero_de_l_inscription
 
 
 def _qr(adresse: str) -> str:
@@ -70,7 +71,7 @@ def document_officiel(request, matricule, code):
     eleve = eleve_de_l_etablissement_ou_404(request.user, matricule)
     if not eleve_visible_pour(request.user, eleve):
         raise PermissionDenied("Vous n'avez pas accès à cet élève.")
-    inscription = inscription_concernee(eleve, type_document)
+    inscription = inscription_concernee(eleve, type_document, classes=classes_visibles_pour(request.user))
     if inscription is None:
         messages.error(request, {
             "RAD": "Cet élève n'a pas été radié (ni transfert, ni abandon) : aucun certificat de radiation à éditer.",
@@ -105,5 +106,5 @@ def document_officiel(request, matricule, code):
         request=request,
     )
     reponse = HttpResponse(contenu, content_type="application/pdf")
-    reponse["Content-Disposition"] = f'attachment; filename="{nom_fichier_sur(type_document.abreviation.lower(), eleve.matricule)}.pdf"'
+    reponse["Content-Disposition"] = f'attachment; filename="{nom_fichier_sur(type_document.abreviation.lower(), numero_de_l_inscription(inscription))}.pdf"'
     return reponse

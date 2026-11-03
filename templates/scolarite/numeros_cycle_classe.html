@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load icones %}
+{% block titre %}Numéros du cycle - {{ classe.nom }}{% endblock %}
+{% block contenu %}
+<div class="page-header">
+    <div class="page-header-titre">
+        <div class="page-header-icone bleu">{% icone "eleves" 24 %}</div>
+        <div><h1>Numéros du cycle</h1><p>{{ classe.nom }} - {{ classe.get_cycle_display }} - {{ classe.annee_scolaire.libelle }}</p></div>
+    </div>
+    <a href="{% url 'scolarite:liste_classes' %}" class="btn btn-outline-secondary btn-sm">Retour aux classes</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="titre-section">Importer depuis Excel</h2>
+        <p class="texte-note">
+            Téléchargez le modèle de cette classe : les élèves et leur matricule d'origine y sont déjà écrits. Écrivez le numéro de chaque élève dans la dernière
+            colonne, puis envoyez le fichier. Ses numéros sont placés dans les champs ci-dessous pour que vous les vérifiiez ; rien n'est enregistré avant de
+            cliquer sur « Enregistrer les numéros ».
+        </p>
+        {% if erreurs_fichier %}
+        <div class="alert alert-danger">
+            <p class="mb-1">Lignes à corriger dans le fichier :</p>
+            <ul class="mb-0">{% for erreur in erreurs_fichier %}<li>{{ erreur }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <a href="{% url 'scolarite:modele_numeros_cycle' classe.id %}" class="btn btn-outline-secondary btn-sm" data-telechargement>Télécharger le modèle (Excel)</a>
+            <form method="post" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="importer">
+                <input type="file" name="fichier" accept=".xlsx" class="form-control form-control-sm w-auto" aria-label="Fichier Excel rempli" required>
+                <button type="submit" class="btn btn-sm btn-outline-primary">Lire le fichier</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <p class="texte-note">
+            Chaque cycle donne à l'élève son propre numéro. Saisissez ici le numéro de chaque élève dans le cycle de cette classe : il s'imprimera sur la
+            carte, le bulletin, l'attestation et les certificats de ce cycle. Un champ laissé vide garde le matricule d'origine (écrit en gris dans le champ).
+            Le matricule d'origine ne change jamais : c'est l'identifiant de connexion de l'élève.
+        </p>
+        {% if lignes %}
+        <form method="post">
+            {% csrf_token %}
+            <table class="table">
+                <thead><tr><th>Élève</th><th>Matricule d'origine</th><th>Numéro du cycle</th></tr></thead>
+                <tbody>
+                    {% for ligne in lignes %}
+                    <tr>
+                        <td>{{ ligne.inscription.eleve.nom_complet }}</td>
+                        <td>{{ ligne.inscription.eleve.matricule }}</td>
+                        <td>
+                            <input type="text" name="numero_{{ ligne.inscription.eleve_id }}" value="{{ ligne.valeur }}" maxlength="20"
+                                   class="form-control form-control-sm{% if ligne.erreur %} is-invalid{% elif ligne.modifie %} border-primary{% endif %}"
+                                   placeholder="{{ ligne.inscription.eleve.matricule }}" aria-label="Numéro de {{ ligne.inscription.eleve.nom_complet }} dans le cycle">
+                            {% if ligne.erreur %}<div class="invalid-feedback d-block">{{ ligne.erreur }}</div>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button type="submit" class="btn btn-primary mt-2">Enregistrer les numéros</button>
+        </form>
+        <p class="texte-note mt-3">
+            Un numéro est unique dans un cycle de l'école et ne peut pas être le matricule d'un autre élève de la classe. S'il y a une erreur, rien n'est enregistré.
+            Les élèves qui ont quitté l'établissement (abandon ou transfert) ne figurent pas dans la liste.
+        </p>
+        {% else %}
+        <div class="etat-vide"><p>Aucun élève inscrit dans cette classe.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

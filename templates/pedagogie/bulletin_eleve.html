@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% load icones %}
+{% load icones numeros %}
 {% block titre %}Bulletin{% endblock %}
 {% block contenu %}
 <div class="page-header">
     <div class="page-header-titre">
         <div class="page-header-icone or">{% icone "pedagogie" 24 %}</div>
-        <div><h1>{{ eleve.nom_complet }}</h1><p>Matricule : {{ eleve.matricule }}{% if inscription %} — {{ inscription.classe }}{% endif %}</p></div>
+        <div><h1>{{ eleve.nom_complet }}</h1><p>Matricule : {% if inscription %}{{ eleve|numero_du_cycle:inscription.classe.cycle }}{% else %}{{ eleve.matricule }}{% endif %}{% if inscription %} — {{ inscription.classe }}{% endif %}</p></div>
     </div>
     <div class="entete-actions">
         <a href="{% url 'pedagogie:exporter_bulletin_pdf' eleve.matricule %}" class="btn btn-outline-secondary btn-sm" data-telechargement>Exporter en PDF</a>

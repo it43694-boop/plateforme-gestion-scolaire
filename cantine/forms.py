@@ -5,6 +5,7 @@ from django.utils import timezone
 from cantine.models import FormuleCantine
 from comptes.forms import BootstrapFormMixin
 from finances.models import ModePaiement
+from scolarite.numeros_cycle import numeros_des_eleves
 
 
 def _devise(etablissement) -> str:
@@ -54,7 +55,8 @@ class InscrireForm(BootstrapFormMixin, forms.Form):
         super().__init__(*args, **kwargs)
         self.fields["formule"].queryset = formules
         self.fields["eleves"].queryset = eleves
-        self.fields["eleves"].label_from_instance = lambda eleve: f"{eleve.nom_complet} ({eleve.matricule})"
+        numeros = numeros_des_eleves(eleves.values_list("pk", flat=True))  # le numéro du cycle de sa classe, pas le matricule d'origine
+        self.fields["eleves"].label_from_instance = lambda eleve: f"{eleve.nom_complet} ({numeros.get(eleve.pk) or eleve.matricule})"
 
 
 class PaiementCantineForm(BootstrapFormMixin, forms.Form):

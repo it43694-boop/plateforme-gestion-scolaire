@@ -553,6 +553,44 @@ class ParentEnAttente(models.Model):
         return f"{self.email} (en attente - {self.eleve.nom_complet})"
 
 
+class NumeroCycle(models.Model):
+    """
+    Numéro (matricule) d'un élève dans UN cycle : en Mali, chaque cycle (1er cycle, 2ème cycle, lycée, professionnel) donne son
+    propre numéro. Le matricule d'origine de l'élève ne change jamais : c'est son identifiant de connexion, la clé de son dossier
+    et le numéro du cycle où il est entré. Cette table ne garde que les numéros des AUTRES cycles ; un cycle sans ligne ici
+    retombe sur le matricule d'origine (voir scolarite.numeros_cycle.numero_du_cycle).
+    """
+
+    eleve = models.ForeignKey(
+        "comptes.Utilisateur", on_delete=models.CASCADE, related_name="numeros_cycle",
+        limit_choices_to={"role": Role.ELEVE},
+    )
+    etablissement = models.ForeignKey(
+        "etablissement.Etablissement", on_delete=models.CASCADE, related_name="numeros_cycle", editable=False,
+        help_text="Recopié de l'élève : un numéro est unique dans un cycle d'une même école.",
+    )
+    cycle = models.CharField(max_length=20, choices=Cycle.choices)
+    numero = models.CharField("numéro du cycle", max_length=20)
+    modifie_le = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "numéro de cycle"
+        verbose_name_plural = "numéros de cycle"
+        ordering = ["cycle", "numero"]
+        constraints = [
+            models.UniqueConstraint(fields=["eleve", "cycle"], name="un_numero_par_eleve_et_cycle"),
+            models.UniqueConstraint(fields=["etablissement", "cycle", "numero"], name="numero_unique_dans_le_cycle_de_l_ecole"),
+        ]
+
+    def __str__(self):
+        return f"{self.numero} ({self.get_cycle_display()})"
+
+    def save(self, *args, **kwargs):
+        if self.eleve_id:
+            self.etablissement_id = self.eleve.etablissement_id
+        super().save(*args, **kwargs)
+
+
 class TypeAideScolarite(models.TextChoices):
     BOURSE = "bourse", "Bourse"
     REDUCTION = "reduction", "Réduction"
@@ -978,6 +1016,30 @@ def eleve_visible_pour(utilisateur, eleve) -> bool:
     return eleve.inscriptions.filter(classe__in=classes_ok).exists()
 
 
+def inscriptions_visibles_pour(utilisateur, eleve):
+    """
+    Les inscriptions d'un élève dont la CLASSE est dans le périmètre de la personne (`classes_visibles_pour`). `eleve_visible_pour` dit seulement
+    qu'on peut ouvrir le dossier d'un élève ; ce qui s'est passé dans une classe qu'on ne voit pas (le cycle suivant, par exemple) ne nous regarde pas :
+    un directeur du 1er cycle ou un enseignant qui a eu l'élève ne lit ni son bulletin, ni ses absences, ni ses paiements du cycle d'après.
+    L'élève et ses parents voient tout son parcours (toutes ses classes sont les leurs).
+    """
+    return Inscription.objects.filter(eleve=eleve, classe__in=classes_visibles_pour(utilisateur))
+
+
+def eleve_suivi_par(utilisateur, eleve) -> bool:
+    """
+    L'élève est, en ce moment, dans une classe de la personne - ou n'est plus inscrit nulle part (ancien élève) et elle le voit alors comme avant.
+    Sert aux actions qui portent sur l'élève lui-même : mot de passe, clôture de l'inscription, état civil, réintégration. Un directeur du 1er cycle
+    ne remet pas le mot de passe d'un élève qui est maintenant au lycée.
+    """
+    if not eleve_visible_pour(utilisateur, eleve):
+        return False
+    en_cours = Inscription.objects.filter(eleve=eleve, statut=Inscription.Statut.EN_COURS)
+    if not en_cours.exists():
+        return True
+    return en_cours.filter(classe__in=classes_visibles_pour(utilisateur)).exists()
+
+
 def eleves_visibles_pour(utilisateur):
     """
     Les élèves qu'un utilisateur a le droit de consulter : exactement la règle de eleve_visible_pour, mais en UNE requête, pour
@@ -1029,15 +1091,15 @@ def peut_voir_etat_civil_eleve(utilisateur, eleve) -> bool:
         return True
     if utilisateur.role == Role.PARENT:
         return eleve.parents_lies.filter(pk=utilisateur.pk).exists()
-    return utilisateur.role in ROLES_ETAT_CIVIL_ELEVE and eleve_visible_pour(utilisateur, eleve)
+    return utilisateur.role in ROLES_ETAT_CIVIL_ELEVE and eleve_suivi_par(utilisateur, eleve)
 
 
 def peut_corriger_dossier_eleve(utilisateur, eleve) -> bool:
     """
     Corriger les renseignements d'un élève (nom, naissance, parents en attente) : l'administration qui voit déjà
-    son état civil, pour un élève qu'elle peut voir. Jamais un parent, l'élève lui-même, un enseignant, un comptable.
+    son état civil, pour un élève qu'elle suit. Jamais un parent, l'élève lui-même, un enseignant, un comptable.
     """
-    return utilisateur.role in ROLES_ETAT_CIVIL_ELEVE and eleve_visible_pour(utilisateur, eleve)
+    return utilisateur.role in ROLES_ETAT_CIVIL_ELEVE and eleve_suivi_par(utilisateur, eleve)
 
 
 # ---------------------------------------------------------------------------

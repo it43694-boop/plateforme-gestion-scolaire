@@ -586,6 +586,7 @@ def portail_parent(request):
     from finances.models import Paiement
     from pedagogie.models import Absence, Note
     from scolarite.models import Inscription, calculer_total_du
+    from scolarite.numeros_cycle import ajouter_les_numeros
 
     enfants = list(request.user.enfants_lies.filter(
         etablissement=request.user.etablissement, role=Role.ELEVE,
@@ -595,8 +596,9 @@ def portail_parent(request):
         inscription.eleve_id: inscription
         for inscription in Inscription.objects.filter(
             eleve__in=enfants, statut=Inscription.Statut.EN_COURS,
-        ).select_related("classe", "classe__echeancier")
+        ).select_related("classe", "classe__echeancier", "eleve")
     }
+    ajouter_les_numeros(inscriptions_par_eleve.values())  # le numéro de l'enfant dans le cycle de sa classe, pas son matricule d'origine
 
     totaux_payes_par_inscription = {
         ligne["inscription_id"]: ligne["total"]

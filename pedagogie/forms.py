@@ -5,6 +5,7 @@ from comptes.models import Utilisateur
 from comptes.roles import Role
 from pedagogie.models import CreneauEmploiDuTemps, JourSemaine, Trimestre
 from scolarite.models import Affectation, Inscription
+from scolarite.numeros_cycle import ajouter_les_numeros_de_la_classe
 from scolarite.recherche import PLUSIEURS, options_de_saisie, trouver_eleve
 
 # Un seul message pour « rien de tel dans cette classe », quelle qu'en soit la raison (matricule inexistant, élève d'une autre
@@ -18,7 +19,7 @@ ID_LISTE_ELEVES = "eleves-de-la-classe"
 class EleveDeLaClasseMixin:
     """
     Champ « élève » d'une saisie faite pour UNE classe : le nom ou le matricule, au choix (personne ne retient le matricule de
-    chacun). La liste des élèves de la classe est dans la page (suggestions du navigateur), donc la saisie par nom marche aussi
+    chacun) ; le numéro du cycle de la classe vaut le matricule. La liste des élèves de la classe est dans la page (suggestions du navigateur), donc la saisie par nom marche aussi
     sans réseau, et elle ne passe que par les élèves de cette classe : jamais une recherche sur toute l'école.
     """
 
@@ -32,17 +33,17 @@ class EleveDeLaClasseMixin:
     def _eleves_de_la_classe(self):
         """Tous les élèves inscrits dans cette classe (comme avant : un élève sorti en cours d'année reste saisissable)."""
         if not hasattr(self, "_cache_eleves"):
-            self._cache_eleves = list(Utilisateur.objects.filter(
+            self._cache_eleves = ajouter_les_numeros_de_la_classe(Utilisateur.objects.filter(
                 role=Role.ELEVE, inscriptions__classe_id=self._classe_id,
-            ).distinct())
+            ).distinct(), self._classe_id)
         return self._cache_eleves
 
     @property
     def options_eleves(self):
         """Les propositions de la liste : les élèves actuellement inscrits, « NOM Prénom », le matricule seulement pour les homonymes."""
-        return options_de_saisie(Utilisateur.objects.filter(
+        return options_de_saisie(ajouter_les_numeros_de_la_classe(Utilisateur.objects.filter(
             role=Role.ELEVE, inscriptions__classe_id=self._classe_id, inscriptions__statut=Inscription.Statut.EN_COURS,
-        ).distinct())
+        ).distinct(), self._classe_id))
 
     def clean_matricule_eleve(self):
         eleve, probleme = trouver_eleve(self.cleaned_data["matricule_eleve"], self._eleves_de_la_classe())

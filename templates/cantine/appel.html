@@ -36,7 +36,7 @@
                     {% for inscription in inscrits %}
                     <tr>
                         <td><input type="checkbox" class="form-check-input" name="presents" value="{{ inscription.pk }}" id="present-{{ inscription.pk }}"{% if inscription.a_mange %} checked{% endif %} aria-label="{{ inscription.eleve.nom_complet }}"></td>
-                        <td><label for="present-{{ inscription.pk }}">{{ inscription.eleve.nom_complet }}</label> <span class="text-muted">({{ inscription.eleve.matricule }})</span></td>
+                        <td><label for="present-{{ inscription.pk }}">{{ inscription.eleve.nom_complet }}</label> <span class="text-muted">({{ inscription.numero_cycle }})</span></td>
                         <td>{{ inscription.classe_nom|default:"-" }}</td>
                     </tr>
                     {% endfor %}

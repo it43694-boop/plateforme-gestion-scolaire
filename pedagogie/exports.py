@@ -13,6 +13,7 @@ from pedagogie.conduite import LIBELLE_CONDUITE, conduite_des_eleves, coefficien
 from pedagogie.conduite import moyenne_ponderee as moyenne_avec_conduite
 from pedagogie.models import Absence, Note, Trimestre, classe_note_la_conduite
 from scolarite.models import Inscription
+from scolarite.numeros_cycle import ajouter_les_numeros_de_la_classe
 
 DEUX_DECIMALES = Decimal("0.01")
 FORMAT_NOTE = "0.00"
@@ -62,7 +63,8 @@ def releve_notes_classeur(classe, affectations, *, vue_complete):
     inscriptions = list(
         Inscription.objects.filter(classe=classe).select_related("eleve").order_by("eleve__nom", "eleve__prenom")
     )
-    eleves = [inscription.eleve for inscription in inscriptions]
+    eleves = ajouter_les_numeros_de_la_classe([inscription.eleve for inscription in inscriptions], classe.pk)  # « Matricule » = numéro du cycle de la classe
+    numero_de = {eleve.pk: eleve.numero_cycle for eleve in eleves}
     notes = list(
         Note.objects.filter(affectation__in=affectations, eleve__in=eleves).select_related("affectation", "eleve")
     )
@@ -119,7 +121,7 @@ def releve_notes_classeur(classe, affectations, *, vue_complete):
         sommes = [[] for _ in affectations]
         generales = []
         for numero, eleve in enumerate(eleves, start=1):
-            ligne = [numero, eleve.matricule, eleve.nom, eleve.prenom]
+            ligne = [numero, eleve.numero_cycle, eleve.nom, eleve.prenom]
             for position, affectation in enumerate(affectations):
                 note = note_de.get((eleve.pk, valeur_trimestre, affectation.pk))
                 ligne.append(note.valeur if note else None)
@@ -160,7 +162,7 @@ def releve_notes_classeur(classe, affectations, *, vue_complete):
         ]
         lignes = []
         for numero, eleve in enumerate(eleves, start=1):
-            ligne = [numero, eleve.matricule, eleve.nom, eleve.prenom]
+            ligne = [numero, eleve.numero_cycle, eleve.nom, eleve.prenom]
             for valeur_trimestre, _ in Trimestre.choices:
                 ligne.append(_arrondie(moyenne_generale(
                     eleve.pk, notes_par_eleve_trimestre.get((eleve.pk, valeur_trimestre), []), valeur_trimestre,
@@ -183,12 +185,12 @@ def releve_notes_classeur(classe, affectations, *, vue_complete):
     ajouter_feuille_tableau(
         classeur, "Détail des notes", f"Détail des notes - {classe.nom}", infos, entetes,
         [
-            [n.eleve.matricule, n.eleve.nom, n.eleve.prenom, n.affectation.matiere or "Titulaire",
+            [numero_de[n.eleve_id], n.eleve.nom, n.eleve.prenom, n.affectation.matiere or "Titulaire",
              n.affectation.coefficient, n.get_trimestre_display(), n.note_classe, n.note_composition, n.valeur]
             for n in detail
         ] + [
             # La conduite : une ligne par élève et par trimestre, après les matières (vue complète seulement).
-            [eleve.matricule, eleve.nom, eleve.prenom, LIBELLE_CONDUITE, coefficient_de_la_conduite,
+            [eleve.numero_cycle, eleve.nom, eleve.prenom, LIBELLE_CONDUITE, coefficient_de_la_conduite,
              dict(Trimestre.choices)[trimestre], valeur, None, valeur]
             for eleve in sorted(eleves, key=lambda e: (e.nom, e.prenom))
             for trimestre, _ in Trimestre.choices
@@ -203,6 +205,7 @@ def absences_classeur(classe, du=None, au=None):
     inscriptions = list(
         Inscription.objects.filter(classe=classe).select_related("eleve").order_by("eleve__nom", "eleve__prenom")
     )
+    numero_de = {eleve.pk: eleve.numero_cycle for eleve in ajouter_les_numeros_de_la_classe([i.eleve for i in inscriptions], classe.pk)}
     absences = Absence.objects.filter(classe=classe, eleve__in=[i.eleve for i in inscriptions]).select_related("eleve")
     if du:
         absences = absences.filter(date_absence__gte=du)
@@ -230,7 +233,7 @@ def absences_classeur(classe, du=None, au=None):
     for numero, inscription in enumerate(inscriptions, start=1):
         eleve = inscription.eleve
         total, justifiees = par_eleve.get(eleve.pk, (0, 0))
-        lignes.append([numero, eleve.matricule, eleve.nom, eleve.prenom, total, justifiees, total - justifiees])
+        lignes.append([numero, numero_de[eleve.pk], eleve.nom, eleve.prenom, total, justifiees, total - justifiees])
     ajouter_feuille_tableau(
         classeur, "Synthèse", f"Absences - {classe.nom}", infos,
         ["N°", "Matricule", "Nom", "Prénom", "Absences", "dont justifiées", "dont non justifiées"], lignes,
@@ -241,7 +244,7 @@ def absences_classeur(classe, du=None, au=None):
         classeur, "Détail", f"Détail des absences - {classe.nom}", infos,
         ["Date", "Matricule", "Nom", "Prénom", "Justifiée", "Motif"],
         [
-            [a.date_absence, a.eleve.matricule, a.eleve.nom, a.eleve.prenom, a.justifiee, a.motif]
+            [a.date_absence, numero_de[a.eleve_id], a.eleve.nom, a.eleve.prenom, a.justifiee, a.motif]
             for a in absences
         ],
     )

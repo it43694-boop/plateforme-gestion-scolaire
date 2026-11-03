@@ -28,11 +28,13 @@ def derniere_sortie_par_eleve(utilisateur, *, annee_id=None, recherche=""):
     if annee_id:
         sorties = sorties.filter(classe__annee_scolaire_id=annee_id)
     if recherche:
-        from django.db.models import Q
+        from django.db.models import F, Q
 
         sorties = sorties.filter(
-            Q(eleve__nom__icontains=recherche) | Q(eleve__prenom__icontains=recherche) | Q(eleve__matricule__icontains=recherche),
-        )
+            Q(eleve__nom__icontains=recherche) | Q(eleve__prenom__icontains=recherche) | Q(eleve__matricule__icontains=recherche)
+            # le numéro du cycle de la classe qu'il a quittée (les deux conditions portent sur la même ligne de numéro)
+            | Q(eleve__numeros_cycle__numero__icontains=recherche, eleve__numeros_cycle__cycle=F("classe__cycle")),
+        ).distinct()
     sorties = sorties.exclude(
         eleve_id__in=Inscription.objects.filter(statut=Inscription.Statut.EN_COURS).values("eleve_id"),
     ).order_by("-classe__annee_scolaire__date_debut", "-pk")
@@ -54,6 +56,21 @@ def derniere_sortie_par_eleve(utilisateur, *, annee_id=None, recherche=""):
 def est_ancien_eleve(eleve) -> bool:
     inscriptions = list(Inscription.objects.filter(eleve=eleve).values_list("statut", flat=True))
     return bool(inscriptions) and Inscription.Statut.EN_COURS not in inscriptions and any(s in STATUTS_DE_SORTIE for s in inscriptions)
+
+
+def derniere_sortie(eleve):
+    """La plus récente inscription close par un transfert ou un abandon (celle que la réintégration rouvre ou remplace), ou None."""
+    return Inscription.objects.filter(eleve=eleve, statut__in=STATUTS_DE_SORTIE).select_related("classe").order_by(
+        "-classe__annee_scolaire__date_debut", "-pk",
+    ).first()
+
+
+def peut_reintegrer(utilisateur, eleve) -> bool:
+    """Un ancien élève dont la dernière sortie s'est faite dans une classe de la personne : un directeur du 1er cycle ne réintègre pas quelqu'un parti du lycée."""
+    if not est_ancien_eleve(eleve):
+        return False
+    sortie = derniere_sortie(eleve)
+    return sortie is not None and classes_visibles_pour(utilisateur).filter(pk=sortie.classe_id).exists()
 
 
 def classes_de_reintegration(utilisateur):

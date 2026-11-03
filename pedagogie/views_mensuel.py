@@ -23,8 +23,9 @@ from pedagogie.models import DisciplineMensuelle
 from permissions_matrix.modules import Module
 from scolarite.documents import logo_en_donnees
 from scolarite.models import (
-    Cycle, Inscription, classes_visibles_pour, eleve_de_l_etablissement_ou_404, eleve_visible_pour,
+    Cycle, Inscription, classes_visibles_pour, eleve_de_l_etablissement_ou_404, eleve_visible_pour, inscriptions_visibles_pour,
 )
+from scolarite.numeros_cycle import numero_de_l_inscription
 
 MAXIMUM_BULLETINS_PAR_PDF = 150
 
@@ -280,7 +281,7 @@ def bulletins_classe_pdf(request, classe_id, annee, mois):
 
 def _inscription_du_premier_cycle(request, eleve):
     """L'inscription du premier cycle de l'élève : celle demandée (`?inscription=`), sinon l'inscription en cours."""
-    inscriptions = Inscription.objects.filter(eleve=eleve, classe__cycle=Cycle.PREMIER_CYCLE).select_related("classe", "classe__annee_scolaire")
+    inscriptions = inscriptions_visibles_pour(request.user, eleve).filter(classe__cycle=Cycle.PREMIER_CYCLE).select_related("classe", "classe__annee_scolaire")
     demandee = request.GET.get("inscription", "")
     inscription = inscriptions.filter(pk=int(demandee)).first() if demandee.isdigit() else inscriptions.filter(statut=Inscription.Statut.EN_COURS).first()
     if inscription is None:
@@ -307,7 +308,7 @@ def bulletins_eleve(request, matricule):
     return render(request, "pedagogie/mensuel_eleve.html", {
         "eleve": el, "inscription": inscription, "classe": classe, "lignes": lignes, "annuel": annuel_de_l_eleve, "effectif": annuel_de_la_classe.effectif,
         "seuil": annuel_de_la_classe.seuil, "voit_la_decision": request.user.role not in {Role.PARENT, Role.ELEVE},
-        "autres_inscriptions": Inscription.objects.filter(eleve=el, classe__cycle=Cycle.PREMIER_CYCLE).select_related("classe__annee_scolaire").order_by("-classe__annee_scolaire__date_debut"),
+        "autres_inscriptions": inscriptions_visibles_pour(request.user, el).filter(classe__cycle=Cycle.PREMIER_CYCLE).select_related("classe__annee_scolaire").order_by("-classe__annee_scolaire__date_debut"),
     })
 
 
@@ -323,6 +324,6 @@ def bulletin_pdf(request, matricule, annee, mois):
     ligne = next((l for l in resultat.lignes if l.eleve.pk == el.pk), None)
     if ligne is None or ligne.moyenne is None:
         raise Http404("Aucune note pour ce mois.")
-    reponse = _pdf(request, classe, mois, resultat, [ligne], nom_fichier_sur("bulletin", el.matricule, f"{mois:%Y-%m}"))
+    reponse = _pdf(request, classe, mois, resultat, [ligne], nom_fichier_sur("bulletin", numero_de_l_inscription(inscription), f"{mois:%Y-%m}"))
     enregistrer_action(acteur=request.user, action="export_bulletin_mensuel", cible=el.matricule, details={"mois": f"{mois:%Y-%m}"}, request=request)
     return reponse

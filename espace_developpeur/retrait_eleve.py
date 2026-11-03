@@ -121,7 +121,7 @@ def anonymiser_eleve(eleve) -> dict:
     Efface la personne, garde les chiffres. Rend ce qui a été fait (compteurs, jamais de nom ni de numéro).
 
     Effacé : prénom, nom (et leur écriture arabe), photo, filiation, adresse, personne à prévenir, école d'origine, email,
-    téléphone, matricule, lieu et n° d'acte de naissance, jour de naissance, famille en
+    téléphone, matricule (et ses numéros de cycle), lieu et n° d'acte de naissance, jour de naissance, famille en
     attente, lien avec les parents (leurs comptes restent), messages parents-enseignants à son sujet, notifications qui
     le nomment, motifs d'absence, de discipline et de sortie, justificatif de transfert, nom dans les libellés de la Caisse et de la comptabilité.
     Le compte est désactivé et sans mot de passe.
@@ -132,7 +132,7 @@ def anonymiser_eleve(eleve) -> dict:
     """
     from communication.models import Message
     from pedagogie.models import Absence, MesureDiscipline
-    from scolarite.models import Abandon, ParentEnAttente, TransfertEleve
+    from scolarite.models import Abandon, NumeroCycle, ParentEnAttente, TransfertEleve
 
     ancien_nom = eleve.nom_complet.strip()
     ancien_matricule = eleve.matricule or ""
@@ -149,6 +149,7 @@ def anonymiser_eleve(eleve) -> dict:
 
     messages_supprimes = Message.objects.filter(eleve=eleve).delete()[0]
     parents_en_attente = ParentEnAttente.objects.filter(eleve=eleve).delete()[0]
+    NumeroCycle.objects.filter(eleve=eleve).delete()  # les numéros de ses autres cycles l'identifient comme son matricule
     parents_delies = eleve.parents_lies.count()
     eleve.parents_lies.clear()
 

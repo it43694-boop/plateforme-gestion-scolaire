@@ -28,11 +28,14 @@ ROLES_SUPPRESSION_DISCIPLINE = {r.value for r in ROLES_ACCES_TOTAL_INCONDITIONNE
 ROLES_SAISIE_DISCIPLINE = ROLES_SUPPRESSION_DISCIPLINE | {Role.SECRETAIRE.value, Role.ENSEIGNANT.value}
 
 
-def retards_du_mois(eleve, date) -> int:
-    """Le nombre de retards de l'élève dans le mois (calendaire) de `date`."""
-    return MesureDiscipline.objects.filter(
+def retards_du_mois(eleve, date, classes=None) -> int:
+    """Le nombre de retards de l'élève dans le mois (calendaire) de `date` ; seulement dans les `classes` données (le périmètre de la personne)."""
+    retards = MesureDiscipline.objects.filter(
         eleve=eleve, type_mesure=TypeMesureDiscipline.RETARD, date_mesure__year=date.year, date_mesure__month=date.month,
-    ).count()
+    )
+    if classes is not None:
+        retards = retards.filter(classe__in=classes)
+    return retards.count()
 
 
 def parents_a_prevenir(eleve):

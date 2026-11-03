@@ -14,6 +14,7 @@ from comptes.excel import (
 )
 from comptes.pdf import creer_pdf
 from scolarite.documents import logo_en_donnees
+from scolarite.numeros_cycle import numero_du_cycle
 from comptes.roles import Role
 from permissions_matrix.models import PermissionMatrix
 from scolarite.models import (
@@ -58,14 +59,15 @@ def droits_export_listes(utilisateur) -> dict:
 def donnees_liste_classe(utilisateur, classe):
     """Les colonnes et les lignes de la liste d'une classe, communes aux trois formats (Excel, CSV, PDF)."""
     inscriptions = list(
-        Inscription.objects.filter(classe=classe).select_related("eleve").order_by("eleve__nom", "eleve__prenom")
+        Inscription.objects.filter(classe=classe).select_related("eleve").prefetch_related("eleve__numeros_cycle")
+        .order_by("eleve__nom", "eleve__prenom")
     )
     avec_naissance = utilisateur.role in ROLES_ETAT_CIVIL_ELEVE  # l'état civil n'est jamais exporté vers un enseignant
     entetes = ["N°", "Matricule", "Nom", "Prénom", "Sexe"] + (["Date de naissance"] if avec_naissance else []) + ["Statut"]
     lignes = []
     for numero, inscription in enumerate(inscriptions, start=1):
         eleve = inscription.eleve
-        ligne = [numero, eleve.matricule, eleve.nom, eleve.prenom, eleve.get_sexe_display() if eleve.sexe else ""]
+        ligne = [numero, numero_du_cycle(eleve, classe.cycle), eleve.nom, eleve.prenom, eleve.get_sexe_display() if eleve.sexe else ""]
         if avec_naissance:
             ligne.append(eleve.date_naissance)
         ligne.append(inscription.get_statut_display())

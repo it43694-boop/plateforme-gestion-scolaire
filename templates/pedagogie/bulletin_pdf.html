@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load numeros %}<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -78,7 +78,7 @@
         Bulletin scolaire — {{ eleve.nom_complet }}
     </p>
     <p class="matricule">
-        Matricule : {{ eleve.matricule }}
+        Matricule : {% if inscription %}{{ eleve|numero_du_cycle:inscription.classe.cycle }}{% else %}{{ eleve.matricule }}{% endif %}
         {% if inscription %} — Classe : {{ inscription.classe }}{% if inscription.classe.serie %} — Série {{ inscription.classe.get_serie_display }}{% endif %}{% if inscription.classe.filiere_professionnelle %} — Filière {{ inscription.classe.get_filiere_professionnelle_display }}{% endif %}{% endif %}
     </p>
 

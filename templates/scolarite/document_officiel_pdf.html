@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load numeros %}<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -73,7 +73,7 @@
         <tr><td class="etiquette">Nom et prénom :</td><td class="valeur">{{ eleve.nom_complet }}</td></tr>
         {% if eleve.date_naissance %}<tr><td class="etiquette">Né(e) le :</td><td class="valeur">{{ eleve.date_naissance|date:"d/m/Y" }}</td></tr>{% endif %}
         {% if eleve.lieu_naissance %}<tr><td class="etiquette">Lieu de naissance :</td><td class="valeur">{{ eleve.lieu_naissance }}</td></tr>{% endif %}
-        <tr><td class="etiquette">Matricule :</td><td class="valeur">{{ eleve.matricule }}</td></tr>
+        <tr><td class="etiquette">Matricule :</td><td class="valeur">{{ eleve|numero_du_cycle:classe.cycle }}</td></tr>
         <tr><td class="etiquette">Classe :</td><td class="valeur">{{ classe.nom }}{% if classe.serie %} - {{ classe.get_serie_display }}{% endif %}{% if classe.filiere_professionnelle %} - {{ classe.get_filiere_professionnelle_display }}{% endif %}</td></tr>
         <tr><td class="etiquette">Année scolaire :</td><td class="valeur">{{ annee.libelle }}</td></tr>
         {% if type_document.abreviation == "RAD" %}

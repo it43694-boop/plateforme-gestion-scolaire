@@ -23,7 +23,7 @@
 
     <table>
         <tr><td class="libelle">Référence</td><td class="valeur">{{ paiement.reference }}</td></tr>
-        <tr><td class="libelle">Élève</td><td class="valeur">{{ inscription.eleve.nom_complet }} ({{ inscription.eleve.matricule }})</td></tr>
+        <tr><td class="libelle">Élève</td><td class="valeur">{{ inscription.eleve.nom_complet }} ({{ numero_cycle }})</td></tr>
         <tr><td class="libelle">Formule</td><td class="valeur">{{ inscription.formule.libelle }} ({{ inscription.formule.get_mode_display }})</td></tr>
         <tr><td class="libelle">Mode de paiement</td><td class="valeur">{{ paiement.get_mode_paiement_display }}</td></tr>
         <tr><td class="libelle">Date</td><td class="valeur">{{ paiement.date_paiement|date:"d/m/Y à H:i" }}</td></tr>

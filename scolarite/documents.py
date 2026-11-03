@@ -35,16 +35,19 @@ STATUTS_RADIES = (Inscription.Statut.TRANSFERE, Inscription.Statut.ABANDON)
 STATUTS_SCOLARISES = (Inscription.Statut.EN_COURS, Inscription.Statut.ADMIS, Inscription.Statut.REDOUBLE)
 
 
-def inscription_concernee(eleve, type_document: TypeDeDocument):
+def inscription_concernee(eleve, type_document: TypeDeDocument, classes=None):
     """
     L'inscription que le document atteste, ou None s'il n'y en a pas :
     - fréquentation : l'inscription en cours ;
     - scolarité : l'inscription en cours, sinon la plus récente menée à son terme (admis, redoublement) ;
     - radiation : la plus récente inscription close par un transfert ou un abandon.
+    `classes` limite le choix aux classes de la personne qui édite le document : jamais l'attestation d'un cycle qu'elle ne voit pas.
     """
     inscriptions = Inscription.objects.filter(eleve=eleve).select_related(
         "classe__annee_scolaire__etablissement", "eleve",
     ).order_by("-classe__annee_scolaire__date_debut", "-pk")
+    if classes is not None:
+        inscriptions = inscriptions.filter(classe__in=classes)
     if type_document.abreviation == "RAD":
         return inscriptions.filter(statut__in=STATUTS_RADIES).first()
     en_cours = inscriptions.filter(statut=Inscription.Statut.EN_COURS).first()

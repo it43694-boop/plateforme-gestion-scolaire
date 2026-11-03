@@ -19,6 +19,7 @@ from finances.forms_tenues import (
 from finances.models import ArticleTenue, MouvementStockTenue, VenteTenue
 from finances.views import _est_direction, _peut_gerer_les_paiements
 from permissions_matrix.modules import Module
+from scolarite.numeros_cycle import eleves_dont_le_numero_contient, numeros_des_eleves
 
 
 def _ecole(request):
@@ -158,9 +159,12 @@ def ventes(request):
     if recherche:
         liste = liste.filter(
             Q(reference__icontains=recherche) | Q(acheteur__icontains=recherche) | Q(eleve__nom__icontains=recherche) | Q(eleve__prenom__icontains=recherche)
-            | Q(eleve__matricule__icontains=recherche)
+            | Q(eleve__matricule__icontains=recherche) | Q(eleve_id__in=eleves_dont_le_numero_contient(ecole, recherche))
         )
     page_obj = Paginator(liste, 25).get_page(request.GET.get("page"))
+    numeros = numeros_des_eleves([vente.eleve_id for vente in page_obj.object_list if vente.eleve_id])
+    for vente in page_obj.object_list:
+        vente.numero_cycle = numeros.get(vente.eleve_id, "")
     return render(request, "finances/tenues_ventes.html", {
         "page_obj": page_obj, "ventes": page_obj.object_list, "recherche": recherche, "peut_annuler": _est_direction(request.user),
     })
@@ -173,7 +177,10 @@ def recu_pdf(request, vente_id):
         VenteTenue.objects.select_related("eleve", "enregistre_par", "etablissement").prefetch_related("lignes"),
         pk=vente_id, etablissement=_ecole(request),
     )
-    html = render_to_string("finances/tenues_recu_pdf.html", {"vente": vente, "etablissement": vente.etablissement}, request=request)
+    numero_cycle = numeros_des_eleves([vente.eleve_id])[vente.eleve_id] if vente.eleve_id else ""
+    html = render_to_string(
+        "finances/tenues_recu_pdf.html", {"vente": vente, "etablissement": vente.etablissement, "numero_cycle": numero_cycle}, request=request,
+    )
     reponse = HttpResponse(content_type="application/pdf")
     reponse["Content-Disposition"] = f'attachment; filename="{nom_fichier_sur("recu", vente.reference)}.pdf"'
     if creer_pdf(html, reponse, request=request).err:
