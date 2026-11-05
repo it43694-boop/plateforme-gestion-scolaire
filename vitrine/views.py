@@ -2,10 +2,11 @@ import datetime
 import json
 
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
 from django.urls import reverse
+from django.utils.html import escape
 from django_ratelimit.core import ALL
 from django_ratelimit.decorators import ratelimit
 
@@ -98,6 +99,35 @@ def presentation(request):
         # « < » est échappé : une donnée ne peut pas refermer la balise <script> qui la contient.
         "donnees_structurees": json.dumps(donnees, ensure_ascii=False).replace("<", "\\u003c"),
     })
+
+
+# Pages que l'on veut voir sur Google : le plan du site (sitemap.xml) ne liste que celles-ci. Les pages légales portent « noindex » et n'y figurent pas.
+# Une future page publique (un article, par exemple) s'ajoute ici.
+PAGES_A_REFERENCER = ("vitrine:accueil", "vitrine:presentation")
+
+# Parties de l'application que les moteurs de recherche n'ont pas à parcourir : comptes, données des écoles, outils du propriétaire, pages techniques,
+# vérification de documents (/verifier/) et choix d'école. La plupart demandent déjà une connexion ; « /static/ », la présentation et les pages légales
+# restent ouvertes (Google a besoin du style pour juger la page, et du « noindex » des pages légales pour les écarter).
+PREFIXES_NON_PARCOURUS = (
+    "/admin/", "/comptes/", "/scolarite/", "/finances/", "/comptabilite/", "/pedagogie/", "/tests-de-niveau/", "/cantine/", "/assistant/",
+    "/plateforme/", "/bibliotheque/", "/communication/", "/statistiques/", "/espace-developpeur/", "/e/", "/ecole/", "/verifier/",
+    "/healthz", "/sw.js", "/manifest.webmanifest",
+)
+
+
+def robots(request):
+    """robots.txt : ce que les moteurs de recherche ne parcourent pas, et l'adresse du plan du site (toujours celle de l'adresse publique)."""
+    lignes = ["User-agent: *"] + [f"Disallow: {prefixe}" for prefixe in PREFIXES_NON_PARCOURUS]
+    lignes += ["", f"Sitemap: {settings.URL_PUBLIQUE}/sitemap.xml", ""]
+    return HttpResponse("\n".join(lignes), content_type="text/plain; charset=utf-8")
+
+
+def sitemap(request):
+    """sitemap.xml : la liste des pages publiques à faire connaître, avec l'adresse publique principale (jamais celle de l'hébergeur)."""
+    adresses = [settings.URL_PUBLIQUE + reverse(nom) for nom in PAGES_A_REFERENCER]
+    corps = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    corps += "".join(f"  <url><loc>{escape(adresse)}</loc></url>\n" for adresse in adresses) + "</urlset>\n"
+    return HttpResponse(corps, content_type="application/xml; charset=utf-8")
 
 
 def choisir_etablissement(request, slug):

@@ -97,6 +97,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     # L'école de la personne est retenue un an dans un cookie : elle ne la cherche plus à chaque connexion (voir vitrine.ecole_memorisee)
     "vitrine.middleware.MemoriserEcoleMiddleware",
+    # Seule l'adresse publique est référencée par Google : les réponses faites à une autre adresse (onrender.com) portent « noindex »
+    "vitrine.middleware.AdresseSecondaireNonIndexeeMiddleware",
     # Les chiffres arabes tapés dans un champ (٠١٢...) deviennent 0123... avant toute lecture (hors mots de passe).
     "comptes.langue.ChiffresOccidentauxMiddleware",
     # La langue dépend du compte connecté : après l'authentification ; la traduction, juste après elle.

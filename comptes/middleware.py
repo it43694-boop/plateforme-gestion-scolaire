@@ -111,7 +111,7 @@ class ProprietairePlateformeMiddleware:
 
     PREFIXES_AUTORISES = (
         "/plateforme/", "/comptes/", "/admin/", "/static/", "/media/", "/e/",
-        "/healthz", "/sw.js", "/manifest.webmanifest", "/presentation/",
+        "/healthz", "/sw.js", "/manifest.webmanifest", "/presentation/", "/robots.txt", "/sitemap.xml",
         "/mentions-legales/", "/conditions-d-utilisation/", "/confidentialite/",
     )
     # /comptes/ regroupe le compte personnel (mot de passe, 2FA, notifications)
