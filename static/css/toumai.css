@@ -1069,6 +1069,25 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
   display: flex; align-items: center; justify-content: center; margin-bottom: 0.9rem;
 }
 
+/* Ressources (articles) : un texte long, lisible, en français même quand la page est en arabe (le corps de l'article n'est jamais traduit) */
+.article-page { max-width: 760px; line-height: 1.75; font-size: 1.05rem; }
+.article-corps h1 { font-size: 2.1rem; line-height: 1.2; margin-bottom: 0.5rem; }
+.article-corps h2 { font-size: 1.45rem; margin-top: 2.4rem; }
+.article-meta { color: var(--ink-500); font-size: 0.88rem; margin-bottom: 1.6rem; }
+.article-chapo { font-size: 1.15rem; color: var(--ink-800); }
+.article-corps a { color: var(--gold-600); text-decoration: underline; text-underline-offset: 3px; }
+.article-encadre { background: var(--gold-050); border-inline-start: 4px solid var(--gold-500); border-radius: 8px; padding: 1rem 1.3rem; margin: 1.2rem 0; }
+.article-encadre p:last-child, .article-encadre ul:last-child { margin-bottom: 0; }
+.article-modele { background: var(--paper-000); border: 1px dashed var(--line-300); border-radius: 8px; padding: 1rem 1.2rem; white-space: pre-line; }
+.article-fil { font-size: 0.9rem; margin-bottom: 0.4rem; }
+.article-langue { background: var(--gold-050); border-radius: 8px; padding: 0.6rem 1rem; font-size: 0.9rem; }
+.article-liste-titre { font-size: 2rem; margin-bottom: 0.6rem; }
+.article-carte { display: block; color: inherit; text-decoration: none; transition: border-color 0.15s ease; }
+.article-carte:hover { border-color: var(--gold-500); color: inherit; }
+.article-carte h2, .article-carte h3 { font-size: 1.08rem; line-height: 1.35; margin-bottom: 0.5rem; }
+.article-sujet { display: inline-block; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold-600); margin-bottom: 0.5rem; }
+.article-lien { display: inline-block; margin-top: 0.8rem; font-size: 0.88rem; font-weight: 600; color: var(--gold-600); }
+
 /* Bandeau d'appel final : fond sombre, comme le haut de la page */
 .presentation-appel { background: var(--ink-900); border-radius: var(--rayon-panneau); padding: 2.6rem 1.6rem; text-align: center; }
 .presentation-appel h2 { color: #fff; }

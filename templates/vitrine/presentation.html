@@ -37,6 +37,7 @@
             <a href="#pour-qui">Pour quelles écoles</a>
             <a href="#securite">Sécurité</a>
             <a href="#questions">Questions fréquentes</a>
+            <a href="{% url 'vitrine:ressources' %}">Ressources</a>
             {% if contact_whatsapp_lien or contact_courriel %}<a href="#contact">Contact</a>{% endif %}
         </div>
         <div class="vitrine-nav-actions">
@@ -370,6 +371,7 @@
     <p><strong>{{ nom_commercial }}</strong> - {{ positionnement_plateforme }}</p>
     <p class="legal-pied-liens">
         <a href="{% url 'vitrine:accueil' %}">Accueil</a> ·
+        <a href="{% url 'vitrine:ressources' %}">Ressources</a> ·
         <a href="{% url 'vitrine:mentions_legales' %}">Mentions légales</a> ·
         <a href="{% url 'vitrine:conditions' %}">Conditions d'utilisation</a> ·
         <a href="{% url 'vitrine:confidentialite' %}">Confidentialité</a>

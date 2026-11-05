@@ -2,7 +2,7 @@ import datetime
 import json
 
 from django.conf import settings
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
 from django.urls import reverse
@@ -14,6 +14,7 @@ from comptes.langue import texte_pour_langue
 from etablissement.models import Etablissement
 from scolarite.recherche import filtrer
 from vitrine import ecole_memorisee
+from vitrine.articles import ARTICLES, article_par_slug
 
 # Jusqu'à ce nombre d'écoles, l'accueil montre la liste complète ; au-delà, seulement la recherche : personne ne parcourt la liste des clients de la plateforme,
 # et une longue liste ne se lit plus.
@@ -101,9 +102,9 @@ def presentation(request):
     })
 
 
-# Pages que l'on veut voir sur Google : le plan du site (sitemap.xml) ne liste que celles-ci. Les pages légales portent « noindex » et n'y figurent pas.
-# Une future page publique (un article, par exemple) s'ajoute ici.
-PAGES_A_REFERENCER = ("vitrine:accueil", "vitrine:presentation")
+# Pages que l'on veut voir sur Google : le plan du site (sitemap.xml) ne liste que celles-ci et les articles (vitrine/articles.py). Les pages légales portent
+# « noindex » et n'y figurent pas. Une future page publique s'ajoute ici.
+PAGES_A_REFERENCER = ("vitrine:accueil", "vitrine:presentation", "vitrine:ressources")
 
 # Parties de l'application que les moteurs de recherche n'ont pas à parcourir : comptes, données des écoles, outils du propriétaire, pages techniques,
 # vérification de documents (/verifier/) et choix d'école. La plupart demandent déjà une connexion ; « /static/ », la présentation et les pages légales
@@ -124,10 +125,65 @@ def robots(request):
 
 def sitemap(request):
     """sitemap.xml : la liste des pages publiques à faire connaître, avec l'adresse publique principale (jamais celle de l'hébergeur)."""
-    adresses = [settings.URL_PUBLIQUE + reverse(nom) for nom in PAGES_A_REFERENCER]
+    pages = [(reverse(nom), None) for nom in PAGES_A_REFERENCER]
+    pages += [(reverse("vitrine:article", kwargs={"slug": article.slug}), article.modifie_le) for article in ARTICLES]
     corps = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-    corps += "".join(f"  <url><loc>{escape(adresse)}</loc></url>\n" for adresse in adresses) + "</urlset>\n"
+    for chemin, modifie_le in pages:
+        date = f"<lastmod>{modifie_le.isoformat()}</lastmod>" if modifie_le else ""  # la date d'un article est celle de sa dernière vraie modification
+        corps += f"  <url><loc>{escape(settings.URL_PUBLIQUE + chemin)}</loc>{date}</url>\n"
+    corps += "</urlset>\n"
     return HttpResponse(corps, content_type="application/xml; charset=utf-8")
+
+
+TITRE_RESSOURCES = "Ressources pour les directeurs d'école au Mali"
+DESCRIPTION_RESSOURCES = (
+    "Guides pratiques pour mieux gérer une école au Mali : réduire les impayés de scolarité, calculer les bulletins, "
+    "organiser le paiement par Orange Money ou Moov Money."
+)
+
+
+def ressources(request):
+    """La liste des articles : les guides pratiques écrits pour les directeurs d'école (vitrine/articles.py)."""
+    adresse = settings.URL_PUBLIQUE + reverse("vitrine:ressources")
+    return render(request, "vitrine/ressources.html", {
+        "titre_ressources": TITRE_RESSOURCES, "description_ressources": DESCRIPTION_RESSOURCES,
+        "adresse_canonique": adresse, "url_publique": settings.URL_PUBLIQUE, "articles": ARTICLES,
+        "logo_de_partage": settings.URL_PUBLIQUE + static("img/logo-yelenova.png"),
+    })
+
+
+def article(request, slug):
+    """Un article : texte en français (le corps n'est jamais traduit), données structurées « Article » et fil d'Ariane pour Google."""
+    courant = article_par_slug(slug)
+    if courant is None:
+        raise Http404("Article introuvable.")
+    adresse = settings.URL_PUBLIQUE + reverse("vitrine:article", kwargs={"slug": courant.slug})
+    organisation = {"@id": settings.URL_PUBLIQUE + "/#organisation"}
+    donnees = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "Article", "headline": courant.titre, "description": courant.description, "inLanguage": "fr",
+                "datePublished": courant.publie_le.isoformat(), "dateModified": courant.modifie_le.isoformat(),
+                "mainEntityOfPage": {"@type": "WebPage", "@id": adresse},
+                "author": {"@type": "Organization", "name": settings.NOM_PLATEFORME, "url": settings.URL_PUBLIQUE + "/"},
+                "publisher": organisation,
+            },
+            {
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    {"@type": "ListItem", "position": 1, "name": "Accueil", "item": settings.URL_PUBLIQUE + "/"},
+                    {"@type": "ListItem", "position": 2, "name": "Ressources", "item": settings.URL_PUBLIQUE + reverse("vitrine:ressources")},
+                    {"@type": "ListItem", "position": 3, "name": courant.titre, "item": adresse},
+                ],
+            },
+        ],
+    }
+    return render(request, courant.gabarit, {
+        "article": courant, "autres_articles": [a for a in ARTICLES if a.slug != courant.slug],
+        "adresse_canonique": adresse, "url_publique": settings.URL_PUBLIQUE, "logo_de_partage": settings.URL_PUBLIQUE + static("img/logo-yelenova.png"),
+        "donnees_structurees": json.dumps(donnees, ensure_ascii=False).replace("<", "\\u003c"),
+    })
 
 
 def choisir_etablissement(request, slug):

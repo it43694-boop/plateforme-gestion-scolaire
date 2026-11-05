@@ -12,6 +12,7 @@ from django.urls import get_resolver, reverse
 
 from comptes.roles import Role
 from vitrine.test_pages_legales import compte
+from vitrine.articles import ARTICLES
 from vitrine.views import PAGES_A_REFERENCER, PREFIXES_NON_PARCOURUS
 
 HOTES = ["yelenova.com", "www.yelenova.com", "plateforme-gestion-scolaire.onrender.com"]
@@ -68,18 +69,21 @@ class PlanDuSiteTests(TestCase):
         self.assertEqual(racine.tag, ESPACE_SITEMAP + "urlset")
         return [url.find(ESPACE_SITEMAP + "loc").text for url in racine]
 
-    def test_liste_l_accueil_et_la_presentation_a_l_adresse_publique(self):
-        self.assertEqual(self.adresses(), ["https://yelenova.com/", "https://yelenova.com/presentation/"])
+    def test_liste_les_pages_publiques_a_l_adresse_publique(self):
+        self.assertEqual(self.adresses()[:3], ["https://yelenova.com/", "https://yelenova.com/presentation/", "https://yelenova.com/ressources/"])
+        self.assertEqual(len(self.adresses()), 3 + len(ARTICLES))  # puis un article par ligne (voir test_ressources.py pour leurs dates)
 
     @override_settings(URL_PUBLIQUE="https://exemple.test")
     def test_l_adresse_vient_de_la_configuration(self):
-        self.assertEqual(self.adresses(), ["https://exemple.test/", "https://exemple.test/presentation/"])
+        adresses = self.adresses()
+        self.assertEqual(adresses[:3], ["https://exemple.test/", "https://exemple.test/presentation/", "https://exemple.test/ressources/"])
+        self.assertTrue(all(a.startswith("https://exemple.test/") for a in adresses))
 
     def test_ne_liste_que_des_pages_indexables(self):
         """Une page du plan du site ne doit ni être fermée par robots.txt ni porter « noindex » (les pages légales, qui le portent, n'y figurent pas)."""
-        self.assertEqual(PAGES_A_REFERENCER, ("vitrine:accueil", "vitrine:presentation"))
-        for nom in PAGES_A_REFERENCER:
-            chemin = reverse(nom)
+        self.assertEqual(PAGES_A_REFERENCER, ("vitrine:accueil", "vitrine:presentation", "vitrine:ressources"))
+        pages = [reverse(nom) for nom in PAGES_A_REFERENCER] + [reverse("vitrine:article", kwargs={"slug": a.slug}) for a in ARTICLES]
+        for chemin in pages:
             reponse = self.client.get(chemin)
             self.assertEqual(reponse.status_code, 200, chemin)
             self.assertNotIn(b"noindex", reponse.content, chemin)

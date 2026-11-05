@@ -1,0 +1,57 @@
+{% extends "vitrine/article_base.html" %}
+{% block corps %}
+<p class="article-chapo">Payer la scolarité depuis son téléphone évite au parent un déplacement et à l'école de manipuler de l'argent liquide. Mais sans méthode, on se retrouve avec des captures d'écran, des doublons et des doutes. Voici comment organiser le paiement par Orange Money ou Moov Money, côté parents comme côté comptabilité.</p>
+
+<h2>Ce que le mobile money change pour une école</h2>
+<p>Pour le parent, c'est un gain de temps : il paie de chez lui, à l'heure qui lui convient. Pour l'école, chaque paiement laisse une trace chez l'opérateur. En contrepartie, il faut <strong>rapprocher chaque paiement avec le compte de l'école</strong> : c'est ce travail de vérification qui demande une méthode.</p>
+
+<h2>Les étapes côté parent</h2>
+<ol>
+    <li>L'école indique clairement où envoyer l'argent : l'opérateur, le numéro ou le compte à utiliser, et le nom du bénéficiaire.</li>
+    <li>Le parent paie avec son téléphone, depuis son compte Orange Money ou Moov Money.</li>
+    <li>Il garde le SMS de confirmation, qui contient un <strong>numéro de transaction</strong>.</li>
+    <li>Il informe l'école avec : le nom de l'élève, sa classe, le montant, l'opérateur, le numéro de transaction et la date.</li>
+</ol>
+
+<h2>Les étapes côté comptabilité</h2>
+<ol>
+    <li>Ouvrir son propre compte mobile money (messages reçus ou relevé de l'opérateur).</li>
+    <li>Retrouver la transaction avec son numéro, son montant et sa date.</li>
+    <li>Vérifier que le montant et le bénéficiaire sont les bons.</li>
+    <li>Vérifier que ce numéro de transaction n'a pas déjà servi pour un autre paiement.</li>
+    <li>Enregistrer le paiement et remettre un reçu numéroté au parent.</li>
+    <li>Répondre au parent : validé, ou refusé avec le motif.</li>
+</ol>
+
+<h2>Les erreurs et les fraudes à prévoir</h2>
+<ul>
+    <li><strong>Une fausse capture d'écran.</strong> Une image se modifie facilement : ne validez jamais sur la seule foi d'une capture, fiez-vous à votre propre compte.</li>
+    <li><strong>La même transaction déclarée deux fois</strong>, par exemple pour deux frères. Un numéro de transaction ne doit servir qu'une fois.</li>
+    <li><strong>Un montant différent</strong> de celui annoncé par le parent.</li>
+    <li><strong>Un paiement envoyé à un mauvais numéro.</strong> Affichez le bon numéro à un endroit unique, et rappelez-le dans chaque message.</li>
+    <li><strong>Une confirmation qui arrive en retard.</strong> Ne validez pas tant que la transaction n'apparaît pas dans votre compte.</li>
+</ul>
+
+<h2>Ce que vous pouvez dire aux parents</h2>
+<p>Un message court, à afficher à l'école et à envoyer sur WhatsApp, évite beaucoup de questions :</p>
+<p class="article-modele">Payer la scolarité par Orange Money ou Moov Money :
+1. Envoyez le montant au numéro [numéro de l'école].
+2. Gardez le SMS de confirmation.
+3. Envoyez à l'école : le nom de l'élève, sa classe, le montant et le numéro de la transaction.
+4. Vous recevez votre reçu après vérification.</p>
+
+<h2>Comment Yelenova aide</h2>
+<div class="article-encadre">
+    <ul>
+        <li>le parent déclare son paiement depuis son téléphone : son enfant, l'opérateur, le montant, le numéro de transaction, la date, et une capture d'écran s'il le souhaite ;</li>
+        <li>un numéro de transaction ne peut être déclaré qu'une seule fois pour un opérateur (sauf si la première déclaration a été refusée) ;</li>
+        <li>la comptabilité est prévenue de chaque déclaration, compare avec son propre compte mobile money, puis valide ou refuse avec un motif que le parent peut lire ;</li>
+        <li>à la validation, le paiement, son reçu numéroté et sa ligne de caisse sont créés, et le parent est prévenu. Rien n'entre en caisse avant la validation ;</li>
+        <li>l'école écrit ses propres instructions de paiement (numéro, nom du bénéficiaire), que le parent lit avant de déclarer.</li>
+    </ul>
+    <p>Yelenova n'est pas reliée aux opérateurs : l'argent ne passe pas par l'application, et la comptabilité vérifie toujours dans son propre compte mobile money.</p>
+</div>
+
+<h2>Pour aller plus loin</h2>
+<p>Le paiement par téléphone n'est qu'une partie du suivi des frais : lisez aussi <a href="{% url 'vitrine:article' 'reduire-les-impayes-de-scolarite' %}">comment réduire les impayés de scolarité</a>.</p>
+{% endblock %}

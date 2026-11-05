@@ -1,0 +1,12 @@
+{% load static %}<header class="legal-entete">
+    <a href="{% url 'vitrine:accueil' %}" class="legal-marque">
+        <img src="{% static 'img/logo-yelenova-embleme.png' %}" alt="{{ nom_plateforme }}" class="legal-logo">
+        <span>{{ nom_commercial }}</span>
+    </a>
+    <nav class="legal-nav" aria-label="Pages publiques">
+        <a href="{% url 'vitrine:presentation' %}">Présentation</a>
+        <a href="{% url 'vitrine:ressources' %}">Ressources</a>
+        <a href="{% url 'vitrine:accueil' %}">Se connecter</a>
+    </nav>
+    {% include "partials/bouton_langue.html" %}
+</header>

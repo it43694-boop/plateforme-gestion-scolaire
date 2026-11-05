@@ -1,0 +1,61 @@
+{% extends "vitrine/article_base.html" %}
+{% block corps %}
+<p class="article-chapo">Dans beaucoup d'écoles privées, les frais de scolarité ne sont pas perdus d'un coup : ils s'échappent peu à peu, un versement oublié après l'autre. Voici sept pratiques simples, qui ne dépendent d'aucun logiciel, pour garder la main sur les paiements.</p>
+
+<h2>Pourquoi les impayés s'installent</h2>
+<p>Un impayé commence rarement par un refus de payer. Il naît presque toujours d'un manque de suivi :</p>
+<ul>
+    <li>l'échéancier n'a été dit qu'à l'oral, et chacun s'en souvient à sa façon ;</li>
+    <li>les paiements sont notés sur un cahier ou sur des feuilles, et la preuve se perd ;</li>
+    <li>on relance à la fin du trimestre, quand la somme à rattraper est devenue lourde ;</li>
+    <li>le parent ne sait pas exactement combien il lui reste à payer.</li>
+</ul>
+
+<h2>1. Écrire l'échéancier et le remettre à chaque parent</h2>
+<p>Pour chaque classe, fixez par écrit les frais d'inscription, le nombre de versements, le montant de chacun et la date limite. Remettez cette feuille au parent le jour de l'inscription, et affichez-la à l'école. Un parent qui sait exactement quoi payer, et quand, paie plus facilement à temps.</p>
+
+<h2>2. Donner un reçu numéroté pour chaque paiement</h2>
+<p>Chaque somme reçue, même petite, mérite un reçu avec un numéro, la date, le nom de l'élève et le montant. Le parent a sa preuve, l'école aussi, et les disputes du type « j'ai déjà payé » se règlent en une minute.</p>
+
+<h2>3. Savoir chaque semaine qui a payé, qui a payé en partie et qui doit encore</h2>
+<p>Prenez un quart d'heure par semaine pour classer les élèves en trois listes : à jour, payé en partie, rien payé. La liste « payé en partie » est la plus utile : ce sont souvent des parents de bonne volonté, qu'un simple rappel suffit à faire avancer. Présentez ces trois listes à la direction chaque mois.</p>
+
+<h2>4. Relancer tôt, avec un message poli et précis</h2>
+<p>Relancez dès le premier versement manqué, pas à la fin de l'année. Un message précis (le montant exact, le versement concerné, comment payer) vaut mieux qu'un rappel général. Par exemple :</p>
+<p class="article-modele">Bonjour [nom du parent], nous vous remercions de votre confiance.
+Sauf erreur de notre part, il reste [montant] FCFA à régler pour [nom de l'élève] ([classe]) au titre de [versement].
+Vous pouvez payer à l'école ou par Orange Money ou Moov Money, puis nous envoyer le numéro de la transaction.
+Merci. [Nom de l'école]</p>
+
+<h2>5. Proposer des moyens de paiement pratiques</h2>
+<p>Un parent qui doit se déplacer pendant ses heures de travail paie plus tard. Le paiement par Orange Money ou Moov Money lui évite le déplacement, à condition que l'école ait une méthode claire pour vérifier chaque paiement. Nous détaillons cette méthode dans <a href="{% url 'vitrine:article' 'payer-la-scolarite-orange-money-moov-money' %}">le guide du paiement par Orange Money ou Moov Money</a>.</p>
+
+<h2>6. Séparer les frais annexes de la scolarité</h2>
+<p>Tenue, frais d'examen, transport, cantine : chaque frais doit avoir sa propre ligne. Si tout est mélangé dans un seul montant, un parent qui a payé la tenue mais pas la scolarité (ou l'inverse) ne comprend plus ce qu'il doit, et vous non plus.</p>
+
+<h2>7. Traiter les arriérés des années passées à part</h2>
+<p>Un reste dû d'une année passée ne doit pas se perdre dans le suivi de l'année en cours. Gardez-en une liste séparée, avec la classe que l'élève avait à l'époque, et proposez au parent un plan de règlement écrit : un petit montant régulier se rembourse plus souvent qu'une grosse somme demandée d'un coup.</p>
+
+<h2>Les erreurs à éviter</h2>
+<ul>
+    <li>noter les paiements « plus tard, de mémoire » ;</li>
+    <li>ne relancer qu'en fin d'année ;</li>
+    <li>ne pas distinguer « payé en partie » et « rien payé » ;</li>
+    <li>laisser le même cahier à plusieurs personnes sans moyen de savoir qui a écrit quoi.</li>
+</ul>
+
+<h2>Comment Yelenova aide</h2>
+<div class="article-encadre">
+    <p>Yelenova applique ces pratiques sans cahier :</p>
+    <ul>
+        <li>l'échéancier se crée avec la classe : frais d'inscription, périodicité et montant des versements ;</li>
+        <li>le comptable voit en un coup d'œil qui a payé, qui a payé en partie et qui doit encore ;</li>
+        <li>un bouton prépare le message de relance sur WhatsApp, avec le numéro du parent. C'est l'école qui l'envoie : l'application n'envoie aucun message WhatsApp toute seule ;</li>
+        <li>chaque paiement donne un reçu numéroté et une ligne de caisse automatique ;</li>
+        <li>un paiement supérieur au reste dû est refusé quand un échéancier existe ;</li>
+        <li>les frais annexes (tenue, examen, transport...) et les arriérés des années passées ont leurs propres pages ;</li>
+        <li>le parent peut déclarer un paiement Orange Money ou Moov Money, que la comptabilité vérifie et valide.</li>
+    </ul>
+    <p>Yelenova ne prélève pas l'argent : le parent paie à l'école ou par son opérateur, et la comptabilité enregistre.</p>
+</div>
+{% endblock %}

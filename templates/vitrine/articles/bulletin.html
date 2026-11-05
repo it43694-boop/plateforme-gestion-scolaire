@@ -1,0 +1,55 @@
+{% extends "vitrine/article_base.html" %}
+{% block corps %}
+<p class="article-chapo">Un bulletin faux, même d'un dixième de point, ruine la confiance des parents. La plupart des erreurs ne viennent pas du calcul lui-même, mais de la façon dont les notes circulent entre l'enseignant, le secrétariat et la direction. Voici comment calculer correctement, et comment organiser le travail pour ne plus se tromper.</p>
+
+<h2>Les trois calculs d'un bulletin</h2>
+<p>Tout bulletin repose sur trois calculs, toujours dans le même ordre : la moyenne de chaque matière, la moyenne générale avec les coefficients, puis le rang de l'élève dans sa classe.</p>
+
+<h2>1. La moyenne d'une matière</h2>
+<p>Dans beaucoup d'écoles maliennes, la moyenne d'une matière combine une note de classe (les devoirs et les interrogations du trimestre) et une note de composition. La règle exacte est celle de votre école ; l'important est qu'elle soit écrite et appliquée à tous de la même façon.</p>
+<p>À titre d'exemple, c'est la règle de Yelenova : la note de classe est sur 20, la composition sur 40, et la moyenne de la matière est <strong>(note de classe + composition) ÷ 3</strong>, ce qui donne une moyenne sur 20. Un élève qui a 14 sur 20 en classe et 30 sur 40 en composition obtient (14 + 30) ÷ 3 = 14,67 sur 20.</p>
+
+<h2>2. La moyenne générale avec les coefficients</h2>
+<p>Toutes les matières ne pèsent pas pareil : on multiplie la moyenne de chaque matière par son coefficient, on additionne, puis on divise par la somme des coefficients. Exemple avec quatre matières :</p>
+<ul>
+    <li>Mathématiques, coefficient 4, moyenne 12 : 4 × 12 = 48 ;</li>
+    <li>Français, coefficient 4, moyenne 14 : 4 × 14 = 56 ;</li>
+    <li>Sciences, coefficient 2, moyenne 10 : 2 × 10 = 20 ;</li>
+    <li>Histoire-Géographie, coefficient 2, moyenne 15 : 2 × 15 = 30.</li>
+</ul>
+<p>Total des points : 48 + 56 + 20 + 30 = 154. Total des coefficients : 4 + 4 + 2 + 2 = 12. Moyenne générale : 154 ÷ 12 = <strong>12,83 sur 20</strong>. (Ces chiffres sont inventés pour l'exemple.)</p>
+
+<h2>3. Le rang</h2>
+<p>Le rang s'obtient en classant les élèves de la classe par moyenne générale, de la plus haute à la plus basse. Décidez une fois pour toutes ce que vous faites des ex æquo (par exemple : même rang pour deux élèves à égalité) et appliquez toujours la même règle.</p>
+
+<h2>Les erreurs les plus fréquentes</h2>
+<ul>
+    <li><strong>Un coefficient oublié ou différent d'une classe à l'autre</strong> pour la même matière.</li>
+    <li><strong>Des notes recopiées à la main</strong> du cahier de l'enseignant vers le secrétariat : chaque recopie est une chance de plus de se tromper.</li>
+    <li><strong>Arrondir trop tôt.</strong> Arrondissez à la fin du calcul, pas à chaque étape.</li>
+    <li><strong>Un élève absent à une composition</strong> sans règle écrite : on lui met zéro ? on ne compte pas la matière ? Décidez-le avant le trimestre.</li>
+    <li><strong>Des notes modifiées après le conseil de classe</strong>, sans que personne le sache.</li>
+</ul>
+
+<h2>Une organisation en cinq étapes</h2>
+<ol>
+    <li><strong>Une seule saisie</strong>, faite par l'enseignant qui a donné la note, sans recopie.</li>
+    <li><strong>Un contrôle</strong> par le directeur du cycle ou le responsable pédagogique.</li>
+    <li><strong>La clôture du trimestre</strong> : une fois les notes vérifiées, plus personne ne peut les modifier sans que la direction le décide.</li>
+    <li><strong>Le conseil de classe</strong>, tenu sur un tableau figé : moyennes, rangs, absences.</li>
+    <li><strong>La remise du bulletin</strong> avec un moyen de le vérifier, comme un code ou un QR code.</li>
+</ol>
+
+<h2>Comment Yelenova aide</h2>
+<div class="article-encadre">
+    <ul>
+        <li>l'enseignant affecté à la classe saisit lui-même la note de classe et la composition, et la moyenne de la matière se calcule seule ;</li>
+        <li>chaque matière a son coefficient ; la moyenne générale, le rang et l'appréciation du bulletin se calculent automatiquement ;</li>
+        <li>la direction peut clôturer un trimestre : plus aucune note de matière n'y entre ;</li>
+        <li>le bulletin s'imprime en PDF avec un QR code de vérification : il confirme que le bulletin a bien été émis par l'école (nom de l'élève, classe, établissement), sans afficher les notes ;</li>
+        <li>un bulletin mensuel existe pour le premier cycle ;</li>
+        <li>le tableau du conseil de classe est prêt : moyennes, rangs, absences et distinctions suggérées d'après les moyennes. Le conseil décide, puis le procès-verbal et le tableau d'honneur sont générés.</li>
+    </ul>
+    <p>Yelenova suit une règle de calcul précise (celle de l'exemple ci-dessus) : vérifiez qu'elle correspond à celle de votre école avant de commencer.</p>
+</div>
+{% endblock %}

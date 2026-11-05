@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="{{ LANGUAGE_CODE|default:'fr' }}" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ titre_ressources }} - {{ nom_plateforme }}</title>
+    <link rel="icon" href="{% static 'img/favicon.ico' %}" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}">
+    <meta name="theme-color" content="#12203D">
+    <meta name="description" content="{{ description_ressources }}">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="{{ adresse_canonique }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="{{ nom_plateforme }}">
+    <meta property="og:url" content="{{ adresse_canonique }}">
+    <meta property="og:title" content="{{ titre_ressources }}">
+    <meta property="og:description" content="{{ description_ressources }}">
+    <meta property="og:image" content="{{ logo_de_partage }}">
+    {% include "partials/feuilles_de_style.html" %}
+</head>
+<body class="corps-vitrine">
+{% include "vitrine/_entete_public.html" %}
+
+<main id="contenu-principal" class="vitrine-section">
+    <h1 class="article-liste-titre">Ressources pour les directeurs d'école</h1>
+    <p class="intro">
+        Des guides pratiques pour mieux gérer une école : impayés, bulletins, paiements par téléphone.
+    </p>
+    <div class="vitrine-grille">
+        {% for a in articles %}
+        <a class="vitrine-carte article-carte" href="{% url 'vitrine:article' a.slug %}">
+            <span class="article-sujet" lang="fr" translate="no">{{ a.sujet }}</span>
+            <h2 lang="fr" translate="no">{{ a.titre }}</h2>
+            <p lang="fr" translate="no">{{ a.description }}</p>
+            <span class="article-lien">Lire l'article</span>
+        </a>
+        {% endfor %}
+    </div>
+</main>
+
+{% include "vitrine/_pied_public.html" %}
+<script src="{% static 'js/app.js' %}" defer></script>
+</body>
+</html>
