@@ -1033,6 +1033,48 @@ input[type="checkbox"] { accent-color: var(--gold-500); width: 16px; height: 16p
 }
 .vitrine-pied strong { color: #fff; }
 
+/* Page de présentation publique : listes de texte simples, dans la même mise en page que les autres sections de l'accueil */
+.presentation-liste { max-width: 72ch; margin: 0; padding-left: 1.2rem; color: var(--ink-500); }
+.presentation-liste li { margin-bottom: 0.7rem; }
+.vitrine-nav a.marque { text-decoration: none; }
+/* Petit écran : le bouton « Se connecter » reste sur une ligne et le nom ne touche plus le bouton de langue */
+@media (max-width: 480px) {
+  .vitrine-nav { padding: 1rem 16px; gap: 0.6rem; }
+  .vitrine-nav-actions { gap: 0.5rem; }
+  .vitrine-nav-actions .btn-hero-primaire { white-space: nowrap; padding: 0.6rem 0.9rem; font-size: 0.85rem; }
+}
+.vitrine-securite-texte + .vitrine-securite-texte { margin-top: 0.7rem; }
+
+/* Visuel du haut de la présentation : le tableau de bord sur ordinateur, avec deux téléphones qui le chevauchent (en dessous sur petit écran) */
+.presentation-visuel { position: relative; flex: 1 1 520px; max-width: 640px; margin-bottom: 1rem; }
+.presentation-visuel .vitrine-vue-ecran { grid-column: auto; }
+.presentation-telephones { display: flex; justify-content: center; gap: 1rem; margin-top: 1.4rem; }
+.presentation-telephones .vitrine-vue-telephone { max-width: 130px; margin: 0; }
+@media (min-width: 900px) {
+  .presentation-visuel { margin-bottom: 2.6rem; }
+  .presentation-telephones { position: absolute; inset-inline-end: -1.2rem; bottom: -2.6rem; margin: 0; gap: 0.7rem; }
+  .presentation-telephones .vitrine-vue-telephone { max-width: 118px; }
+}
+
+/* Situations vécues : un trait doré en haut de la carte, pour les distinguer de la liste des fonctions */
+.presentation-probleme { border-top: 3px solid var(--gold-500); }
+
+/* Trois étapes numérotées */
+.presentation-etapes { display: flex; flex-wrap: wrap; gap: 1.1rem; }
+.presentation-etape { flex: 1 1 260px; background: var(--paper-000); border: 1px solid var(--line-200); border-radius: var(--rayon-panneau); padding: 1.4rem; }
+.presentation-etape h3 { font-size: 1.02rem; margin-bottom: 0.35rem; }
+.presentation-etape p { color: var(--ink-500); font-size: 0.88rem; margin: 0; }
+.presentation-etape-numero {
+  width: 38px; height: 38px; border-radius: 50%; background: var(--gold-500); color: var(--ink-900); font-weight: 700;
+  display: flex; align-items: center; justify-content: center; margin-bottom: 0.9rem;
+}
+
+/* Bandeau d'appel final : fond sombre, comme le haut de la page */
+.presentation-appel { background: var(--ink-900); border-radius: var(--rayon-panneau); padding: 2.6rem 1.6rem; text-align: center; }
+.presentation-appel h2 { color: #fff; }
+.presentation-appel p { color: #B7C0D6; max-width: 56ch; margin: 0 auto 1.6rem; }
+.presentation-appel .vitrine-hero-ctas { justify-content: center; }
+
 /* -------------------------------------------------------------------- */
 /* Annuaire des établissements — barre latérale + panneau principal      */
 /* -------------------------------------------------------------------- */

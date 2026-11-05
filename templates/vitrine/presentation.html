@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+{% load static icones %}
+<html lang="{{ LANGUAGE_CODE|default:'fr' }}" dir="{% if LANGUAGE_BIDI %}rtl{% else %}ltr{% endif %}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ titre_presentation }} - {{ nom_plateforme }}</title>
+    <link rel="icon" href="{% static 'img/favicon.ico' %}" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}">
+    <meta name="theme-color" content="#12203D">
+    <meta name="description" content="{{ description_presentation }}">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="{{ adresse_canonique }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="{{ nom_plateforme }}">
+    <meta property="og:url" content="{{ adresse_canonique }}">
+    <meta property="og:title" content="{{ titre_presentation }}">
+    <meta property="og:description" content="{{ description_presentation }}">
+    <meta property="og:image" content="{{ logo_de_partage }}">
+    <script type="application/ld+json">{{ donnees_structurees|safe }}</script>
+    {% include "partials/feuilles_de_style.html" %}
+</head>
+<body class="corps-vitrine">
+<main id="contenu-principal">
+
+<div class="vitrine-hero">
+    <div class="vitrine-hero-fond"></div>
+    <nav class="vitrine-nav" aria-label="Sections de la page">
+        <a href="{% url 'vitrine:accueil' %}" class="marque">
+            <img src="{% static 'img/logo-yelenova-embleme.png' %}" alt="{{ nom_plateforme }}" class="marque-logo marque-logo-plateforme">
+            <div class="marque-texte">
+                <div class="marque-nom">{{ nom_commercial }}</div>
+            </div>
+        </a>
+        <div class="vitrine-nav-liens">
+            <a href="#fonctionnalites">Fonctionnalités</a>
+            <a href="#pour-qui">Pour quelles écoles</a>
+            <a href="#securite">Sécurité</a>
+            <a href="#questions">Questions fréquentes</a>
+            {% if contact_whatsapp_lien or contact_courriel %}<a href="#contact">Contact</a>{% endif %}
+        </div>
+        <div class="vitrine-nav-actions">
+            {% include "partials/bouton_langue.html" %}
+            <a href="{% url 'vitrine:accueil' %}" class="btn-hero-primaire">Se connecter</a>
+        </div>
+    </nav>
+
+    <div class="vitrine-hero-corps">
+        <div>
+            <h1>Logiciel de gestion scolaire pour les écoles du Mali</h1>
+            <p class="lead vitrine-slogan">{{ slogan_plateforme }}</p>
+            <p class="lead">
+                Yelenova réunit dans une seule application l'administration, la pédagogie et les finances de votre établissement :
+                inscriptions, notes, bulletins, absences, paiements, cantine et communication avec les parents.
+            </p>
+            <p class="lead">
+                Elle est pensée pour le quotidien des écoles maliennes, du premier cycle au lycée et à l'enseignement professionnel.
+            </p>
+            <div class="vitrine-hero-ctas">
+                {% if contact_whatsapp_lien %}<a href="{{ contact_whatsapp_lien }}" class="btn-hero-primaire" target="_blank" rel="noopener">Demander une démonstration sur WhatsApp</a>{% endif %}
+                <a href="{% url 'vitrine:accueil' %}" class="btn-hero-secondaire">Se connecter</a>
+            </div>
+        </div>
+
+        <div class="presentation-visuel">
+            <figure class="vitrine-vue vitrine-vue-ecran">
+                <div class="vitrine-vue-barre" aria-hidden="true"><span></span><span></span><span></span></div>
+                <img src="{% if LANGUAGE_BIDI %}{% static 'img/vitrine/tableau-de-bord-ar.webp' %}{% else %}{% static 'img/vitrine/tableau-de-bord.webp' %}{% endif %}" width="1200" height="750"
+                     alt="Tableau de bord de la direction : chiffres clés, encaissements des six derniers mois et effectifs par classe">
+            </figure>
+            <div class="presentation-telephones">
+                <figure class="vitrine-vue vitrine-vue-telephone">
+                    <img src="{% if LANGUAGE_BIDI %}{% static 'img/vitrine/portail-parent-ar.webp' %}{% else %}{% static 'img/vitrine/portail-parent.webp' %}{% endif %}" width="390" height="844"
+                         alt="Portail des parents sur téléphone : absences, moyenne et solde de chaque enfant">
+                </figure>
+                <figure class="vitrine-vue vitrine-vue-telephone">
+                    <img src="{% if LANGUAGE_BIDI %}{% static 'img/vitrine/declarer-paiement-ar.webp' %}{% else %}{% static 'img/vitrine/declarer-paiement.webp' %}{% endif %}" width="390" height="844"
+                         alt="Déclaration d'un paiement Orange Money ou Moov Money par un parent">
+                </figure>
+            </div>
+        </div>
+    </div>
+
+    <ul class="vitrine-atouts">
+        <li>En français et en arabe</li>
+        <li>Paiement Mobile Money</li>
+        <li>Alertes sur le téléphone des parents</li>
+        <li>Notes et absences saisies sans réseau</li>
+        <li>Chacun ne voit que ce qui le concerne</li>
+    </ul>
+</div>
+
+<section class="vitrine-section" id="soucis">
+    <h2>Les soucis de chaque jour, réglés</h2>
+    <p class="intro">
+        Six situations que vivent les écoles, et ce que Yelenova change.
+    </p>
+    <div class="vitrine-grille">
+        <div class="vitrine-carte presentation-probleme">
+            <div class="vitrine-carte-icone">{% icone "finances" 20 %}</div>
+            <h3>Qui a payé ? On ne sait plus.</h3>
+            <p>Le comptable voit en un coup d'œil qui a payé, qui a payé en partie et qui doit encore. Un bouton prépare le message de relance sur WhatsApp, et chaque paiement donne un reçu numéroté.</p>
+        </div>
+        <div class="vitrine-carte presentation-probleme">
+            <div class="vitrine-carte-icone">{% icone "cloche" 20 %}</div>
+            <h3>Le parent apprend l'absence trop tard.</h3>
+            <p>Dès que l'enseignant enregistre l'absence, le parent est averti dans l'application. Il peut aussi la recevoir sur son téléphone, application fermée, s'il a activé les notifications.</p>
+        </div>
+        <div class="vitrine-carte presentation-probleme">
+            <div class="vitrine-carte-icone">{% icone "pedagogie" 20 %}</div>
+            <h3>Les moyennes refaites à la main, chaque trimestre.</h3>
+            <p>L'enseignant saisit ses notes : la moyenne de chaque matière, la moyenne générale, le rang et l'appréciation se calculent seuls. Le bulletin est prêt à imprimer.</p>
+        </div>
+        <div class="vitrine-carte presentation-probleme">
+            <div class="vitrine-carte-icone">{% icone "envoi" 20 %}</div>
+            <h3>Une preuve de paiement Mobile Money à vérifier.</h3>
+            <p>Le parent déclare son paiement Orange Money ou Moov Money avec son numéro de transaction. La comptabilité le vérifie, valide, et le reçu est généré.</p>
+        </div>
+        <div class="vitrine-carte presentation-probleme">
+            <div class="vitrine-carte-icone">{% icone "carte" 20 %}</div>
+            <h3>Une carte d'élève falsifiée ou contestée.</h3>
+            <p>Chaque carte porte un QR code et un code court : n'importe qui peut vérifier, sans compte, qu'elle a bien été émise par l'école. Les bulletins imprimés portent aussi un QR code de vérification.</p>
+        </div>
+        <div class="vitrine-carte presentation-probleme">
+            <div class="vitrine-carte-icone">{% icone "eclair" 20 %}</div>
+            <h3>Saisir les notes quand le réseau coupe.</h3>
+            <p>L'enseignant saisit ses notes et ses absences même sans réseau : elles partent toutes seules dès que la connexion revient.</p>
+        </div>
+    </div>
+</section>
+
+<section class="vitrine-section sans-haut" id="fonctionnalites">
+    <h2>Toutes les tâches d'une école, au même endroit</h2>
+    <p class="intro">
+        Voici ce que Yelenova permet de faire, de l'inscription des élèves en début d'année jusqu'aux résultats de fin d'année.
+    </p>
+    <div class="vitrine-grille">
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "eleves" 20 %}</div>
+            <h3>Inscription et dossier de l'élève</h3>
+            <p>Chaque élève a un dossier unique : classe, parents liés, absences, paiements et documents officiels comme le certificat de scolarité. Il reçoit un numéro propre à chaque cycle.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "pedagogie" 20 %}</div>
+            <h3>Notes et bulletins</h3>
+            <p>L'enseignant saisit les notes de classe et de composition. Le bulletin calcule la moyenne de chaque matière avec son coefficient, la moyenne générale, le rang et l'appréciation. Un bulletin mensuel existe pour le premier cycle.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "journal" 20 %}</div>
+            <h3>Conseil de classe</h3>
+            <p>Le tableau du conseil de classe est prêt : moyennes, rangs, absences et distinctions suggérées d'après les moyennes. Le conseil décide, puis le procès-verbal et le tableau d'honneur sont générés.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "caisse" 20 %}</div>
+            <h3>Paiements, reçus et caisse</h3>
+            <p>Le comptable voit qui a payé, qui a payé en partie et qui doit encore, prépare la relance par WhatsApp et remet un reçu numéroté. Chaque paiement alimente la caisse de l'école.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "envoi" 20 %}</div>
+            <h3>Orange Money et Moov Money</h3>
+            <p>Le parent déclare son paiement Orange Money ou Moov Money depuis son téléphone. La comptabilité vérifie et valide, et le reçu est généré automatiquement.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "cloche" 20 %}</div>
+            <h3>Absences et vie scolaire</h3>
+            <p>L'appel, les absences justifiées ou non, les retards et la discipline sont suivis classe par classe. Le parent est averti dès qu'une absence est enregistrée.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "compte" 20 %}</div>
+            <h3>Portail des parents</h3>
+            <p>Une carte par enfant sur le téléphone du parent : classe, absences, moyenne et solde à payer, avec les annonces de l'école.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "cantine" 20 %}</div>
+            <h3>Cantine et vente de tenues</h3>
+            <p>Formules et tarifs de la cantine, appel du jour et paiements : le gérant voit ce que chaque élève doit et ce qu'il a payé. La vente de tenues scolaires est suivie par la comptabilité.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "carte" 20 %}</div>
+            <h3>Cartes d'élève vérifiables</h3>
+            <p>L'école imprime les cartes d'élève, quatre par feuille. Chaque carte porte un QR code et un code court : n'importe qui peut vérifier qu'elle est authentique, sans compte.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "calendrier" 20 %}</div>
+            <h3>Emploi du temps et bibliothèque</h3>
+            <p>Chaque classe a son emploi du temps, et l'application signale les conflits. La bibliothèque numérique rassemble les documents de l'école, avec import et export en masse.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "graphique" 20 %}</div>
+            <h3>Statistiques &amp; pilotage</h3>
+            <p>Effectifs par sexe, taux de réussite, finances par échéance - filtrés par année scolaire et par cycle.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "plateforme" 20 %}</div>
+            <h3>Français et arabe</h3>
+            <p>Toute l'application, les bulletins et les documents officiels existent en français et en arabe, avec la lecture de droite à gauche.</p>
+        </div>
+    </div>
+</section>
+
+<section class="vitrine-section" id="demarrer">
+    <h2>Prêt en trois étapes</h2>
+    <div class="presentation-etapes">
+        <div class="presentation-etape">
+            <div class="presentation-etape-numero">1</div>
+            <h3>L'école prépare l'année</h3>
+            <p>La direction crée les classes et les frais de scolarité, puis inscrit les élèves un par un ou importe une liste depuis un fichier Excel.</p>
+        </div>
+        <div class="presentation-etape">
+            <div class="presentation-etape-numero">2</div>
+            <h3>Chacun fait son travail</h3>
+            <p>Les enseignants saisissent les notes et les absences, le comptable enregistre les paiements, le secrétariat suit les dossiers.</p>
+        </div>
+        <div class="presentation-etape">
+            <div class="presentation-etape-numero">3</div>
+            <h3>Les parents suivent tout</h3>
+            <p>Les parents suivent leur enfant sur leur téléphone : absences, moyenne et solde. La direction suit l'école sur son tableau de bord.</p>
+        </div>
+    </div>
+</section>
+
+<section class="vitrine-section sans-haut" id="roles">
+    <h2>Un espace pour chacun</h2>
+    <p class="intro">
+        Chaque rôle voit ce qui le concerne, ni plus ni moins.
+    </p>
+    <div class="vitrine-grille">
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "administration" 20 %}</div>
+            <h3>Direction</h3>
+            <p>Tableau de bord, alertes, statistiques et pilotage de l'établissement.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "classes" 20 %}</div>
+            <h3>Secrétariat</h3>
+            <p>Inscriptions, classes, dossiers des élèves et communication avec les familles.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "caisse" 20 %}</div>
+            <h3>Comptabilité</h3>
+            <p>Paiements, reçus, caisse, salaires et relances, sans accès aux notes.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "livre" 20 %}</div>
+            <h3>Enseignants</h3>
+            <p>Notes, absences, emploi du temps et annonces, limités à leurs propres classes.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "message" 20 %}</div>
+            <h3>Parents</h3>
+            <p>Absences, notes, bulletins, solde et déclaration d'un paiement Mobile Money, pour chaque enfant.</p>
+        </div>
+        <div class="vitrine-carte">
+            <div class="vitrine-carte-icone">{% icone "eleves" 20 %}</div>
+            <h3>Élèves</h3>
+            <p>Notes, bulletins, absences et emploi du temps, en lecture.</p>
+        </div>
+    </div>
+</section>
+
+<section class="vitrine-section sans-haut" id="pour-qui">
+    <h2>Pour quelles écoles ?</h2>
+    <p class="intro">
+        Yelenova s'adapte à la façon dont une école malienne est organisée.
+    </p>
+    <ul class="presentation-liste">
+        <li>Du premier cycle au lycée et à l'enseignement professionnel : chaque cycle a ses classes, sa direction, ses numéros d'élèves, sa signature et son cachet.</li>
+        <li>Une seule école, ou plusieurs établissements sur la même plateforme, chacun avec ses propres données, séparées de celles des autres.</li>
+        <li>Des paiements par Orange Money et Moov Money, déclarés par les parents et validés par la comptabilité.</li>
+        <li>Des notes et des absences saisies même sans réseau, envoyées dès que la connexion revient.</li>
+        <li>Des alertes sur le téléphone des parents et des relances préparées pour WhatsApp.</li>
+        <li>Une application, des bulletins et des documents officiels en français et en arabe.</li>
+    </ul>
+</section>
+
+<section class="vitrine-section sans-haut" id="securite">
+    <div class="card">
+        <div class="card-body vitrine-securite-corps">
+            <div>
+                <h2 class="vitrine-securite-titre">Sécurité intégrée, pas ajoutée après coup</h2>
+                <p class="vitrine-securite-texte">
+                    Mots de passe robustes, verrouillage après tentatives échouées, sessions
+                    limitées dans le temps, journal d'audit en ajout seul, et une matrice de
+                    permissions modifiable sans redéploiement.
+                </p>
+                <p class="vitrine-securite-texte">
+                    Chaque compte ne voit que ce qui le concerne : la direction, le secrétariat, la comptabilité, les enseignants, les parents et les élèves ont chacun leur espace.
+                </p>
+            </div>
+            <a href="{% url 'vitrine:confidentialite' %}" class="btn btn-outline-primary">Lire la politique de confidentialité</a>
+        </div>
+    </div>
+</section>
+
+<section class="vitrine-section" id="questions">
+    <h2>Questions fréquentes</h2>
+    <p class="intro">
+        Les réponses aux questions que les directions d'école nous posent le plus souvent.
+    </p>
+    <div class="guide-roles">
+        <details class="guide-role">
+            <summary><span class="guide-role-nom">Qu'est-ce que Yelenova ?</span></summary>
+            <div class="guide-role-corps">
+                <p>Yelenova est une plateforme de gestion scolaire en ligne. Elle réunit l'administration, les notes, les finances, la vie scolaire et la communication avec les parents d'un ou de plusieurs établissements.</p>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary><span class="guide-role-nom">À qui s'adresse Yelenova ?</span></summary>
+            <div class="guide-role-corps">
+                <p>Aux directions d'école, aux secrétariats, aux comptables, aux enseignants, aux parents et aux élèves. Chacun dispose d'un espace adapté à son rôle.</p>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary><span class="guide-role-nom">Faut-il installer un logiciel ?</span></summary>
+            <div class="guide-role-corps">
+                <p>Non. Yelenova s'utilise dans le navigateur, sur ordinateur comme sur téléphone, et peut s'installer sur l'écran d'accueil du téléphone. Les notes et les absences peuvent être saisies sans réseau et partent dès que la connexion revient.</p>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary><span class="guide-role-nom">Les parents peuvent-ils payer par Orange Money ou Moov Money ?</span></summary>
+            <div class="guide-role-corps">
+                <p>Le parent déclare son paiement Orange Money ou Moov Money depuis son téléphone. La comptabilité vérifie le paiement et le valide, puis le reçu est généré. L'application ne prélève pas l'argent elle-même.</p>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary><span class="guide-role-nom">Peut-on reprendre les élèves d'un fichier Excel ?</span></summary>
+            <div class="guide-role-corps">
+                <p>Oui. La direction peut importer toute une liste d'élèves d'un coup : un aperçu vérifie chaque ligne avant la moindre création.</p>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary><span class="guide-role-nom">Yelenova existe-t-elle en arabe ?</span></summary>
+            <div class="guide-role-corps">
+                <p>Oui. Toute l'application, les bulletins et les documents officiels existent en français et en arabe, avec la lecture de droite à gauche.</p>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary><span class="guide-role-nom">Les données de mon école sont-elles protégées ?</span></summary>
+            <div class="guide-role-corps">
+                <p>Oui. Chaque établissement a ses propres données, séparées de celles des autres, et chaque compte ne voit que ce qui le concerne. Le compte se verrouille après plusieurs échecs de connexion et les actions sont enregistrées dans un journal.</p>
+            </div>
+        </details>
+        <details class="guide-role">
+            <summary><span class="guide-role-nom">Combien coûte Yelenova ?</span></summary>
+            <div class="guide-role-corps">
+                <p>Le prix dépend de la taille de l'école. Demandez une démonstration : nous vous présentons l'application en quelques minutes et nous préparons un devis adapté.</p>
+            </div>
+        </details>
+    </div>
+</section>
+
+{% if contact_whatsapp_lien or contact_courriel %}
+<section class="vitrine-section sans-haut" id="contact">
+    <div class="presentation-appel">
+        <h2>Envie de voir l'application dans votre école ?</h2>
+        <p>
+            Écrivez-nous : nous vous la présentons en quelques minutes et nous préparons un devis adapté à la taille de votre école.
+        </p>
+        <div class="vitrine-hero-ctas">
+            {% if contact_whatsapp_lien %}<a href="{{ contact_whatsapp_lien }}" class="btn-hero-primaire" target="_blank" rel="noopener">Demander une démonstration sur WhatsApp</a>{% endif %}
+            {% if contact_courriel %}<a href="mailto:{{ contact_courriel }}" class="btn-hero-secondaire">Écrire un courriel</a>{% endif %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+</main>
+
+<footer class="vitrine-pied">
+    <p><strong>{{ nom_commercial }}</strong> - {{ positionnement_plateforme }}</p>
+    <p class="legal-pied-liens">
+        <a href="{% url 'vitrine:accueil' %}">Accueil</a> ·
+        <a href="{% url 'vitrine:mentions_legales' %}">Mentions légales</a> ·
+        <a href="{% url 'vitrine:conditions' %}">Conditions d'utilisation</a> ·
+        <a href="{% url 'vitrine:confidentialite' %}">Confidentialité</a>
+    </p>
+</footer>
+
+<script src="{% static 'js/app.js' %}" defer></script>
+</body>
+</html>

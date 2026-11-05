@@ -2508,6 +2508,18 @@ Demande de l'utilisateur : « chaque cycle donne un nouveau numéro » (le 1er c
 - Pas encore changé : l'écran « importer des élèves » (ses matricules sont ceux d'origine, c'est voulu), l'assistant (il ne reçoit jamais de matricule), les courriels de réinitialisation du mot de passe (ils nomment l'identifiant de connexion, donc le matricule d'origine).
 - Tests : `scolarite/test_numeros_cycle.py` et `scolarite/test_numeros_cycle_pages.py` (modèle et contraintes, droits même quand les modules sont accordés, périmètre par cycle et par école, doublons, échange, journal, affichage sur tous les documents, cloisonnement du dossier et de la recherche, passage, garde-fous, anonymisation, pages branchées, import Excel, saisie par le numéro, arabe pur). Vérifié aussi dans un vrai navigateur (ordinateur, téléphone, arabe : saisie, doublon refusé, modèle et import Excel, dossier, carte avec le numéro). Arabe : 34 nouveaux textes dans `comptes/traductions/ar.csv` (terme à valider : أرقام التسجيل في المرحلة).
 
+## État du projet : Phase 83 — Page de présentation publique (pour Google) et nom de domaine
+
+Demande de l'utilisateur : être trouvé sur Google. Le domaine `yelenova.com` a été acheté chez Cloudflare le 05/11/2026 et relié à Render (voir « Déployer sur Render », étape 3).
+- **Nouvelle page `/presentation/`** (`vitrine.views.presentation`, gabarit `templates/vitrine/presentation.html`) : publique, indexable, identique pour tout le monde, sans aucune donnée d'école ni de personne. Un seul titre principal (« Logiciel de gestion scolaire pour les écoles du Mali »), des sous-titres qui reprennent ce que l'on cherche (notes et bulletins, conseil de classe, paiements, Orange Money et Moov Money, cantine, cartes d'élève...), des captures réelles de l'application en haut de page (tableau de bord sur ordinateur, deux téléphones), « Les soucis de chaque jour, réglés » (six situations vécues : impayés, absence connue trop tard, moyennes refaites à la main, preuve de paiement Mobile Money, carte d'élève contestée, réseau coupé), les fonctions avec leurs icônes, « Prêt en trois étapes », « Un espace pour chacun » (direction, secrétariat, comptabilité, enseignants, parents, élèves), « Pour quelles écoles ? », la sécurité, une foire aux questions et un bandeau de contact. Chaque affirmation correspond à une fonction vérifiée (le QR code d'un bulletin confirme seulement qu'il a été émis par l'école ; le parent déclare son paiement, il n'est pas prélevé).
+- **Pour les moteurs de recherche** : balise `<title>`, description (moins de 170 caractères), balise canonique, balises de partage (`og:`) et données structurées (`Organization` et `SoftwareApplication`, sans prix). L'adresse publique principale vient du réglage `URL_PUBLIQUE` (par défaut `https://yelenova.com`) : la balise canonique pointe dessus, pour que Google retienne `yelenova.com` et non l'adresse d'hébergement `onrender.com`, qui reste ouverte.
+- **Le contact** (WhatsApp, courriel) n'apparaît que s'il est configuré (`CONTACT_WHATSAPP`, `CONTACT_COURRIEL`), comme sur l'accueil. Aucun prix n'est publié : la réponse à « Combien coûte Yelenova ? » renvoie vers une démonstration et un devis.
+- **Ce qui est affirmé** reprend ce que l'application fait réellement (par exemple : le parent *déclare* son paiement Mobile Money, la comptabilité le valide ; l'application ne prélève pas l'argent).
+- **Accès** : ouverte au visiteur, à l'utilisateur connecté, au propriétaire de la plateforme et à un compte qui doit encore changer son mot de passe (`PREFIXES_AUTORISES` et `CHEMINS_AUTORISES` de `comptes/middleware.py`). Lien « Présentation » dans le pied de page de l'accueil et des pages légales.
+- **Arabe** : 86 textes ajoutés à `comptes/traductions/ar.csv` (arabe pur, même terminologie que le reste de l'application) ; **à faire relire par un arabophone**.
+- Tests : `vitrine/test_presentation.py` (indexable, un seul titre principal, description, adresse canonique, données structurées valides, aucun prix, aucun style ni script en ligne, six situations vécues, trois étapes, trois captures avec texte alternatif, aucune donnée d'école, accès de tous les profils, contact conditionnel, liens, arabe sans lettre latine).
+- Reste à faire par l'utilisateur : ajouter `yelenova.com` dans Google Search Console (propriété « Domaine », vérification par une ligne TXT dans le DNS de Cloudflare), puis demander l'indexation de `https://yelenova.com/presentation/`. Pas encore fait dans le code : `robots.txt`, `sitemap.xml` et l'interdiction d'indexer l'adresse `onrender.com`.
+
 ## Sauvegardes locales (base de données et médias)
 
 Le plan gratuit Render utilisé pour ce déploiement n'offre ni disque
@@ -2575,7 +2587,10 @@ pointée vers la base et le bucket de production.
   si nécessaire, `GROQ_API_KEY` et `SENTRY_DSN`.
 3. Remplacez `toumai-edu-school.onrender.com` dans `render.yaml` par le domaine
   Render réellement attribué, puis ajoutez votre domaine personnalisé dans
-  `ALLOWED_HOSTS` et `CSRF_TRUSTED_ORIGINS`.
+  `ALLOWED_HOSTS` et `CSRF_TRUSTED_ORIGINS`. Le domaine `yelenova.com` (et
+  `www.yelenova.com`) y figure déjà ; il est acheté chez Cloudflare, dont le DNS
+  contient deux CNAME (`@` et `www`) vers le domaine Render, en « DNS only »
+  (nuage gris) jusqu'à l'émission du certificat, avec le mode SSL/TLS « Full ».
 4. Utilisez un bucket S3/R2 privé pour les médias. Ne mettez jamais les clés
   S3 dans Git ou dans `.env` ; `AWS_QUERYSTRING_AUTH=True` produit des liens
   temporaires pour les objets privés.

@@ -10,6 +10,7 @@ urlpatterns = [
     path("e/<slug:slug>/", views.choisir_etablissement, name="choisir_etablissement"),
     path("ecole/changer/", views.changer_ecole, name="changer_ecole"),
     path("ecole/rechercher.json", views.rechercher_etablissement, name="rechercher_etablissement"),
+    path("presentation/", views.presentation, name="presentation"),
     path("mentions-legales/", views.mentions_legales, name="mentions_legales"),
     path("conditions-d-utilisation/", views.conditions_utilisation, name="conditions"),
     path("confidentialite/", views.confidentialite, name="confidentialite"),

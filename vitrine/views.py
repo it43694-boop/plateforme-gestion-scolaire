@@ -1,8 +1,10 @@
 import datetime
+import json
 
 from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.templatetags.static import static
 from django.urls import reverse
 from django_ratelimit.core import ALL
 from django_ratelimit.decorators import ratelimit
@@ -56,6 +58,45 @@ def accueil(request):
         "terme": terme, "resultats": filtrer(etablissements, terme, *CHAMPS_DE_RECHERCHE, limite=RESULTATS_MAX) if terme else None,
         "etablissements": list(etablissements) if nombre <= SEUIL_LISTE_COMPLETE else None,
         "adresse_de_recherche": reverse("vitrine:rechercher_etablissement"),
+    })
+
+
+TITRE_PRESENTATION = "Logiciel de gestion scolaire pour les écoles du Mali"
+DESCRIPTION_PRESENTATION = (
+    "Logiciel de gestion scolaire pour les écoles du Mali : notes, bulletins, paiements, cantine, cartes d'élève "
+    "et portail des parents. En français et en arabe."
+)
+
+
+def presentation(request):
+    """
+    Page de présentation publique, écrite pour être lue par les moteurs de recherche autant que par les directeurs d'école :
+    un seul titre principal, des sous-titres qui reprennent ce que l'on cherche (bulletins, paiements Mobile Money, cantine...),
+    une foire aux questions et les données structurées de l'éditeur. Elle n'affiche aucune donnée d'école ni de personne et reste
+    la même pour tout le monde ; le contact n'apparaît que s'il est configuré dans l'environnement.
+    """
+    adresse = settings.URL_PUBLIQUE + reverse("vitrine:presentation")
+    logo = settings.URL_PUBLIQUE + static("img/logo-yelenova.png")
+    donnees = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "Organization", "@id": settings.URL_PUBLIQUE + "/#organisation", "name": settings.NOM_PLATEFORME,
+                "url": settings.URL_PUBLIQUE + "/", "logo": logo, "slogan": settings.SLOGAN_PLATEFORME,
+            },
+            {
+                "@type": "SoftwareApplication", "name": settings.NOM_PLATEFORME, "url": adresse,
+                "applicationCategory": "EducationalApplication", "operatingSystem": "Web",
+                "inLanguage": ["fr", "ar"], "description": DESCRIPTION_PRESENTATION,
+                "publisher": {"@id": settings.URL_PUBLIQUE + "/#organisation"},
+            },
+        ],
+    }
+    return render(request, "vitrine/presentation.html", {
+        "titre_presentation": TITRE_PRESENTATION, "description_presentation": DESCRIPTION_PRESENTATION,
+        "adresse_canonique": adresse, "url_publique": settings.URL_PUBLIQUE, "logo_de_partage": logo,
+        # « < » est échappé : une donnée ne peut pas refermer la balise <script> qui la contient.
+        "donnees_structurees": json.dumps(donnees, ensure_ascii=False).replace("<", "\\u003c"),
     })
 
 

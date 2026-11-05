@@ -111,7 +111,7 @@ class ProprietairePlateformeMiddleware:
 
     PREFIXES_AUTORISES = (
         "/plateforme/", "/comptes/", "/admin/", "/static/", "/media/", "/e/",
-        "/healthz", "/sw.js", "/manifest.webmanifest",
+        "/healthz", "/sw.js", "/manifest.webmanifest", "/presentation/",
         "/mentions-legales/", "/conditions-d-utilisation/", "/confidentialite/",
     )
     # /comptes/ regroupe le compte personnel (mot de passe, 2FA, notifications)
@@ -185,7 +185,7 @@ class ChangementMotDePasseObligatoireMiddleware:
 
     CHEMINS_AUTORISES = (
         "/comptes/changer-mot-de-passe/", "/comptes/deconnexion/", "/comptes/langue/", "/static/", "/healthz", "/sw.js",
-        "/manifest.webmanifest", "/mentions-legales/", "/conditions-d-utilisation/", "/confidentialite/",
+        "/manifest.webmanifest", "/presentation/", "/mentions-legales/", "/conditions-d-utilisation/", "/confidentialite/",
     )
 
     def __init__(self, get_response):

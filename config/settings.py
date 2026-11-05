@@ -395,6 +395,10 @@ DESCRIPTION_PLATEFORME = (
 CONTACT_WHATSAPP = env("CONTACT_WHATSAPP", default="")
 CONTACT_COURRIEL = env("CONTACT_COURRIEL", default="")
 
+# Adresse publique principale du site, sans barre finale : la page de présentation s'en sert pour sa balise « canonique » et ses données
+# structurées, afin que Google retienne cette adresse et non celle de l'hébergeur (onrender.com), qui reste ouverte.
+URL_PUBLIQUE = env("URL_PUBLIQUE", default="https://yelenova.com").rstrip("/")
+
 # Pages légales (mentions légales, conditions d'utilisation, politique de confidentialité).
 # L'identité de l'éditeur vient de l'environnement : elle ne s'écrit jamais dans ce dépôt public. Tant que
 # PAGES_LEGALES_VALIDEES n'est pas à True, les pages affichent « version provisoire, en cours de validation

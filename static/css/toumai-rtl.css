@@ -48,7 +48,7 @@
 [dir="rtl"] .solde-affichage, [dir="rtl"] .message-ligne.propre { text-align: left; }
 [dir="rtl"] .vitrine-nav-liens a { margin-right: 0; margin-left: 1.8rem; }
 [dir="rtl"] .vitrine-nav-liens a:last-child { margin-left: 0; }
-[dir="rtl"] .guide-role-etapes, [dir="rtl"] .liste-instructions, [dir="rtl"] .legal-page ul, [dir="rtl"] .plan-detail {
+[dir="rtl"] .guide-role-etapes, [dir="rtl"] .liste-instructions, [dir="rtl"] .legal-page ul, [dir="rtl"] .plan-detail, [dir="rtl"] .presentation-liste {
   padding-left: 0; padding-right: 1.25rem;
 }
 [dir="rtl"] label > .form-check-input { margin-right: 0; margin-left: 0.5rem; }
